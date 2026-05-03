@@ -1,9 +1,10 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft, Download, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import ExportButton from "@/components/dashboard/ExportButton";
 import { TransactionsTable } from "@/components/dashboard/TransactionsTable";
 import {
@@ -21,19 +22,32 @@ import { motion } from "framer-motion";
 
 export default function DetailView() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { transactions, currentProject } = useApp();
 
-  const monthlyDetail = transactions.reduce((acc: any[], t) => {
+  const drillCategory = searchParams.get('category');
+  const drillCostCenter = searchParams.get('costCenter');
+  const drillPeriod = searchParams.get('period');
+
+  const filteredTransactions = useMemo(() => {
+    return transactions.filter(t => {
+      if (drillCategory && t.category !== drillCategory) return false;
+      if (drillCostCenter && t.costCenter !== drillCostCenter) return false;
+      return true;
+    });
+  }, [transactions, drillCategory, drillCostCenter]);
+
+  const monthlyDetail = filteredTransactions.reduce((acc: any[], t) => {
     const month = t.date.slice(0, 7);
     const existing = acc.find((a) => a.month === month);
     if (existing) {
-      existing.value += t.value;
+      existing.value += Math.abs(t.value);
       existing.income += t.flowType === "income" ? t.value : 0;
       existing.expense += t.flowType === "expense" ? Math.abs(t.value) : 0;
     } else {
       acc.push({
         month,
-        value: t.value,
+        value: Math.abs(t.value),
         income: t.flowType === "income" ? t.value : 0,
         expense: t.flowType === "expense" ? Math.abs(t.value) : 0,
       });
@@ -41,8 +55,11 @@ export default function DetailView() {
     return acc;
   }, []).sort((a: any, b: any) => a.month.localeCompare(b.month));
 
-  const categories = [...new Set(transactions.map((t) => t.category))];
-  const costCenters = [...new Set(transactions.map((t) => t.costCenter))];
+  const categories = [...new Set(filteredTransactions.map((t) => t.category))];
+  const costCenters = [...new Set(filteredTransactions.map((t) => t.costCenter))];
+
+  const totalIncome = filteredTransactions.filter(t => t.flowType === "income").reduce((s, t) => s + t.value, 0);
+  const totalExpense = filteredTransactions.filter(t => t.flowType === "expense").reduce((s, t) => s + Math.abs(t.value), 0);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -56,7 +73,16 @@ export default function DetailView() {
             Voltar ao Dashboard
           </button>
           <h1 className="text-2xl font-bold text-slate-900">Detalhe Analítico</h1>
-          <p className="text-slate-500 mt-1">Visão detalhada dos lançamentos</p>
+          <p className="text-slate-500 mt-1">
+            Visão detalhada dos lançamentos
+            {(drillCategory || drillCostCenter) && (
+              <span className="ml-2 inline-flex items-center gap-1">
+                <Filter className="h-3 w-3" />
+                {drillCategory && <Badge variant="secondary" className="text-xs">{drillCategory}</Badge>}
+                {drillCostCenter && <Badge variant="secondary" className="text-xs">{drillCostCenter}</Badge>}
+              </span>
+            )}
+          </p>
         </div>
         <ExportButton />
       </div>
@@ -100,13 +126,35 @@ export default function DetailView() {
               animate={{ opacity: 1, x: 0 }}
               className="p-4 bg-emerald-50 rounded-lg border border-emerald-100"
             >
-              <p className="text-sm text-emerald-600 font-medium">Total de Lançamentos</p>
-              <p className="text-2xl font-bold text-emerald-800">{transactions.length}</p>
+              <p className="text-sm text-emerald-600 font-medium">Receita Total</p>
+              <p className="text-2xl font-bold text-emerald-800">
+                {totalIncome.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </p>
             </motion.div>
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.1 }}
+              className="p-4 bg-rose-50 rounded-lg border border-rose-100"
+            >
+              <p className="text-sm text-rose-600 font-medium">Despesa Total</p>
+              <p className="text-2xl font-bold text-rose-800">
+                {totalExpense.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </p>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 }}
+              className="p-4 bg-emerald-50 rounded-lg border border-emerald-100"
+            >
+              <p className="text-sm text-emerald-600 font-medium">Total de Lançamentos</p>
+              <p className="text-xl font-bold text-emerald-800">{filteredTransactions.length}</p>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
               className="p-4 bg-blue-50 rounded-lg border border-blue-100"
             >
               <p className="text-sm text-blue-600 font-medium">Categorias</p>
@@ -121,11 +169,22 @@ export default function DetailView() {
               <p className="text-sm text-violet-600 font-medium">Centros de Custo</p>
               <p className="text-lg font-bold text-violet-800">{costCenters.length}</p>
             </motion.div>
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 }}
+              className="p-4 bg-amber-50 rounded-lg border border-amber-100"
+            >
+              <p className="text-sm text-amber-600 font-medium">Saldo</p>
+              <p className="text-xl font-bold text-amber-800">
+                {(totalIncome - totalExpense).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </p>
+            </motion.div>
           </CardContent>
         </Card>
       </div>
 
-      <TransactionsTable transactions={transactions} />
+      <TransactionsTable transactions={filteredTransactions} />
     </div>
   );
 }

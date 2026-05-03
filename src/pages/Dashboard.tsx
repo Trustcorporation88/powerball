@@ -1,10 +1,11 @@
-import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, Share2 } from 'lucide-react';
+import { useState, useMemo, useCallback } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArrowLeft, Share2, Sliders, Bell, Bookmark, MapPin, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useApp } from '@/contexts/AppContext';
-import { useDashboardData } from '@/hooks/useDashboardData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useApp } from '@/contexts/AppContext';
+import { useDashboardData, type ComparisonType } from '@/hooks/useDashboardData';
 import {
   LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -29,29 +30,111 @@ import CalculatedColumns from '@/components/dashboard/CalculatedColumns';
 import TemplateSelector from '@/components/dashboard/TemplateSelector';
 import ShareDialog from '@/components/dashboard/ShareDialog';
 
+import GaugeChart from '@/components/dashboard/GaugeChart';
+import WhatIfPanel from '@/components/dashboard/WhatIfPanel';
+import AlertManager from '@/components/dashboard/AlertManager';
+import BookmarkManager from '@/components/dashboard/BookmarkManager';
+import SuggestedQuestions from '@/components/dashboard/SuggestedQuestions';
+import KeyInfluencers from '@/components/dashboard/KeyInfluencers';
+import MapChart from '@/components/dashboard/MapChart';
+import PowerPointExport from '@/components/dashboard/PowerPointExport';
+
 const COLORS = ['#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5', '#3b82f6', '#8b5cf6'];
 
 export default function Dashboard() {
   const { transactions, currentProject } = useApp();
-  const [filters, setFilters] = useState<any>({ period: 'all', category: null, costCenter: null, search: '' });
-  const [crossFilterCategory, setCrossFilterCategory] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+
+  const drillCategory = searchParams.get('category') || null;
+  const drillCostCenter = searchParams.get('costCenter') || null;
+
+  const [filters, setFilters] = useState<any>({
+    period: 'all',
+    category: drillCategory || null,
+    costCenter: drillCostCenter || null,
+    search: '',
+  });
+  const [crossFilterCategory, setCrossFilterCategory] = useState<string | null>(drillCategory);
+  const [crossFilterCostCenter, setCrossFilterCostCenter] = useState<string | null>(drillCostCenter);
   const [drillDownCategory, setDrillDownCategory] = useState<string | null>(null);
   const [template, setTemplate] = useState('default');
   const [showShare, setShowShare] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showCalculated, setShowCalculated] = useState(false);
+  const [showWhatIf, setShowWhatIf] = useState(false);
+  const [showAlerts, setShowAlerts] = useState(false);
+  const [showBookmarks, setShowBookmarks] = useState(false);
+  const [showMap, setShowMap] = useState(false);
+  const [comparisonType, setComparisonType] = useState<ComparisonType>('pop');
 
-  const activeFilters = { ...filters, category: crossFilterCategory || filters.category };
+  const activeFilters = {
+    ...filters,
+    category: crossFilterCategory || filters.category,
+    costCenter: crossFilterCostCenter || filters.costCenter,
+  };
 
-  const { kpis, monthlyData, categoryData, costCenterData, topCategories, categories, costCenters } = useDashboardData(transactions, activeFilters);
+  const {
+    kpis,
+    monthlyData,
+    categoryData,
+    costCenterData,
+    topCategories,
+    categories,
+    costCenters,
+    comparison,
+    keyInfluencers,
+  } = useDashboardData(transactions, activeFilters, comparisonType);
 
   const treemapData = useMemo(() =>
     categoryData.map((c: any) => ({ name: c.name, value: c.value })),
     [categoryData]
   );
 
+  const handleGlobalClick = useCallback((payload: any) => {
+    if (payload?.name) {
+      setCrossFilterCategory(payload.name);
+      setFilters((prev: any) => ({ ...prev, category: payload.name }));
+    }
+  }, []);
+
+  const handleCrossFilterSelect = useCallback((cat: string | null) => {
+    setCrossFilterCategory(cat);
+    setFilters((prev: any) => ({ ...prev, category: cat }));
+    if (cat) setDrillDownCategory(cat);
+  }, []);
+
+  const handleCrossFilterCostCenter = useCallback((cc: string | null) => {
+    setCrossFilterCostCenter(cc);
+    setFilters((prev: any) => ({ ...prev, costCenter: cc }));
+  }, []);
+
   const handleDrillDown = (name: string) => setDrillDownCategory(name);
   const handleExportPDF = () => window.print();
+  const handleLoadBookmark = (savedFilters: any) => {
+    setFilters(savedFilters);
+    setCrossFilterCategory(savedFilters.category || null);
+  };
+
+  const mapPoints = useMemo(() => {
+    const cities: Record<string, { lat: number; lng: number }> = {
+      'Matriz': { lat: -23.5505, lng: -46.6333 },
+      'Filial SP': { lat: -23.5505, lng: -46.6333 },
+      'Filial RJ': { lat: -22.9068, lng: -43.1729 },
+      'Home Office': { lat: -19.9167, lng: -43.9345 },
+      'Geral': { lat: -15.7801, lng: -47.9292 },
+    };
+    const grouped: Record<string, number> = {};
+    transactions.forEach(t => {
+      const key = t.costCenter || 'Geral';
+      grouped[key] = (grouped[key] || 0) + Math.abs(t.value);
+    });
+    return Object.entries(grouped).map(([name, value]) => ({
+      name,
+      value,
+      lat: cities[name]?.lat || -15.7801,
+      lng: cities[name]?.lng || -47.9292,
+    }));
+  }, [transactions]);
 
   const renderCharts = () => {
     if (template === 'executive') {
@@ -64,13 +147,15 @@ export default function Dashboard() {
               data={categoryData}
               title="Despesas por Categoria"
               selected={crossFilterCategory}
-              onSelect={(c) => setCrossFilterCategory(c)}
+              onSelect={handleCrossFilterSelect}
               color="#059669"
             />
             <ChartCard title="Composição por Centro de Custo">
               <ResponsiveContainer width="100%" height={250}>
                 <PieChart>
-                  <Pie data={costCenterData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}>
+                  <Pie data={costCenterData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100}
+                    label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}
+                    onClick={handleGlobalClick}>
                     {costCenterData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                   </Pie>
                   <Tooltip />
@@ -78,6 +163,7 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </ChartCard>
           </div>
+          <KeyInfluencers transactions={transactions} targetMetric="expense" />
         </>
       );
     }
@@ -94,9 +180,19 @@ export default function Dashboard() {
             data={categoryData}
             title="Top Categorias"
             selected={crossFilterCategory}
-            onSelect={(c) => setCrossFilterCategory(c)}
+            onSelect={handleCrossFilterSelect}
             color="#8b5cf6"
           />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <CrossFilterBar
+              data={costCenterData.map((c: any) => ({ name: c.name, value: c.value }))}
+              title="Centros de Custo"
+              selected={crossFilterCostCenter}
+              onSelect={handleCrossFilterCostCenter}
+              color="#3b82f6"
+            />
+            <KeyInfluencers transactions={transactions} targetMetric="expense" />
+          </div>
         </>
       );
     }
@@ -110,7 +206,7 @@ export default function Dashboard() {
               <LineChart data={monthlyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                 <XAxis dataKey="month" fontSize={10} />
-                <YAxis tickFormatter={(v) => `R$ ${(v/1000).toFixed(0)}k`} fontSize={10} />
+                <YAxis tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} fontSize={10} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
                 <Line type="monotone" dataKey="income" name="Receita" stroke="#059669" strokeWidth={2} dot={false} />
@@ -123,7 +219,7 @@ export default function Dashboard() {
             data={categoryData}
             title="Despesas por Categoria"
             selected={crossFilterCategory}
-            onSelect={(c) => { setCrossFilterCategory(c); if (c) setDrillDownCategory(c); }}
+            onSelect={handleCrossFilterSelect}
             color="#059669"
           />
         </div>
@@ -136,7 +232,9 @@ export default function Dashboard() {
           <ChartCard title="Composição por Centro de Custo">
             <ResponsiveContainer width="100%" height={280}>
               <PieChart>
-                <Pie data={costCenterData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`}>
+                <Pie data={costCenterData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100}
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  onClick={handleGlobalClick}>
                   {costCenterData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
                 <Tooltip content={<CustomTooltip />} />
@@ -146,6 +244,10 @@ export default function Dashboard() {
           <NaturalLanguageQuery transactions={transactions} kpis={kpis} onFilterChange={setFilters} />
           <DecompositionTree transactions={transactions} />
         </div>
+
+        {showMap && (
+          <MapChart data={mapPoints} title="Distribuição Geográfica" />
+        )}
       </>
     );
   };
@@ -162,20 +264,49 @@ export default function Dashboard() {
             <p className="text-sm text-muted-foreground">{currentProject?.segment}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Select value={comparisonType} onValueChange={(v) => setComparisonType(v as ComparisonType)}>
+            <SelectTrigger className="w-32 h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pop" className="text-xs">vs Período</SelectItem>
+              <SelectItem value="mom" className="text-xs">vs Mês Ant.</SelectItem>
+              <SelectItem value="yoy" className="text-xs">vs Ano Ant.</SelectItem>
+            </SelectContent>
+          </Select>
           <Button variant="outline" size="sm" onClick={() => setShowTemplates(!showTemplates)}>
             Templates
           </Button>
           <Button variant="outline" size="sm" onClick={() => setShowCalculated(!showCalculated)}>
             Colunas
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowWhatIf(true)}>
+            <Sliders className="h-4 w-4 mr-1" /> Simular
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowAlerts(true)}>
+            <Bell className="h-4 w-4 mr-1" /> Alertas
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowBookmarks(true)}>
+            <Bookmark className="h-4 w-4 mr-1" /> Favoritos
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowMap(!showMap)}>
+            <MapPin className="h-4 w-4 mr-1" /> Mapa
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setShowShare(true)}>
             <Share2 className="h-4 w-4 mr-1" /> Compartilhar
           </Button>
           <ThemeToggle />
           <ExportButton />
+          <PowerPointExport
+            projectName={currentProject?.name || 'Dashboard'}
+            kpis={kpis}
+            categoryData={categoryData}
+          />
           <Link to="/detail">
-            <Button variant="outline" size="sm">Detalhes</Button>
+            <Button variant="outline" size="sm">
+              <FileText className="h-4 w-4 mr-1" /> Detalhes
+            </Button>
           </Link>
         </div>
       </div>
@@ -183,8 +314,22 @@ export default function Dashboard() {
       {showTemplates && <TemplateSelector onSelect={(t) => { setTemplate(t); setShowTemplates(false); }} />}
       {showCalculated && <CalculatedColumns />}
 
+      <SuggestedQuestions onSelect={(q) => {
+        setFilters((prev: any) => ({ ...prev, search: q }));
+      }} context={{ categories, period: filters.period }} />
+
       <DashboardFilters filters={filters} onChange={setFilters} categories={categories} costCenters={costCenters} />
-      <KpiCards kpis={kpis} monthlyData={monthlyData} />
+      <KpiCards kpis={kpis} monthlyData={monthlyData} comparison={comparison} />
+
+      {comparison && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <GaugeChart title="Receita vs Meta" value={kpis.income} target={comparison.income * 1.2 || 10000} unit="R$" color="#059669" />
+          <GaugeChart title="Despesa Controlada" value={kpis.expense} target={comparison.expense * 0.9 || 10000} unit="R$" color="#ef4444" />
+          <GaugeChart title="Saldo" value={kpis.balance} target={Math.max(kpis.balance, 10000)} unit="R$" color="#3b82f6" />
+          <GaugeChart title="Margem %" value={kpis.margin} target={30} unit="%" color="#8b5cf6" />
+        </div>
+      )}
+
       {renderCharts()}
 
       <Card>
@@ -201,6 +346,20 @@ export default function Dashboard() {
         onClose={() => setShowShare(false)}
         projectName={currentProject?.name || 'Dashboard'}
         onExportPDF={handleExportPDF}
+      />
+
+      <WhatIfPanel
+        open={showWhatIf}
+        onClose={() => setShowWhatIf(false)}
+        transactions={transactions}
+        kpis={kpis}
+      />
+
+      <AlertManager onClose={() => setShowAlerts(false)} />
+
+      <BookmarkManager
+        currentFilters={activeFilters}
+        onLoad={handleLoadBookmark}
       />
     </motion.div>
   );

@@ -9,6 +9,11 @@ import {
   BarChart3,
   ChevronLeft,
   ChevronRight,
+  Wand2,
+  GitBranch,
+  Bell,
+  MapPin,
+  Bookmark,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -16,8 +21,13 @@ import { cn } from "@/lib/utils";
 const menuItems = [
   { icon: LayoutDashboard, label: "Home", path: "/home" },
   { icon: FolderOpen, label: "Projetos", path: "/projects" },
-  { icon: FileSpreadsheet, label: "Arquivos", path: "/projects" },
-  { icon: BarChart3, label: "Dashboards", path: "/projects" },
+  { icon: FileSpreadsheet, label: "Importar", path: "/import" },
+  { icon: Wand2, label: "ETL Pipeline", path: "/etl" },
+  { icon: GitBranch, label: "Relacionamentos", path: "/relationships" },
+  { icon: BarChart3, label: "Dashboard", path: "/dashboard" },
+  { icon: Bell, label: "Alertas", path: "/dashboard" },
+  { icon: Bookmark, label: "Bookmarks", path: "/dashboard" },
+  { icon: MapPin, label: "Mapas", path: "/dashboard" },
   { icon: Settings, label: "Configurações", path: "/settings" },
 ];
 

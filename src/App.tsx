@@ -16,6 +16,8 @@ import ColumnMapping from "./pages/ColumnMapping";
 import Dashboard from "./pages/Dashboard";
 import DetailView from "./pages/DetailView";
 import Settings from "./pages/Settings";
+import ETLPipeline from "./pages/ETLPipeline";
+import Relationships from "./pages/Relationships";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -40,6 +42,8 @@ const AppRoutes = () => (
       <Route path="/projects" element={<Projects />} />
       <Route path="/projects/new" element={<NewProject />} />
       <Route path="/import" element={<ImportFile />} />
+      <Route path="/etl" element={<ETLPipeline />} />
+      <Route path="/relationships" element={<Relationships />} />
       <Route path="/mapping" element={<ColumnMapping />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/detail" element={<DetailView />} />

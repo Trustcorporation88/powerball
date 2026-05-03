@@ -42,11 +42,58 @@ export interface CostCenterData {
   expense: number;
 }
 
+export interface SubcategoryData {
+  name: string;
+  category: string;
+  value: number;
+  percentage: number;
+}
+
+export interface AccountData {
+  name: string;
+  income: number;
+  expense: number;
+  balance: number;
+}
+
+export interface DailyData {
+  date: string;
+  income: number;
+  expense: number;
+  balance: number;
+  cumulative?: number;
+}
+
+export interface KeyInfluencer {
+  name: string;
+  impact: number;
+  type: "positive" | "negative";
+  contribution: number;
+}
+
+export interface ComparisonData {
+  income: number;
+  expense: number;
+  balance: number;
+  margin: number;
+  incomeChange: number;
+  expenseChange: number;
+  balanceChange: number;
+  marginChange: number;
+  periodLabel: string;
+}
+
+export type ComparisonType = "mom" | "yoy" | "pop";
+
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-export function useDashboardData(transactions: Transaction[], filters: DashboardFilters) {
+export function useDashboardData(
+  transactions: Transaction[],
+  filters: DashboardFilters,
+  comparisonType: ComparisonType = "pop"
+) {
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => {
       if (filters.category !== "all" && t.category !== filters.category) return false;
@@ -220,6 +267,156 @@ export function useDashboardData(transactions: Transaction[], filters: Dashboard
     return { income: round2(income), expense: round2(expense), balance: round2(income - expense) };
   }, [transactions]);
 
+  const comparison = useMemo((): ComparisonData => {
+    const now = new Date();
+    const safeTrend = (curr: number, prev: number) => prev === 0 ? 0 : ((curr - prev) / Math.abs(prev)) * 100;
+    let prevIncome = 0;
+    let prevExpense = 0;
+    let periodLabel = "vs período anterior";
+
+    if (comparisonType === "mom") {
+      const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+      const cmpTxns = transactions.filter(t => {
+        const d = new Date(t.date);
+        return d >= prevMonth && d <= prevMonthEnd;
+      });
+      prevIncome = cmpTxns.filter(t => t.flowType === "income").reduce((s, t) => s + t.value, 0);
+      prevExpense = cmpTxns.filter(t => t.flowType === "expense").reduce((s, t) => s + Math.abs(t.value), 0);
+      periodLabel = "vs mês anterior";
+    } else if (comparisonType === "yoy") {
+      const prevYearStart = new Date(now.getFullYear() - 1, 0, 1);
+      const prevYearEnd = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
+      const cmpTxns = transactions.filter(t => {
+        const d = new Date(t.date);
+        return d >= prevYearStart && d <= prevYearEnd;
+      });
+      prevIncome = cmpTxns.filter(t => t.flowType === "income").reduce((s, t) => s + t.value, 0);
+      prevExpense = cmpTxns.filter(t => t.flowType === "expense").reduce((s, t) => s + Math.abs(t.value), 0);
+      periodLabel = "vs ano anterior";
+    } else {
+      prevIncome = previousPeriodTransactions.filter(t => t.flowType === "income").reduce((s, t) => s + t.value, 0);
+      prevExpense = previousPeriodTransactions.filter(t => t.flowType === "expense").reduce((s, t) => s + Math.abs(t.value), 0);
+    }
+
+    const income = filteredTransactions.filter(t => t.flowType === "income").reduce((s, t) => s + t.value, 0);
+    const expense = filteredTransactions.filter(t => t.flowType === "expense").reduce((s, t) => s + Math.abs(t.value), 0);
+    const prevBalance = prevIncome - prevExpense;
+    const prevMargin = prevIncome > 0 ? ((prevIncome - prevExpense) / prevIncome) * 100 : 0;
+
+    return {
+      income: round2(prevIncome),
+      expense: round2(prevExpense),
+      balance: round2(prevBalance),
+      margin: round2(prevMargin),
+      incomeChange: round2(safeTrend(income, prevIncome)),
+      expenseChange: round2(safeTrend(expense, prevExpense)),
+      balanceChange: round2(safeTrend(income - expense, prevBalance)),
+      marginChange: round2(safeTrend(
+        income > 0 ? ((income - expense) / income) * 100 : 0,
+        prevMargin
+      )),
+      periodLabel,
+    };
+  }, [filteredTransactions, previousPeriodTransactions, transactions, comparisonType]);
+
+  const subcategoryData = useMemo((): SubcategoryData[] => {
+    const grouped: Record<string, number> = {};
+    let total = 0;
+    filteredTransactions.filter(t => t.flowType === "expense").forEach(t => {
+      const key = t.subcategory || "Sem subcategoria";
+      grouped[key] = (grouped[key] || 0) + Math.abs(t.value);
+      total += Math.abs(t.value);
+    });
+    return Object.entries(grouped)
+      .map(([name, value]) => ({
+        name,
+        category: "",
+        value: round2(value),
+        percentage: total > 0 ? round2((value / total) * 100) : 0,
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10);
+  }, [filteredTransactions]);
+
+  const accountData = useMemo((): AccountData[] => {
+    const grouped: Record<string, { income: number; expense: number }> = {};
+    filteredTransactions.forEach(t => {
+      const key = t.account || "Sem conta";
+      if (!grouped[key]) grouped[key] = { income: 0, expense: 0 };
+      if (t.flowType === "income") grouped[key].income += t.value;
+      else grouped[key].expense += Math.abs(t.value);
+    });
+    return Object.entries(grouped)
+      .map(([name, { income, expense }]) => ({
+        name,
+        income: round2(income),
+        expense: round2(expense),
+        balance: round2(income - expense),
+      }))
+      .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
+  }, [filteredTransactions]);
+
+  const dailyData = useMemo((): DailyData[] => {
+    const grouped: Record<string, { income: number; expense: number }> = {};
+    filteredTransactions.forEach(t => {
+      const date = t.date.slice(0, 10);
+      if (!grouped[date]) grouped[date] = { income: 0, expense: 0 };
+      if (t.flowType === "income") grouped[date].income += t.value;
+      else grouped[date].expense += Math.abs(t.value);
+    });
+    let cum = 0;
+    return Object.entries(grouped)
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([date, { income, expense }]) => {
+        const balance = income - expense;
+        cum += balance;
+        return { date, income: round2(income), expense: round2(expense), balance: round2(balance), cumulative: round2(cum) };
+      });
+  }, [filteredTransactions]);
+
+  const keyInfluencers = useMemo((): KeyInfluencer[] => {
+    const totalIncome = filteredTransactions.filter(t => t.flowType === "income").reduce((s, t) => s + t.value, 0);
+    const totalExpense = filteredTransactions.filter(t => t.flowType === "expense").reduce((s, t) => s + Math.abs(t.value), 0);
+    const incomeGrp: Record<string, number> = {};
+    const expenseGrp: Record<string, number> = {};
+
+    filteredTransactions.forEach(t => {
+      if (t.flowType === "income") {
+        incomeGrp[t.category] = (incomeGrp[t.category] || 0) + t.value;
+      } else {
+        expenseGrp[t.category] = (expenseGrp[t.category] || 0) + Math.abs(t.value);
+      }
+    });
+
+    const result: KeyInfluencer[] = [];
+    Object.entries(incomeGrp)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .forEach(([name, value]) => {
+        result.push({
+          name,
+          impact: round2(value),
+          type: "positive",
+          contribution: totalIncome > 0 ? round2((value / totalIncome) * 100) : 0,
+        });
+      });
+
+    Object.entries(expenseGrp)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .forEach(([name, value]) => {
+        result.push({
+          name,
+          impact: round2(value),
+          type: "negative",
+          contribution: totalExpense > 0 ? round2((value / totalExpense) * 100) : 0,
+        });
+      });
+
+    return result.sort((a, b) => b.contribution - a.contribution).slice(0, 8);
+  }, [filteredTransactions]);
+
   return {
     filteredTransactions,
     kpis,
@@ -230,5 +427,10 @@ export function useDashboardData(transactions: Transaction[], filters: Dashboard
     costCenters,
     topCategories,
     ytdData,
+    comparison,
+    subcategoryData,
+    accountData,
+    dailyData,
+    keyInfluencers,
   };
 }

@@ -1,13 +1,14 @@
 import { motion } from "framer-motion";
-import { TrendingUp, TrendingDown, Minus, Wallet, PiggyBank, Percent, Receipt, BarChart3 } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Wallet, PiggyBank, Percent, Receipt } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { KpiData } from "@/hooks/useDashboardData";
+import { KpiData, ComparisonData } from "@/hooks/useDashboardData";
 import { cn } from "@/lib/utils";
 import { ResponsiveContainer, LineChart, Line } from "recharts";
 
 interface KpiCardsProps {
   kpis: KpiData;
   monthlyData: { month: string; income: number; expense: number; balance: number }[];
+  comparison?: ComparisonData;
 }
 
 const formatCurrency = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -23,12 +24,15 @@ const Sparkline = ({ data, color }: { data: { value: number }[]; color: string }
   </div>
 );
 
-export const KpiCards = ({ kpis, monthlyData }: KpiCardsProps) => {
+export const KpiCards = ({ kpis, monthlyData, comparison }: KpiCardsProps) => {
+  const comp = comparison;
   const cards = [
     {
       title: "Receita Total",
       value: formatCurrency(kpis.income),
       trend: kpis.incomeTrend,
+      trendLabel: comp ? `${formatPercent(comp.incomeChange)} ${comp.periodLabel}` : `${formatPercent(kpis.incomeTrend)} vs período anterior`,
+      priorValue: comp ? formatCurrency(comp.income) : undefined,
       icon: Wallet,
       color: "emerald",
       data: monthlyData.map((d) => ({ value: d.income })),
@@ -37,6 +41,8 @@ export const KpiCards = ({ kpis, monthlyData }: KpiCardsProps) => {
       title: "Despesa Total",
       value: formatCurrency(kpis.expense),
       trend: kpis.expenseTrend,
+      trendLabel: comp ? `${formatPercent(comp.expenseChange)} ${comp.periodLabel}` : `${formatPercent(kpis.expenseTrend)} vs período anterior`,
+      priorValue: comp ? formatCurrency(comp.expense) : undefined,
       icon: Receipt,
       color: "rose",
       data: monthlyData.map((d) => ({ value: d.expense })),
@@ -45,6 +51,8 @@ export const KpiCards = ({ kpis, monthlyData }: KpiCardsProps) => {
       title: "Saldo Líquido",
       value: formatCurrency(kpis.balance),
       trend: kpis.balanceTrend,
+      trendLabel: comp ? `${formatPercent(comp.balanceChange)} ${comp.periodLabel}` : `${formatPercent(kpis.balanceTrend)} vs período anterior`,
+      priorValue: comp ? formatCurrency(comp.balance) : undefined,
       icon: PiggyBank,
       color: "blue",
       data: monthlyData.map((d) => ({ value: d.balance })),
@@ -53,6 +61,8 @@ export const KpiCards = ({ kpis, monthlyData }: KpiCardsProps) => {
       title: "Margem Operacional",
       value: `${kpis.margin.toFixed(1)}%`,
       trend: kpis.marginTrend,
+      trendLabel: comp ? `${formatPercent(comp.marginChange)} ${comp.periodLabel}` : `${formatPercent(kpis.marginTrend)} vs período anterior`,
+      priorValue: comp ? `${comp.margin.toFixed(1)}%` : undefined,
       icon: Percent,
       color: "violet",
       data: monthlyData.map((d) => ({ value: d.balance })),
@@ -101,9 +111,12 @@ export const KpiCards = ({ kpis, monthlyData }: KpiCardsProps) => {
                     <span className={cn(
                       card.trend > 0 ? "text-emerald-600" : card.trend < 0 ? "text-rose-600" : "text-slate-500"
                     )}>
-                      {formatPercent(card.trend)} vs período anterior
+                      {card.trendLabel}
                     </span>
                   </div>
+                  {card.priorValue && (
+                    <p className="text-[10px] opacity-50">Anterior: {card.priorValue}</p>
+                  )}
                   <p className="text-[10px] opacity-60">{kpis.transactionCount} lançamentos</p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
