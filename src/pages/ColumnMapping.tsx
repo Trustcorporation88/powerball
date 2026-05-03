@@ -5,7 +5,7 @@ import { ArrowLeft, ArrowRight, AlertTriangle, CheckCircle2, Settings2, Loader2 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { detectColumnTypes, inferFinancialRole } from "@/utils/excelParser";
+import { detectColumnTypes, inferFinancialRole, formatCellValue } from "@/utils/excelParser";
 import { buildTransactionsFromSheet } from "@/utils/transactionBuilder";
 import { ColumnMapping } from "@/contexts/AppContext";
 import { toast } from "sonner";
@@ -17,26 +17,34 @@ export default function ColumnMapping() {
   const { currentFile, setColumnMappings, setTransactions, updateProjectStatus, currentProject } = useApp();
   const [processing, setProcessing] = useState(false);
 
-  // Usa os dados reais do arquivo ou fallback vazio
+  // Usa os dados reais do arquivo
   const allData = currentFile?.allData || [];
   const headers = currentFile?.headers || [];
   
   const columnInfo = detectColumnTypes(headers, allData);
 
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
+  const [initialized, setInitialized] = useState(false);
 
   // Inicializa mappings quando os dados estiverem disponíveis
   useEffect(() => {
-    if (headers.length > 0 && allData.length > 0) {
+    if (headers.length > 0 && allData.length > 0 && !initialized) {
+      const samplesByColumn: Record<string, any[]> = {};
+      headers.forEach(h => {
+        samplesByColumn[h] = allData.slice(0, 20).map(row => row[h]).filter(v => v !== undefined && v !== "" && v !== null);
+      });
+      
       const initialMappings = columnInfo.map((col) => ({
         originalName: col.name,
         detectedType: col.detected,
         confirmedType: col.detected,
-        financialRole: inferFinancialRole(col.name, col.detected),
+        financialRole: inferFinancialRole(col.name, col.detected, samplesByColumn[col.name] || []),
       }));
+      
       setMappings(initialMappings);
+      setInitialized(true);
     }
-  }, [currentFile]);
+  }, [currentFile, headers, allData, initialized, columnInfo]);
 
   const updateMapping = (index: number, field: string, value: string) => {
     const updated = [...mappings];
@@ -134,41 +142,31 @@ export default function ColumnMapping() {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 border-b">
                     <tr>
-                      <th className="px-4 py-3 text-left font-medium text-slate-700">Coluna Original</th>
-                      <th className="px-4 py-3 text-left font-medium text-slate-700">Tipo Detectado</th>
-                      <th className="px-4 py-3 text-left font-medium text-slate-700">Tipo Final</th>
-                      <th className="px-4 py-3 text-left font-medium text-slate-700">Papel Financeiro</th>
+                      <th className="px-3 py-2.5 text-left font-medium text-slate-700 text-xs">Coluna Original</th>
+                      <th className="px-3 py-2.5 text-left font-medium text-slate-700 text-xs">Tipo</th>
+                      <th className="px-3 py-2.5 text-left font-medium text-slate-700 text-xs">Papel Financeiro</th>
+                      <th className="px-3 py-2.5 text-left font-medium text-slate-700 text-xs">Amostra</th>
                     </tr>
                   </thead>
                   <tbody>
                     {mappings.map((col, i) => (
                       <tr key={i} className="border-b last:border-0 hover:bg-slate-50">
-                        <td className="px-4 py-3 font-medium text-slate-900">
+                        <td className="px-3 py-2.5 font-medium text-slate-900 text-xs">
                           {col.originalName}
-                          <p className="text-xs text-slate-400 font-normal">
-                            Ex: {String(columnInfo[i]?.sample ?? "").slice(0, 40)}
-                          </p>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="px-2 py-1 bg-slate-100 rounded text-xs text-slate-600">
-                            {col.detectedType}
+                        <td className="px-3 py-2.5">
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                            col.detectedType === "currency" ? "bg-emerald-100 text-emerald-700" :
+                            col.detectedType === "date" ? "bg-blue-100 text-blue-700" :
+                            col.detectedType === "number" ? "bg-violet-100 text-violet-700" :
+                            "bg-slate-100 text-slate-600"
+                          }`}>
+                            {col.confirmedType}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
-                          <Select value={col.confirmedType} onValueChange={(v) => updateMapping(i, "confirmedType", v)}>
-                            <SelectTrigger className="w-28 h-8 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {dataTypes.map((t) => (
-                                <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </td>
-                        <td className="px-4 py-3">
+                        <td className="px-3 py-2.5">
                           <Select value={col.financialRole} onValueChange={(v) => updateMapping(i, "financialRole", v)}>
-                            <SelectTrigger className="w-48 h-8 text-xs">
+                            <SelectTrigger className="w-44 h-7 text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -184,6 +182,9 @@ export default function ColumnMapping() {
                               <SelectItem value="Moeda" className="text-xs">Moeda</SelectItem>
                             </SelectContent>
                           </Select>
+                        </td>
+                        <td className="px-3 py-2.5 text-xs text-slate-500 font-mono">
+                          {formatCellValue(columnInfo[i]?.sample)}
                         </td>
                       </tr>
                     ))}

@@ -30,7 +30,6 @@ export async function parseExcelFile(file: File): Promise<ParsedExcel> {
             row.some((cell: any) => cell !== "" && cell !== null && cell !== undefined)
           );
           
-          // Converte array de arrays para array de objetos
           const dataObjects = rows.map((row) => {
             const obj: Record<string, any> = {};
             headers.forEach((header: string, index: number) => {
@@ -63,73 +62,170 @@ export async function parseExcelFile(file: File): Promise<ParsedExcel> {
   });
 }
 
-export function detectColumnTypes(headers: string[], sampleData: any[]): Array<{ name: string; detected: string; sample: any }> {
+export function detectColumnTypes(headers: string[], sampleData: any[]): Array<{ name: string; detected: string; sample: any; confidence: number }> {
   return headers.map((header) => {
-    const samples = sampleData.slice(0, 20).map((row) => row[header]).filter((v) => v !== undefined && v !== "" && v !== null);
+    const samples = sampleData.slice(0, 50).map((row) => row[header]).filter((v) => v !== undefined && v !== "" && v !== null);
     const firstValue = samples[0];
     
     let detected = "text";
+    let confidence = 0.5;
     
-    if (typeof firstValue === "number") {
-      detected = "number";
-    } else if (firstValue instanceof Date) {
-      detected = "date";
-    } else if (!isNaN(Date.parse(String(firstValue))) && (String(firstValue).includes("-") || String(firstValue).includes("/"))) {
-      detected = "date";
-    } else if (typeof firstValue === "string") {
-      // Verifica se é moeda/valor monetário
-      const cleanValue = String(firstValue)
-        .replace(/[R$\s]/g, "")
-        .replace(/\./g, "")
-        .replace(",", ".");
-      if (!isNaN(Number(cleanValue)) && cleanValue !== "" && Number(cleanValue) !== 0) {
-        detected = "currency";
-      } else {
-        // Verifica se é número puro
-        const numValue = String(firstValue).replace(",", ".");
-        if (!isNaN(Number(numValue)) && numValue !== "") {
-          detected = "number";
-        }
+    // Verifica se é numérico por padrão
+    const numericSamples = samples.filter(v => {
+      if (typeof v === "number") return true;
+      if (typeof v === "string") {
+        const cleaned = v.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".");
+        return !isNaN(Number(cleaned)) && cleaned !== "";
       }
+      return false;
+    });
+    
+    const numericRatio = samples.length > 0 ? numericSamples.length / samples.length : 0;
+    
+    // Verifica se é data
+    const dateSamples = samples.filter(v => {
+      if (v instanceof Date) return true;
+      if (typeof v === "string") {
+        const str = String(v).trim();
+        if (/^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}$/.test(str)) return true;
+        if (/^\d{4}[\/\-.]\d{1,2}[\/\-.]\d{1,2}$/.test(str)) return true;
+      }
+      return false;
+    });
+    
+    const dateRatio = samples.length > 0 ? dateSamples.length / samples.length : 0;
+    
+    if (numericRatio > 0.7) {
+      detected = "currency";
+      confidence = numericRatio;
+    } else if (dateRatio > 0.7) {
+      detected = "date";
+      confidence = dateRatio;
+    } else if (typeof firstValue === "number") {
+      detected = "number";
+      confidence = 0.8;
     }
     
-    return { name: header, detected, sample: firstValue };
+    return { name: header, detected, sample: firstValue, confidence };
   });
 }
 
-export function inferFinancialRole(columnName: string, detectedType: string): string {
-  const nameLower = columnName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+export function inferFinancialRole(columnName: string, detectedType: string, samples: any[]): string {
+  const nameLower = columnName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
   
-  if (nameLower.includes("data") || nameLower.includes("dt") || nameLower.includes("date") || nameLower.includes("vencimento") || nameLower.includes("emissao") || nameLower.includes("competencia")) {
+  // Detecção por nome - datas
+  const datePatterns = ["data", "dt", "date", "vencimento", "emissao", "competencia", "periodo", "mes", "ano", "dia", "venc", "dtpgto", "dtpag", "dtvenc", "dtemis", "period", "year"];
+  if (datePatterns.some(p => nameLower.includes(p))) {
     return "Data do lançamento";
   }
-  if (nameLower.includes("descr") || nameLower.includes("hist") || nameLower.includes("lancamento") || nameLower.includes("nome") || nameLower.includes("referencia") || nameLower.includes("obs") || nameLower.includes("detalhe") || nameLower.includes("item") || nameLower.includes("produto") || nameLower.includes("servico")) {
-    return "Descrição";
-  }
-  if (nameLower.includes("categ") || nameLower.includes("tipo") || nameLower.includes("class") || nameLower.includes("grupo") || nameLower.includes("natureza") || nameLower.includes("origem")) {
-    return "Categoria";
-  }
-  if (nameLower.includes("subcateg") || nameLower.includes("sub")) {
-    return "Subcategoria";
-  }
-  if (nameLower.includes("valor") || nameLower.includes("val") || nameLower.includes("valo") || nameLower.includes("montante") || nameLower.includes("recebido") || nameLower.includes("pago") || nameLower.includes("entrada") || nameLower.includes("saida") || nameLower.includes("total") || nameLower.includes("custo") || nameLower.includes("preco") || nameLower.includes("lucro") || nameLower.includes("faturamento") || nameLower.includes("receita") || nameLower.includes("despesa") || nameLower.includes("saldo") || nameLower.includes("debito") || nameLower.includes("credito") || nameLower.includes("juros") || nameLower.includes("multa") || nameLower.includes("desconto") || nameLower.includes("acrescimo") || nameLower.includes("quantia") || nameLower.includes("importe") || nameLower.includes("amount") || nameLower.includes("price") || nameLower.includes("value")) {
+  
+  // Detecção por nome - valores monetários
+  const valuePatterns = [
+    "valor", "val", "valo", "montante", "recebido", "pago", "entrada", "saida", "total", 
+    "custo", "preco", "lucro", "faturamento", "receita", "despesa", "saldo", "debito", 
+    "credito", "juros", "multa", "desconto", "acrescimo", "quantia", "importe", "amount", 
+    "price", "value", "vlr", "vltotal", "vlliquido", "vlbruto", "vlrparcela", "parcela",
+    "principal", "vloriginal", "atualizado", "corrigido", "pago", "recebido", "baixa",
+    "quitado", "pendente", "resta", "abatimento", "tarifa", "iof", "cms", "icms", "ipi",
+    "pis", "cofins", "ir", "csll", "inss", "iss", "simples", "fgts", "salario", "prolabore",
+    "honorarios", "comissao", "frete", "despesa", "receita", "ganho", "perda", "prov"
+  ];
+  if (valuePatterns.some(p => nameLower.includes(p))) {
     return "Valor";
   }
-  if (nameLower.includes("centro") || nameLower.includes("c.c") || nameLower.includes("cc") || nameLower.includes("cost") || nameLower.includes("departamento") || nameLower.includes("setor") || nameLower.includes("area")) {
+  
+  // Se o tipo detectado é currency/number e tem muitos valores numéricos, sugere Valor
+  if ((detectedType === "currency" || detectedType === "number") && samples.length > 0) {
+    const numericCount = samples.filter(v => {
+      if (typeof v === "number") return true;
+      if (typeof v === "string") {
+        const cleaned = v.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".");
+        return !isNaN(Number(cleaned)) && cleaned !== "";
+      }
+      return false;
+    }).length;
+    if (numericCount / samples.length > 0.6) {
+      return "Valor";
+    }
+  }
+  
+  // Detecção por nome - descrição
+  const descPatterns = [
+    "descr", "hist", "lancamento", "nome", "referencia", "obs", "detalhe", "item", 
+    "produto", "servico", "fornecedor", "cliente", "pagador", "recebedor", "beneficiario",
+    "terceiro", "pessoa", "empresa", "contribuinte", "participante", "emitente", "sacado",
+    "cedente", "favorecido", "tomador", "prestador", "credor", "devedor", "identificacao",
+    "doc", "documento", "complemento", "observacao", "motivo", "justificativa", "esp"
+  ];
+  if (descPatterns.some(p => nameLower.includes(p))) {
+    return "Descrição";
+  }
+  
+  // Detecção por nome - categoria
+  const catPatterns = ["categ", "tipo", "class", "grupo", "natureza", "origem", "rubrica", "rubric", "rct", "desp"];
+  if (catPatterns.some(p => nameLower.includes(p))) {
+    return "Categoria";
+  }
+  
+  // Detecção por nome - centro de custo
+  const ccPatterns = ["centro", "cc", "cost", "departamento", "depart", "setor", "area", "filial", "regional"];
+  if (ccPatterns.some(p => nameLower.includes(p))) {
     return "Centro de custo";
   }
-  if (nameLower.includes("conta") || nameLower.includes("banco") || nameLower.includes("cartao") || nameLower.includes("bank") || nameLower.includes("contabil") || nameLower.includes("plano")) {
+  
+  // Detecção por nome - conta
+  const accountPatterns = ["conta", "banco", "cartao", "bank", "contabil", "plano", "agencia", "ag"];
+  if (accountPatterns.some(p => nameLower.includes(p))) {
     return "Conta";
   }
-  if (nameLower.includes("unidade") || nameLower.includes("filial") || nameLower.includes("loja") || nameLower.includes("regional") || nameLower.includes("sede") || nameLower.includes("matriz")) {
+  
+  // Detecção por nome - unidade
+  const unitPatterns = ["unidade", "loja", "sede", "matriz", "predio", "local"];
+  if (unitPatterns.some(p => nameLower.includes(p))) {
     return "Unidade";
   }
-  if (nameLower.includes("moeda") || nameLower.includes("currency") || nameLower.includes("cambio")) {
+  
+  // Detecção por nome - moeda
+  const currencyPatterns = ["moeda", "currency", "cambio", "cotacao"];
+  if (currencyPatterns.some(p => nameLower.includes(p))) {
     return "Moeda";
   }
-  if (nameLower.includes("fornecedor") || nameLower.includes("cliente") || nameLower.includes("pagador") || nameLower.includes("recebedor") || nameLower.includes("beneficiario") || nameLower.includes("terceiro")) {
-    return "Descrição";
+  
+  // Fallback por tipo: se é currency/number e não casou nada, ainda sugere Valor
+  if (detectedType === "currency" || detectedType === "number") {
+    return "Valor";
   }
   
   return "Nenhum";
+}
+
+export function formatCellValue(value: any, type?: string): string {
+  if (value === undefined || value === null || value === "") return "-";
+  
+  if (typeof value === "number") {
+    // Formata como moeda se parece ser valor monetário
+    if (Math.abs(value) > 100 && type !== "quantity") {
+      return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    }
+    return value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  
+  if (value instanceof Date) {
+    return value.toLocaleDateString("pt-BR");
+  }
+  
+  if (typeof value === "string") {
+    // Se for string numérica formatada
+    const cleaned = value.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".");
+    if (!isNaN(Number(cleaned)) && cleaned !== "") {
+      const num = Number(cleaned);
+      if (Math.abs(num) > 100) {
+        return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+      }
+      return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    return String(value);
+  }
+  
+  return String(value);
 }
