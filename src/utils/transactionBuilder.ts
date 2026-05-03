@@ -142,13 +142,8 @@ function parseDate(rawDate: any): string | null {
 }
 
 function cleanText(value: any, fallback: string): string {
-  const str = String(value || "").trim();
+  const str = String(value ?? "").trim();
   if (!str) return fallback;
-  // Se for APENAS um numero puro (positivo, negativo, decimal), usar fallback
-  // Mas permite codigos alfanumericos como "1.1.02", "NF-123", etc
-  if (/^-?\d+([.,]\d+)?$/.test(str.replace(/\s/g, ""))) {
-    return fallback;
-  }
   return str;
 }
 

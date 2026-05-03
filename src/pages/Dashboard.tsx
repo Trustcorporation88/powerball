@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Share2, Sliders, Bell, Bookmark, MapPin, FileText } from 'lucide-react';
+import { ArrowLeft, Share2, Sliders, Bell, Bookmark, MapPin, FileText, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -44,7 +44,7 @@ import { Database } from 'lucide-react';
 const COLORS = ['#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5', '#3b82f6', '#8b5cf6'];
 
 export default function Dashboard() {
-  const { transactions, currentProject, setTransactions } = useApp();
+  const { transactions, currentProject, setTransactions, currentFile } = useApp();
   const [searchParams] = useSearchParams();
 
   const drillCategory = searchParams.get('category') || null;
@@ -323,6 +323,30 @@ export default function Dashboard() {
 
       {showTemplates && <TemplateSelector onSelect={(t) => { setTemplate(t); setShowTemplates(false); }} />}
       {showCalculated && <CalculatedColumns />}
+
+      {transactions.length === 0 && (
+        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
+          className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-dashed border-amber-300 rounded-xl p-8 text-center">
+          <Database className="h-12 w-12 mx-auto text-amber-500 mb-3" />
+          <h2 className="text-xl font-bold text-amber-800 mb-2">Nenhum dado carregado</h2>
+          <p className="text-amber-600 mb-4 max-w-md mx-auto">
+            Importe uma planilha Excel com dados financeiros ou use dados de demonstração para testar os dashboards.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Button size="lg" className="bg-amber-500 hover:bg-amber-600 text-white" onClick={() => {
+              const mock = generateMockTransactions();
+              setTransactions(mock);
+            }}>
+              <Database className="h-5 w-5 mr-2" /> Carregar 150 Transações Demo
+            </Button>
+            <Link to="/import">
+              <Button size="lg" variant="outline">
+                <FileSpreadsheet className="h-5 w-5 mr-2" /> Importar Planilha
+              </Button>
+            </Link>
+          </div>
+        </motion.div>
+      )}
 
       <SuggestedQuestions onSelect={(q) => {
         setFilters((prev: any) => ({ ...prev, search: q }));

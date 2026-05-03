@@ -208,9 +208,15 @@ export function inferFinancialRole(columnName: string, detectedType: string, sam
     return "Moeda";
   }
   
-  // Fallback por tipo
+  // Fallback por tipo — apenas se o nome for muito generico e a coluna for claramente monetaria
+  // Nunca assumir automaticamente que qualquer coluna numerica e "Valor"
+  // So marcar como Valor se: (a) grande maioria dos valores sao numericos E (b) nome nao parece ID/codigo/quantidade/percentual
   if (detectedType === "currency" || detectedType === "number") {
-    return "Valor";
+    const nonValuePatterns = ["id", "cod", "codigo", "code", "qtde", "qtd", "qte", "quant", "quantidade", "quantity", "perc", "percent", "taxa", "indice", "ano", "mes", "dia", "seq", "ordem", "num", "nr", "nro", "numero"];
+    const looksLikeId = nonValuePatterns.some(p => nameLower.includes(p));
+    if (!looksLikeId) {
+      return "Valor";
+    }
   }
   
   return "Nenhum";
