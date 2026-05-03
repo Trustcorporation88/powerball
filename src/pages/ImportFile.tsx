@@ -20,26 +20,47 @@ export default function ImportFile() {
 
   const handleUpload = async (file: File) => {
     const result = await parse(file);
-    if (result) {
+    if (result && result.sheets.length > 0) {
       setFileName(result.fileName);
       setParsedSheets(result.sheets);
-      setSelectedSheet(result.sheets[0]?.name || "");
+      const firstSheet = result.sheets[0];
+      setSelectedSheet(firstSheet.name);
+      
+      // Salva todos os dados da aba selecionada no contexto
       setCurrentFile({ 
         name: file.name, 
         sheets: result.sheets.map((s) => s.name), 
-        preview: result.sheets[0]?.data || [] 
+        selectedSheet: firstSheet.name,
+        headers: firstSheet.headers,
+        preview: firstSheet.data.slice(0, 20),
+        allData: firstSheet.data,
       });
-      toast.success(`Arquivo "${file.name}" carregado — ${result.sheets.length} aba(s) detectada(s)`);
+      
+      toast.success(`Arquivo "${file.name}" carregado — ${result.sheets.length} aba(s), ${firstSheet.rowCount} linhas`);
     } else {
-      toast.error("Erro ao processar arquivo. Verifique se é um Excel válido.");
+      toast.error("Erro ao processar arquivo. Verifique se é um Excel válido com dados.");
     }
   };
 
   const currentSheet = parsedSheets.find((s) => s.name === selectedSheet);
 
+  const handleSelectSheet = (sheetName: string) => {
+    setSelectedSheet(sheetName);
+    const sheet = parsedSheets.find((s) => s.name === sheetName);
+    if (sheet) {
+      setCurrentFile((prev) => prev ? {
+        ...prev,
+        selectedSheet: sheetName,
+        headers: sheet.headers,
+        preview: sheet.data.slice(0, 20),
+        allData: sheet.data,
+      } : null);
+    }
+  };
+
   const handleContinue = () => {
-    if (!currentSheet) {
-      toast.error("Selecione uma aba para continuar");
+    if (!currentSheet || currentSheet.headers.length === 0) {
+      toast.error("Selecione uma aba com dados para continuar");
       return;
     }
     navigate("/mapping");
@@ -82,14 +103,14 @@ export default function ImportFile() {
               {parsedSheets.map((sheet) => (
                 <button
                   key={sheet.name}
-                  onClick={() => setSelectedSheet(sheet.name)}
+                  onClick={() => handleSelectSheet(sheet.name)}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     selectedSheet === sheet.name
                       ? "bg-emerald-600 text-white"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
-                  {sheet.name}
+                  {sheet.name} ({sheet.rowCount} linhas)
                 </button>
               ))}
             </div>
@@ -97,7 +118,7 @@ export default function ImportFile() {
 
           <div className="flex justify-between items-center">
             <p className="text-sm text-slate-500">
-              Arquivo: <span className="font-medium">{fileName}</span> • {parsedSheets.length} aba(s)
+              Arquivo: <span className="font-medium">{fileName}</span> • Aba: <span className="font-medium">{selectedSheet}</span> • {currentSheet?.rowCount || 0} linhas • {currentSheet?.headers.length || 0} colunas
             </p>
             <Button onClick={handleContinue} className="bg-emerald-600 hover:bg-emerald-700">
               Continuar para Mapeamento

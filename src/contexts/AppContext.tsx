@@ -30,15 +30,24 @@ export interface Transaction {
   flowType: "income" | "expense";
 }
 
+export interface ParsedFileData {
+  name: string;
+  sheets: string[];
+  selectedSheet: string;
+  headers: string[];
+  preview: any[];
+  allData: any[];
+}
+
 interface AppContextType {
   projects: Project[];
   currentProject: Project | null;
-  currentFile: { name: string; sheets: string[]; preview: any[] } | null;
+  currentFile: ParsedFileData | null;
   columnMappings: ColumnMapping[];
   transactions: Transaction[];
   addProject: (project: Project) => void;
   setCurrentProject: (project: Project | null) => void;
-  setCurrentFile: (file: any) => void;
+  setCurrentFile: (file: ParsedFileData | null) => void;
   setColumnMappings: (mappings: ColumnMapping[]) => void;
   setTransactions: (transactions: Transaction[]) => void;
   updateProjectStatus: (id: string, status: Project["status"]) => void;
@@ -66,7 +75,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     },
   ]);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
-  const [currentFile, setCurrentFile] = useState<any>(null);
+  const [currentFile, setCurrentFile] = useState<ParsedFileData | null>(null);
   const [columnMappings, setColumnMappings] = useState<ColumnMapping[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 

@@ -31,7 +31,7 @@ export function buildTransactionsFromSheet(
     if (typeof rawValue === "number") {
       value = rawValue;
     } else if (typeof rawValue === "string") {
-      // Remove símbolo de moeda, pontos de milhar e substitui vírgula por ponto
+      // Remove símbolo de moeda e espaços
       const cleaned = rawValue
         .replace(/[R$\s]/g, "")
         .replace(/\./g, "")
@@ -63,7 +63,7 @@ function parseDate(rawDate: any): string {
   if (!rawDate) return new Date().toISOString().split("T")[0];
   
   if (typeof rawDate === "number") {
-    // Excel serial date
+    // Excel serial date - conta a partir de 30/12/1899
     const epoch = new Date(1899, 11, 30);
     const days = rawDate;
     const date = new Date(epoch.getTime() + days * 24 * 60 * 60 * 1000);
@@ -74,23 +74,19 @@ function parseDate(rawDate: any): string {
     return rawDate.toISOString().split("T")[0];
   }
   
-  const str = String(rawDate);
+  const str = String(rawDate).trim();
   
-  // Tenta diversos formatos
-  const formats = [
-    /(\d{2})\/(\d{2})\/(\d{4})/,  // DD/MM/YYYY
-    /(\d{2})-(\d{2})-(\d{4})/,      // DD-MM-YYYY
-    /(\d{4})-(\d{2})-(\d{2})/,       // YYYY-MM-DD
-  ];
+  // Tenta diversos formatos brasileiros
+  const ddmmyyyy = str.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  if (ddmmyyyy) {
+    const [, day, month, year] = ddmmyyyy;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+  }
   
-  for (const format of formats) {
-    const match = str.match(format);
-    if (match) {
-      if (format.toString().includes("\\d{4})-")) {
-        return `${match[1]}-${match[2]}-${match[3]}`;
-      }
-      return `${match[3]}-${match[2]}-${match[1]}`;
-    }
+  const yyyymmdd = str.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);
+  if (yyyymmdd) {
+    const [, year, month, day] = yyyymmdd;
+    return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
   }
   
   const parsed = new Date(str);

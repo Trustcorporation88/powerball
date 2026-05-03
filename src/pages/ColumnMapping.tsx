@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { ArrowLeft, ArrowRight, AlertTriangle, CheckCircle2, Settings2, Loader2 } from "lucide-react";
@@ -17,20 +17,26 @@ export default function ColumnMapping() {
   const { currentFile, setColumnMappings, setTransactions, updateProjectStatus, currentProject } = useApp();
   const [processing, setProcessing] = useState(false);
 
-  // Pega os dados reais do arquivo parseado ou fallback para mock
-  const sheetData = currentFile?.preview || [];
-  const headers = currentFile?.preview?.length > 0 ? Object.keys(currentFile.preview[0]) : [];
+  // Usa os dados reais do arquivo ou fallback vazio
+  const allData = currentFile?.allData || [];
+  const headers = currentFile?.headers || [];
   
-  const columnInfo = detectColumnTypes(headers, sheetData);
+  const columnInfo = detectColumnTypes(headers, allData);
 
-  const [mappings, setMappings] = useState<ColumnMapping[]>(() =>
-    columnInfo.map((col) => ({
-      originalName: col.name,
-      detectedType: col.detected,
-      confirmedType: col.detected,
-      financialRole: inferFinancialRole(col.name, col.detected),
-    }))
-  );
+  const [mappings, setMappings] = useState<ColumnMapping[]>([]);
+
+  // Inicializa mappings quando os dados estiverem disponíveis
+  useEffect(() => {
+    if (headers.length > 0 && allData.length > 0) {
+      const initialMappings = columnInfo.map((col) => ({
+        originalName: col.name,
+        detectedType: col.detected,
+        confirmedType: col.detected,
+        financialRole: inferFinancialRole(col.name, col.detected),
+      }));
+      setMappings(initialMappings);
+    }
+  }, [currentFile]);
 
   const updateMapping = (index: number, field: string, value: string) => {
     const updated = [...mappings];
@@ -39,41 +45,71 @@ export default function ColumnMapping() {
   };
 
   const handleProcess = () => {
+    if (mappings.length === 0) {
+      toast.error("Nenhuma coluna detectada. Verifique o arquivo.");
+      return;
+    }
+
     setProcessing(true);
     
     setTimeout(() => {
       setColumnMappings(mappings);
       
-      // Tenta construir transações a partir dos dados reais
-      if (currentFile && currentFile.preview && currentFile.preview.length > 0) {
-        const mockSheet = {
-          name: "Dados",
-          data: currentFile.preview,
-          headers,
-          rowCount: currentFile.preview.length,
+      // Constrói transações a partir dos dados reais
+      if (currentFile && allData.length > 0) {
+        const sheetData = {
+          name: currentFile.selectedSheet || "Dados",
+          data: allData,
+          headers: headers,
+          rowCount: allData.length,
         };
-        const builtTransactions = buildTransactionsFromSheet(mockSheet, mappings);
+        const builtTransactions = buildTransactionsFromSheet(sheetData, mappings);
         setTransactions(builtTransactions);
+        
+        if (currentProject) {
+          updateProjectStatus(currentProject.id, "active");
+        }
+        
+        toast.success(`${builtTransactions.length} transações processadas! Dashboard gerado.`);
+        navigate("/dashboard");
+      } else {
+        toast.error("Dados do arquivo não encontrados.");
       }
       
-      if (currentProject) {
-        updateProjectStatus(currentProject.id, "active");
-      }
-      
-      toast.success("Dados processados com sucesso! Dashboard gerado.");
-      navigate("/dashboard");
       setProcessing(false);
     }, 1500);
   };
 
   const hasValueMapping = mappings.some((m) => m.financialRole === "Valor");
+  const mappedRoles = mappings.filter(m => m.financialRole !== "Nenhum");
+
+  // Se não há dados, mostra mensagem
+  if (headers.length === 0) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">Mapeamento de Colunas</h1>
+            <p className="text-slate-500 mt-1">Nenhum dado disponível. Volte e faça o upload do arquivo.</p>
+          </div>
+          <button onClick={() => navigate("/import")} className="flex items-center gap-2 text-slate-500 hover:text-slate-700">
+            <ArrowLeft className="w-4 h-4" />
+            Voltar
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Mapeamento de Colunas</h1>
-          <p className="text-slate-500 mt-1">Confirme os tipos e papéis financeiros de cada coluna detectada</p>
+          <p className="text-slate-500 mt-1">
+            Confirme os tipos e papéis financeiros de cada coluna detectada
+            {currentFile && ` — ${currentFile.name} (${currentFile.selectedSheet})`}
+          </p>
         </div>
         <button
           onClick={() => navigate("/import")}
@@ -91,7 +127,7 @@ export default function ColumnMapping() {
               <div className="flex items-center gap-2 mb-4">
                 <Settings2 className="w-5 h-5 text-emerald-600" />
                 <h2 className="font-semibold text-slate-900">Colunas Detectadas</h2>
-                <span className="text-xs text-slate-400 ml-auto">{headers.length} colunas</span>
+                <span className="text-xs text-slate-400 ml-auto">{headers.length} colunas • {allData.length} linhas</span>
               </div>
 
               <div className="overflow-x-auto">
@@ -110,7 +146,7 @@ export default function ColumnMapping() {
                         <td className="px-4 py-3 font-medium text-slate-900">
                           {col.originalName}
                           <p className="text-xs text-slate-400 font-normal">
-                            Ex: {String(columnInfo[i]?.sample ?? "").slice(0, 30)}
+                            Ex: {String(columnInfo[i]?.sample ?? "").slice(0, 40)}
                           </p>
                         </td>
                         <td className="px-4 py-3">
@@ -208,13 +244,13 @@ export default function ColumnMapping() {
             <CardContent className="p-5">
               <h2 className="font-semibold text-slate-900 mb-3">Resumo do Mapeamento</h2>
               <div className="space-y-2">
-                {mappings.filter(m => m.financialRole !== "Nenhum").map((m, i) => (
+                {mappedRoles.map((m, i) => (
                   <div key={i} className="flex items-center justify-between text-sm">
                     <span className="text-slate-600">{m.financialRole}</span>
                     <span className="font-medium text-emerald-700">→ {m.originalName}</span>
                   </div>
                 ))}
-                {mappings.filter(m => m.financialRole !== "Nenhum").length === 0 && (
+                {mappedRoles.length === 0 && (
                   <p className="text-sm text-slate-400">Nenhum papel financeiro definido</p>
                 )}
               </div>
