@@ -6,7 +6,6 @@
   "scripts": {
     "dev": "vite",
     "dev:8081": "pwsh -ExecutionPolicy ByPass -File scripts/port-manager.ps1",
-    "dev:8081": "pwsh -ExecutionPolicy ByPass -File scripts/port-manager.ps1",
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",

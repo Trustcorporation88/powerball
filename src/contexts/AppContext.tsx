@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import * as db from '@/services/db';
+import { generateMockTransactions } from '@/data/mockData';
 
 export interface Project {
   id: string;
@@ -106,11 +107,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [rlsRules, setRLSRulesState] = useState<RLSRule[]>([]);
 
   useEffect(() => {
-    db.getProjects().then(loaded => {
+    db.getProjects().then(async loaded => {
       if (loaded.length > 0) {
         setProjects(loaded);
+        setLoading(false);
+      } else {
+        const demoProject: Project = {
+          id: 'demo-' + Date.now(),
+          name: 'Projeto Demo',
+          segment: 'Serviços',
+          status: 'active',
+          createdAt: new Date().toISOString().split('T')[0],
+          lastProcessed: new Date().toISOString(),
+        };
+        await db.saveProject(demoProject);
+        setProjects([demoProject]);
+        setCurrentProjectState(demoProject);
+
+        const mockTxns = generateMockTransactions();
+        setTransactionsState(mockTxns);
+        await db.saveTransactions(demoProject.id, mockTxns as any);
+
+        setLoading(false);
       }
-      setLoading(false);
     });
   }, []);
 
