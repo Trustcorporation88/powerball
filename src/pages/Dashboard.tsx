@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Share2, Sliders, Bell, Bookmark, MapPin, FileText, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -68,6 +68,21 @@ export default function Dashboard() {
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [comparisonType, setComparisonType] = useState<ComparisonType>('pop');
+  const [demoLoaded, setDemoLoaded] = useState(false);
+
+  useEffect(() => {
+    const totalValue = transactions.reduce((s, t) => s + Math.abs(t.value), 0);
+    const wasAutoLoaded = sessionStorage.getItem('datfin_demo_loaded');
+    if (!wasAutoLoaded && (transactions.length === 0 || totalValue === 0)) {
+      const timer = setTimeout(() => {
+        const mock = generateMockTransactions();
+        setTransactions(mock);
+        setDemoLoaded(true);
+        sessionStorage.setItem('datfin_demo_loaded', '1');
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [transactions, setTransactions]);
 
   const activeFilters = {
     ...filters,
