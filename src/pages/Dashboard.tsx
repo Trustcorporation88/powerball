@@ -37,12 +37,14 @@ import BookmarkManager from '@/components/dashboard/BookmarkManager';
 import SuggestedQuestions from '@/components/dashboard/SuggestedQuestions';
 import KeyInfluencers from '@/components/dashboard/KeyInfluencers';
 import MapChart from '@/components/dashboard/MapChart';
+import { generateMockTransactions } from '@/data/mockData';
 import PowerPointExport from '@/components/dashboard/PowerPointExport';
+import { Database } from 'lucide-react';
 
 const COLORS = ['#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5', '#3b82f6', '#8b5cf6'];
 
 export default function Dashboard() {
-  const { transactions, currentProject } = useApp();
+  const { transactions, currentProject, setTransactions } = useApp();
   const [searchParams] = useSearchParams();
 
   const drillCategory = searchParams.get('category') || null;
@@ -275,6 +277,14 @@ export default function Dashboard() {
               <SelectItem value="yoy" className="text-xs">vs Ano Ant.</SelectItem>
             </SelectContent>
           </Select>
+          {transactions.length === 0 && (
+            <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white" onClick={() => {
+              const mock = generateMockTransactions();
+              setTransactions(mock);
+            }}>
+              <Database className="h-4 w-4 mr-1" /> Dados Demo
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={() => setShowTemplates(!showTemplates)}>
             Templates
           </Button>
