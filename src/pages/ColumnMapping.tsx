@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
-import { ArrowLeft, ArrowRight, AlertTriangle, CheckCircle2, Settings2, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, AlertTriangle, CheckCircle2, Settings2, Loader2, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -48,9 +48,37 @@ export default function ColumnMapping() {
     setMappings(updated);
   };
 
+  // Preview stats: simula o processamento para mostrar ao usuario o impacto
+  const previewStats = useMemo(() => {
+    if (mappings.length === 0 || !currentFile || allData.length === 0) return null;
+    
+    const sheetData = {
+      name: currentFile.selectedSheet || "Dados",
+      data: allData,
+      headers: headers,
+      rowCount: allData.length,
+    };
+    
+    try {
+      const { stats } = buildTransactionsFromSheet(sheetData, mappings);
+      return stats;
+    } catch (e) {
+      return null;
+    }
+  }, [mappings, currentFile, allData, headers]);
+
+  const hasValueMapping = mappings.some((m) => m.financialRole === "Valor");
+  const hasDateMapping = mappings.some((m) => m.financialRole === "Data do lançamento");
+  const mappedRoles = mappings.filter(m => m.financialRole !== "Nenhum");
+
   const handleProcess = () => {
     if (mappings.length === 0) {
       toast.error("Nenhuma coluna detectada. Verifique o arquivo.");
+      return;
+    }
+
+    if (!hasValueMapping) {
+      toast.error("Mapeie pelo menos uma coluna como 'Valor' para processar os dados financeiros.");
       return;
     }
 
@@ -66,14 +94,24 @@ export default function ColumnMapping() {
           headers: headers,
           rowCount: allData.length,
         };
-        const builtTransactions = buildTransactionsFromSheet(sheetData, mappings);
+        const { transactions: builtTransactions, stats } = buildTransactionsFromSheet(sheetData, mappings);
         setTransactions(builtTransactions);
         
         if (currentProject) {
           updateProjectStatus(currentProject.id, "active");
         }
         
-        toast.success(`${builtTransactions.length} transações processadas! Dashboard gerado.`);
+        if (builtTransactions.length === 0) {
+          toast.error("Nenhuma transação válida foi gerada. Verifique o mapeamento de colunas.");
+          setProcessing(false);
+          return;
+        }
+        
+        if (stats.invalidValues > 0) {
+          toast.warning(`${stats.invalidValues} registros com valores não numéricos foram tratados como zero.`);
+        }
+        
+        toast.success(`${builtTransactions.length} transações processadas! Total: ${stats.totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`);
         navigate("/dashboard");
       } else {
         toast.error("Dados do arquivo não encontrados.");
@@ -82,9 +120,6 @@ export default function ColumnMapping() {
       setProcessing(false);
     }, 1500);
   };
-
-  const hasValueMapping = mappings.some((m) => m.financialRole === "Valor");
-  const mappedRoles = mappings.filter(m => m.financialRole !== "Nenhum");
 
   if (headers.length === 0) {
     return (
@@ -190,6 +225,64 @@ export default function ColumnMapping() {
         </div>
 
         <div className="space-y-4">
+          {/* Preview de Impacto */}
+          <Card className="border-emerald-200 bg-emerald-50/50">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <BarChart3 className="w-5 h-5 text-emerald-600" />
+                <h2 className="font-semibold text-emerald-900">Preview do Processamento</h2>
+              </div>
+              
+              {previewStats ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                      <p className="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold">Registros Válidos</p>
+                      <p className="text-xl font-bold text-emerald-800">{previewStats.processedRows}</p>
+                      <p className="text-[10px] text-emerald-500">de {previewStats.totalRows} lidos</p>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                      <p className="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold">Valor Total</p>
+                      <p className="text-xl font-bold text-emerald-800">
+                        {previewStats.totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      </p>
+                      <p className="text-[10px] text-emerald-500">soma dos absolutos</p>
+                    </div>
+                  </div>
+                  
+                  {previewStats.dateRange.min && (
+                    <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                      <p className="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold">Período Detectado</p>
+                      <p className="text-sm font-medium text-emerald-800">
+                        {previewStats.dateRange.min} → {previewStats.dateRange.max}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {previewStats.categoriesFound.length > 0 && (
+                    <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                      <p className="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold">Categorias</p>
+                      <p className="text-sm text-emerald-800">{previewStats.categoriesFound.slice(0, 5).join(", ")}
+                        {previewStats.categoriesFound.length > 5 && ` +${previewStats.categoriesFound.length - 5}`}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {previewStats.invalidValues > 0 && (
+                    <div className="flex items-start gap-2 p-2 bg-amber-50 rounded border border-amber-100">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <p className="text-xs text-amber-700">
+                        {previewStats.invalidValues} registros com valores inválidos serão tratados como zero
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-emerald-700">Ajuste o mapeamento para ver o preview</p>
+              )}
+            </CardContent>
+          </Card>
+
           <Card className="border-slate-200">
             <CardContent className="p-5">
               <div className="flex items-center gap-2 mb-4">
@@ -229,7 +322,21 @@ export default function ColumnMapping() {
                   <h2 className="font-semibold text-amber-800">Atenção</h2>
                 </div>
                 <p className="text-sm text-amber-700">
-                  Nenhuma coluna foi mapeada como <strong>Valor</strong>. O dashboard não conseguirá calcular KPIs financeiros.
+                  Nenhuma coluna foi mapeada como <strong>Valor</strong>. O processamento não pode continuar sem dados financeiros.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {!hasDateMapping && hasValueMapping && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="w-5 h-5 text-blue-600" />
+                  <h2 className="font-semibold text-blue-800">Dica</h2>
+                </div>
+                <p className="text-sm text-blue-700">
+                  Mapeie uma coluna como <strong>Data do lançamento</strong> para análises temporais mais precisas.
                 </p>
               </CardContent>
             </Card>
@@ -258,7 +365,7 @@ export default function ColumnMapping() {
         <Button
           onClick={handleProcess}
           className="bg-emerald-600 hover:bg-emerald-700"
-          disabled={processing || mappings.length === 0}
+          disabled={processing || !hasValueMapping}
         >
           {processing ? (
             <>
