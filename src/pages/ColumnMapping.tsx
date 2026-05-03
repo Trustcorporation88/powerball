@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { detectColumnTypes, inferFinancialRole, formatCellValue } from "@/utils/excelParser";
 import { buildTransactionsFromSheet } from "@/utils/transactionBuilder";
-import { ColumnMapping } from "@/contexts/AppContext";
+import type { ColumnMapping } from "@/contexts/AppContext";
 import { toast } from "sonner";
 
 const dataTypes = ["text", "number", "date", "currency", "percentage"];

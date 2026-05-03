@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { authenticateUser, registerUser, ensureAdminUser } from '@/services/auth';
 
 interface User {
   id: string;
@@ -8,49 +9,64 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => boolean;
-  register: (name: string, email: string, password: string) => boolean;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string; user?: User }>;
+  register: (name: string, email: string, password: string) => Promise<{ success: boolean; message?: string; user?: User }>;
   logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    const stored = localStorage.getItem("user");
-    return stored ? JSON.parse(stored) : null;
-  });
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const login = useCallback((email: string, password: string) => {
-    if (password.length < 4) return false;
-    const mockUser = { id: "1", name: email.split("@")[0], email };
-    setUser(mockUser);
-    localStorage.setItem("user", JSON.stringify(mockUser));
-    return true;
+  useEffect(() => {
+    ensureAdminUser();
+    const stored = localStorage.getItem('datafin_user');
+    if (stored) {
+      try {
+        setUser(JSON.parse(stored));
+      } catch {
+        localStorage.removeItem('datafin_user');
+      }
+    }
+    setLoading(false);
   }, []);
 
-  const register = useCallback((name: string, email: string, password: string) => {
-    if (password.length < 4) return false;
-    const mockUser = { id: "1", name, email };
-    setUser(mockUser);
-    localStorage.setItem("user", JSON.stringify(mockUser));
-    return true;
-  }, []);
+  const login = async (email: string, password: string) => {
+    const result = await authenticateUser(email, password);
+    if (result.success && result.user) {
+      setUser(result.user);
+      localStorage.setItem('datafin_user', JSON.stringify(result.user));
+    }
+    return result;
+  };
 
-  const logout = useCallback(() => {
+  const register = async (name: string, email: string, password: string) => {
+    const result = await registerUser(name, email, password);
+    if (result.success) {
+      const loginResult = await authenticateUser(email, password);
+      if (loginResult.success && loginResult.user) {
+        setUser(loginResult.user);
+        localStorage.setItem('datafin_user', JSON.stringify(loginResult.user));
+      }
+    }
+    return result;
+  };
+
+  const logout = () => {
     setUser(null);
-    localStorage.removeItem("user");
-  }, []);
+    localStorage.removeItem('datafin_user');
+  };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
       {children}
     </AuthContext.Provider>
   );
-};
+}
 
-export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
-};
+export function useAuth() {
+  return useContext(AuthContext);
+}

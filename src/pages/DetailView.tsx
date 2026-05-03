@@ -4,7 +4,7 @@ import { useApp } from "@/contexts/AppContext";
 import { ArrowLeft, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ExportButton } from "@/components/dashboard/ExportButton";
+import ExportButton from "@/components/dashboard/ExportButton";
 import { TransactionsTable } from "@/components/dashboard/TransactionsTable";
 import {
   LineChart,
@@ -58,7 +58,7 @@ export default function DetailView() {
           <h1 className="text-2xl font-bold text-slate-900">Detalhe Analítico</h1>
           <p className="text-slate-500 mt-1">Visão detalhada dos lançamentos</p>
         </div>
-        <ExportButton transactions={transactions} filename={currentProject?.name || "detalhe"} />
+        <ExportButton />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

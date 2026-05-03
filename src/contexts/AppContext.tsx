@@ -1,10 +1,11 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import * as db from '@/services/db';
 
 export interface Project {
   id: string;
   name: string;
   segment: string;
-  status: "active" | "processing" | "error";
+  status: 'active' | 'processing' | 'error';
   createdAt: string;
   lastProcessed?: string;
 }
@@ -27,12 +28,12 @@ export interface Transaction {
   unit: string;
   value: number;
   currency: string;
-  flowType: "income" | "expense";
+  flowType: 'income' | 'expense';
 }
 
 export interface ParsedFileData {
   name: string;
-  sheets: string[];
+  sheets: any[];
   selectedSheet: string;
   headers: string[];
   preview: any[];
@@ -45,73 +46,105 @@ interface AppContextType {
   currentFile: ParsedFileData | null;
   columnMappings: ColumnMapping[];
   transactions: Transaction[];
-  addProject: (project: Project) => void;
-  setCurrentProject: (project: Project | null) => void;
-  setCurrentFile: (file: ParsedFileData | null) => void;
-  setColumnMappings: (mappings: ColumnMapping[]) => void;
-  setTransactions: (transactions: Transaction[]) => void;
-  updateProjectStatus: (id: string, status: Project["status"]) => void;
+  loading: boolean;
+  addProject: (p: Project) => Promise<void>;
+  removeProject: (id: string) => Promise<void>;
+  setCurrentProject: (p: Project | null) => Promise<void>;
+  setCurrentFile: (f: ParsedFileData | null) => Promise<void>;
+  setColumnMappings: (m: ColumnMapping[]) => Promise<void>;
+  setTransactions: (t: Transaction[]) => Promise<void>;
+  updateProjectStatus: (id: string, status: 'active' | 'processing' | 'error') => Promise<void>;
 }
 
-const AppContext = createContext<AppContextType | undefined>(undefined);
+const AppContext = createContext<AppContextType>({} as AppContextType);
 
-export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [projects, setProjects] = useState<Project[]>([
-    {
-      id: "1",
-      name: "Análise Q1 2024",
-      segment: "Serviços",
-      status: "active",
-      createdAt: "2024-01-15",
-      lastProcessed: "2024-01-20",
-    },
-    {
-      id: "2",
-      name: "Fluxo de Caixa Cliente A",
-      segment: "Consultoria",
-      status: "active",
-      createdAt: "2024-02-10",
-      lastProcessed: "2024-02-12",
-    },
-  ]);
-  const [currentProject, setCurrentProject] = useState<Project | null>(null);
-  const [currentFile, setCurrentFile] = useState<ParsedFileData | null>(null);
-  const [columnMappings, setColumnMappings] = useState<ColumnMapping[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+export function AppProvider({ children }: { children: ReactNode }) {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [currentProject, setCurrentProjectState] = useState<Project | null>(null);
+  const [currentFile, setCurrentFileState] = useState<ParsedFileData | null>(null);
+  const [columnMappings, setColumnMappingsState] = useState<ColumnMapping[]>([]);
+  const [transactions, setTransactionsState] = useState<Transaction[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const addProject = useCallback((project: Project) => {
-    setProjects((prev) => [project, ...prev]);
+  useEffect(() => {
+    db.getProjects().then(loaded => {
+      if (loaded.length > 0) {
+        setProjects(loaded);
+      }
+      setLoading(false);
+    });
   }, []);
 
-  const updateProjectStatus = useCallback((id: string, status: Project["status"]) => {
-    setProjects((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status, lastProcessed: new Date().toISOString().split("T")[0] } : p))
-    );
+  const addProject = useCallback(async (p: Project) => {
+    await db.saveProject(p);
+    setProjects(prev => [p, ...prev]);
   }, []);
+
+  const removeProject = useCallback(async (id: string) => {
+    await db.deleteProject(id);
+    setProjects(prev => prev.filter(p => p.id !== id));
+  }, []);
+
+  const setCurrentProject = useCallback(async (p: Project | null) => {
+    setCurrentProjectState(p);
+    if (p) {
+      const file = await db.getFileData(p.id);
+      if (file) setCurrentFileState(file as ParsedFileData);
+      const mappings = await db.getMappings(p.id);
+      if (mappings.length) setColumnMappingsState(mappings as ColumnMapping[]);
+      const txns = await db.getTransactions(p.id);
+      if (txns.length) setTransactionsState(txns as unknown as Transaction[]);
+    }
+  }, []);
+
+  const setCurrentFile = useCallback(async (f: ParsedFileData | null) => {
+    setCurrentFileState(f);
+    if (f && currentProject) {
+      await db.saveFileData({
+        projectId: currentProject.id,
+        name: f.name,
+        sheets: f.sheets,
+        selectedSheet: f.selectedSheet,
+        headers: f.headers,
+        preview: f.preview,
+        allData: f.allData,
+      });
+    }
+  }, [currentProject]);
+
+  const setColumnMappings = useCallback(async (m: ColumnMapping[]) => {
+    setColumnMappingsState(m);
+    if (currentProject) {
+      await db.saveMappings(currentProject.id, m as any);
+    }
+  }, [currentProject]);
+
+  const setTransactions = useCallback(async (t: Transaction[]) => {
+    setTransactionsState(t);
+    if (currentProject) {
+      await db.saveTransactions(currentProject.id, t as any);
+    }
+  }, [currentProject]);
+
+  const updateProjectStatus = useCallback(async (id: string, status: 'active' | 'processing' | 'error') => {
+    setProjects(prev => prev.map(p => p.id === id ? { ...p, status, lastProcessed: new Date().toISOString() } : p));
+    const project = projects.find(p => p.id === id);
+    if (project) {
+      await db.saveProject({ ...project, status, lastProcessed: new Date().toISOString() });
+    }
+  }, [projects]);
 
   return (
-    <AppContext.Provider
-      value={{
-        projects,
-        currentProject,
-        currentFile,
-        columnMappings,
-        transactions,
-        addProject,
-        setCurrentProject,
-        setCurrentFile,
-        setColumnMappings,
-        setTransactions,
-        updateProjectStatus,
-      }}
-    >
+    <AppContext.Provider value={{
+      projects, currentProject, currentFile, columnMappings, transactions, loading,
+      addProject, removeProject, setCurrentProject, setCurrentFile, setColumnMappings,
+      setTransactions, updateProjectStatus,
+    }}>
       {children}
     </AppContext.Provider>
   );
-};
+}
 
-export const useApp = () => {
-  const ctx = useContext(AppContext);
-  if (!ctx) throw new Error("useApp must be used within AppProvider");
-  return ctx;
-};
+export function useApp() {
+  return useContext(AppContext);
+}

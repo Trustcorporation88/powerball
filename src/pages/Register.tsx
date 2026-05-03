@@ -1,108 +1,78 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { BarChart3, Eye, EyeOff } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
+import { useAuth } from '@/contexts/AuthContext';
+import { BarChart3, Eye, EyeOff } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function Register() {
-  const navigate = useNavigate();
-  const { register } = useAuth();
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { register } = useAuth();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 4) {
-      toast.error("A senha deve ter pelo menos 4 caracteres");
+    if (password.length < 6) {
+      toast.error('Senha deve ter no mínimo 6 caracteres');
       return;
     }
     setLoading(true);
-    setTimeout(() => {
-      const success = register(name, email, password);
-      if (success) {
-        toast.success("Conta criada com sucesso!");
-        navigate("/home");
-      }
-      setLoading(false);
-    }, 800);
+    const result = await register(name, email, password);
+    setLoading(false);
+    if (result.success) {
+      toast.success('Cadastro realizado com sucesso');
+      navigate('/home');
+    } else {
+      toast.error(result.message);
+    }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
-          <div className="flex justify-center mb-6">
-            <div className="w-14 h-14 bg-emerald-500 rounded-2xl flex items-center justify-center">
-              <BarChart3 className="w-8 h-8 text-white" />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <div className="p-3 bg-emerald-100 dark:bg-emerald-900 rounded-xl">
+              <BarChart3 className="h-8 w-8 text-emerald-600" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-center text-slate-900 mb-2">Criar conta</h1>
-          <p className="text-center text-slate-500 mb-8">Comece a analisar suas planilhas em minutos</p>
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <Label htmlFor="name">Nome completo</Label>
+          <CardTitle className="text-2xl">DataFin</CardTitle>
+          <CardDescription>Criar nova conta</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input placeholder="Nome completo" value={name} onChange={e => setName(e.target.value)} required />
+            <Input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
+            <div className="relative">
               <Input
-                id="name"
-                placeholder="João Silva"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Senha (mín. 6 caracteres)"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
                 required
-                className="mt-1.5"
               />
+              <button type="button" onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
             </div>
-            <div>
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="mt-1.5"
-              />
-            </div>
-            <div>
-              <Label htmlFor="password">Senha</Label>
-              <div className="relative mt-1.5">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-            <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 h-11" disabled={loading}>
-              {loading ? "Criando conta..." : "Criar conta"}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? 'Cadastrando...' : 'Cadastrar'}
             </Button>
           </form>
-
-          <p className="mt-6 text-center text-sm text-slate-500">
-            Já tem conta?{" "}
-            <button onClick={() => navigate("/")} className="text-emerald-600 hover:underline font-medium">
-              Faça login
-            </button>
+        </CardContent>
+        <CardFooter className="text-center">
+          <p className="text-sm text-muted-foreground">
+            Já tem conta? <Link to="/" className="text-emerald-600 hover:underline">Entrar</Link>
           </p>
-        </div>
-      </div>
+        </CardFooter>
+      </Card>
     </div>
   );
 }

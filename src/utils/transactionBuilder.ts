@@ -1,4 +1,5 @@
-import { ParsedSheet, ColumnMapping, Transaction } from "@/contexts/AppContext";
+import type { ColumnMapping, Transaction } from "@/contexts/AppContext";
+import type { ParsedSheet } from "@/utils/excelParser";
 
 export interface BuildStats {
   totalRows: number;
@@ -110,21 +111,21 @@ function parseDate(rawDate: any): string | null {
   const str = String(rawDate).trim();
 
   // dd/mm/yyyy ou dd-mm-yyyy
-  const ddmmyyyy = str.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  const ddmmyyyy = str.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
   if (ddmmyyyy) {
     const [, day, month, year] = ddmmyyyy;
     return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
   }
 
   // yyyy/mm/dd
-  const yyyymmdd = str.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);
+  const yyyymmdd = str.match(/^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})$/);
   if (yyyymmdd) {
     const [, year, month, day] = yyyymmdd;
     return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
   }
 
   // dd/mm/yy
-  const ddmmyy = str.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2})$/);
+  const ddmmyy = str.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2})$/);
   if (ddmmyy) {
     const [, day, month, yearStr] = ddmmyy;
     const year = parseInt(yearStr);

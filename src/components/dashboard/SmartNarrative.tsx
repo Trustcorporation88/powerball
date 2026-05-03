@@ -7,7 +7,7 @@ import { KpiData } from "@/hooks/useDashboardData";
 interface SmartNarrativeProps {
   kpis: KpiData;
   topCategories: { name: string; value: number }[];
-  monthlyData: { month: string; income: number; expense: number }[];
+  monthlyData: { month: string; income: number; expense: number; balance: number }[];
 }
 
 export const SmartNarrative = ({ kpis, topCategories, monthlyData }: SmartNarrativeProps) => {

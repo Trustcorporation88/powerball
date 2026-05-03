@@ -85,8 +85,8 @@ export function detectColumnTypes(headers: string[], sampleData: any[]): Array<{
       if (v instanceof Date) return true;
       if (typeof v === "string") {
         const str = String(v).trim();
-        if (/^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}$/.test(str)) return true;
-        if (/^\d{4}[\/\-.]\d{1,2}[\/\-.]\d{1,2}$/.test(str)) return true;
+        if (/^\d{1,2}[/\-.]\d{1,2}[/\-.]\d{2,4}$/.test(str)) return true;
+        if (/^\d{4}[/\-.]\d{1,2}[/\-.]\d{1,2}$/.test(str)) return true;
       }
       return false;
     });

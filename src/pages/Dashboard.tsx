@@ -1,240 +1,207 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { useApp } from "@/contexts/AppContext";
-import { useDashboardData } from "@/hooks/useDashboardData";
-import { DashboardFilters } from "@/components/dashboard/DashboardFilters";
-import { KpiCards } from "@/components/dashboard/KpiCards";
-import { CustomTooltip } from "@/components/dashboard/CustomTooltip";
-import { TransactionsTable } from "@/components/dashboard/TransactionsTable";
-import { FocusMode } from "@/components/dashboard/FocusMode";
-import { SmartNarrative } from "@/components/dashboard/SmartNarrative";
-import { DecompositionTree } from "@/components/dashboard/DecompositionTree";
-import { NaturalLanguageQuery } from "@/components/dashboard/NaturalLanguageQuery";
-import { ExportButton } from "@/components/dashboard/ExportButton";
-import { ChartCard } from "@/components/dashboard/ChartCard";
-import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
+import { useState, useMemo } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowLeft, Share2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useApp } from '@/contexts/AppContext';
+import { useDashboardData } from '@/hooks/useDashboardData';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
-  ArrowLeft,
-  Eye,
-  BarChart3,
-  PieChart,
-  TrendingUp,
-  AlertCircle,
-} from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  PieChart as RePieChart,
-  Pie,
-  Cell,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from "recharts";
-import { motion } from "framer-motion";
+  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from 'recharts';
+import { motion } from 'framer-motion';
 
-const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4"];
+import { KpiCards } from '@/components/dashboard/KpiCards';
+import { ChartCard } from '@/components/dashboard/ChartCard';
+import { TransactionsTable } from '@/components/dashboard/TransactionsTable';
+import { SmartNarrative } from '@/components/dashboard/SmartNarrative';
+import { ThemeToggle } from '@/components/dashboard/ThemeToggle';
+import ExportButton from '@/components/dashboard/ExportButton';
+import { CustomTooltip } from '@/components/dashboard/CustomTooltip';
+import { DashboardFilters } from '@/components/dashboard/DashboardFilters';
+import { DecompositionTree } from '@/components/dashboard/DecompositionTree';
+import NaturalLanguageQuery from '@/components/dashboard/NaturalLanguageQuery';
+import CrossFilterBar from '@/components/dashboard/CrossFilterBar';
+import TreemapChart from '@/components/dashboard/TreemapChart';
+import WaterfallChart from '@/components/dashboard/WaterfallChart';
+import DrillDownChart from '@/components/dashboard/DrillDownChart';
+import CalculatedColumns from '@/components/dashboard/CalculatedColumns';
+import TemplateSelector from '@/components/dashboard/TemplateSelector';
+import ShareDialog from '@/components/dashboard/ShareDialog';
 
-const EmptyChart = ({ message }: { message: string }) => (
-  <div className="h-[300px] flex flex-col items-center justify-center text-slate-400 gap-2">
-    <AlertCircle className="w-8 h-8 text-slate-300" />
-    <p className="text-sm">{message}</p>
-  </div>
-);
+const COLORS = ['#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5', '#3b82f6', '#8b5cf6'];
 
 export default function Dashboard() {
-  const navigate = useNavigate();
   const { transactions, currentProject } = useApp();
-  
-  const [filters, setFilters] = useState({
-    period: "all",
-    category: "all",
-    costCenter: "all",
-    search: "",
-  });
-  
-  const [focusChart, setFocusChart] = useState<{ title: string; content: React.ReactNode } | null>(null);
+  const [filters, setFilters] = useState<any>({ period: 'all', category: null, costCenter: null, search: '' });
+  const [crossFilterCategory, setCrossFilterCategory] = useState<string | null>(null);
+  const [drillDownCategory, setDrillDownCategory] = useState<string | null>(null);
+  const [template, setTemplate] = useState('default');
+  const [showShare, setShowShare] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [showCalculated, setShowCalculated] = useState(false);
 
-  const {
-    filteredTransactions,
-    kpis,
-    monthlyData,
-    categoryData,
-    costCenterData,
-    categories,
-    costCenters,
-    topCategories,
-  } = useDashboardData(transactions, filters);
+  const activeFilters = { ...filters, category: crossFilterCategory || filters.category };
 
-  const totalExpense = useMemo(() => categoryData.reduce((s, c) => s + c.value, 0), [categoryData]);
+  const { kpis, monthlyData, categoryData, costCenterData, topCategories, categories, costCenters } = useDashboardData(transactions, activeFilters);
 
-  const monthlyChart = monthlyData.length > 1 ? (
-    <ResponsiveContainer width="100%" height={300}>
-      <LineChart data={monthlyData}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-        <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-        <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `R${(v / 1000).toFixed(0)}k`} />
-        <Tooltip content={<CustomTooltip formatter={(v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} />} />
-        <Legend />
-        <Line type="monotone" dataKey="income" name="Receita" stroke="#10b981" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-        <Line type="monotone" dataKey="expense" name="Despesa" stroke="#ef4444" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
-      </LineChart>
-    </ResponsiveContainer>
-  ) : (
-    <EmptyChart message="Dados insuficientes — mínimo 2 meses para evolução" />
+  const treemapData = useMemo(() =>
+    categoryData.map((c: any) => ({ name: c.name, value: c.value })),
+    [categoryData]
   );
 
-  const categoryChart = categoryData.length > 0 ? (
-    <ResponsiveContainer width="100%" height={300}>
-      <BarChart data={categoryData}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-        <XAxis dataKey="name" tick={{ fontSize: 11 }} angle={-20} textAnchor="end" height={60} />
-        <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `R${(v / 1000).toFixed(0)}k`} />
-        <Tooltip content={<CustomTooltip total={totalExpense} formatter={(v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} />} />
-        <Bar dataKey="value" name="Valor" radius={[4, 4, 0, 0]}>
-          {categoryData.map((_, i) => (
-            <Cell key={i} fill={COLORS[i % COLORS.length]} />
-          ))}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
-  ) : (
-    <EmptyChart message="Nenhuma categoria de despesa encontrada" />
-  );
+  const handleDrillDown = (name: string) => setDrillDownCategory(name);
+  const handleExportPDF = () => window.print();
 
-  const costCenterChart = costCenterData.length > 0 ? (
-    <ResponsiveContainer width="100%" height={250}>
-      <RePieChart>
-        <Pie
-          data={costCenterData}
-          cx="50%"
-          cy="50%"
-          innerRadius={60}
-          outerRadius={90}
-          paddingAngle={4}
-          dataKey="value"
-        >
-          {costCenterData.map((_, i) => (
-            <Cell key={i} fill={COLORS[i % COLORS.length]} />
-          ))}
-        </Pie>
-        <Tooltip formatter={(v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} />
-        <Legend />
-      </RePieChart>
-    </ResponsiveContainer>
-  ) : (
-    <EmptyChart message="Nenhum centro de custo encontrado" />
-  );
+  const renderCharts = () => {
+    if (template === 'executive') {
+      return (
+        <>
+          <SmartNarrative kpis={kpis} topCategories={topCategories} monthlyData={monthlyData} />
+          <WaterfallChart title="Fluxo Financeiro (Waterfall)" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <CrossFilterBar
+              data={categoryData}
+              title="Despesas por Categoria"
+              selected={crossFilterCategory}
+              onSelect={(c) => setCrossFilterCategory(c)}
+              color="#059669"
+            />
+            <ChartCard title="Composição por Centro de Custo">
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie data={costCenterData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${(percent * 100).toFixed(0)}%`}>
+                    {costCenterData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip />
+                </PieChart>
+              </ResponsiveContainer>
+            </ChartCard>
+          </div>
+        </>
+      );
+    }
+
+    if (template === 'categories') {
+      return (
+        <>
+          {drillDownCategory ? (
+            <DrillDownChart category={drillDownCategory} onBack={() => setDrillDownCategory(null)} />
+          ) : (
+            <TreemapChart data={treemapData} title="Despesas por Categoria (Treemap)" onDrillDown={handleDrillDown} />
+          )}
+          <CrossFilterBar
+            data={categoryData}
+            title="Top Categorias"
+            selected={crossFilterCategory}
+            onSelect={(c) => setCrossFilterCategory(c)}
+            color="#8b5cf6"
+          />
+        </>
+      );
+    }
+
+    return (
+      <>
+        <SmartNarrative kpis={kpis} topCategories={topCategories} monthlyData={monthlyData} />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <ChartCard title="Evolução Mensal">
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={monthlyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                <XAxis dataKey="month" fontSize={10} />
+                <YAxis tickFormatter={(v) => `R$ ${(v/1000).toFixed(0)}k`} fontSize={10} />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Line type="monotone" dataKey="income" name="Receita" stroke="#059669" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="expense" name="Despesa" stroke="#ef4444" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          <CrossFilterBar
+            data={categoryData}
+            title="Despesas por Categoria"
+            selected={crossFilterCategory}
+            onSelect={(c) => { setCrossFilterCategory(c); if (c) setDrillDownCategory(c); }}
+            color="#059669"
+          />
+        </div>
+
+        {drillDownCategory && (
+          <DrillDownChart category={drillDownCategory} onBack={() => setDrillDownCategory(null)} />
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <ChartCard title="Composição por Centro de Custo">
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie data={costCenterData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label={({ name, percent }) => `${name} ${(percent*100).toFixed(0)}%`}>
+                  {costCenterData.map((_: any, i: number) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                </Pie>
+                <Tooltip content={<CustomTooltip />} />
+              </PieChart>
+            </ResponsiveContainer>
+          </ChartCard>
+          <NaturalLanguageQuery transactions={transactions} kpis={kpis} onFilterChange={setFilters} />
+          <DecompositionTree transactions={transactions} />
+        </div>
+      </>
+    );
+  };
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <button
-            onClick={() => navigate("/projects")}
-            className="flex items-center gap-2 text-slate-500 hover:text-slate-700 mb-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Voltar aos projetos
-          </button>
-          <h1 className="text-2xl font-bold text-slate-900">
-            {currentProject?.name || "Dashboard Financeiro"}
-          </h1>
-          <p className="text-slate-500 mt-1">Análise consolidada dos dados importados</p>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 p-6">
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div className="flex items-center gap-4">
+          <Link to="/projects" className="text-muted-foreground hover:text-foreground">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div>
+            <h1 className="text-2xl font-bold">{currentProject?.name || 'Dashboard'}</h1>
+            <p className="text-sm text-muted-foreground">{currentProject?.segment}</p>
+          </div>
         </div>
-        <div className="flex gap-2">
-          <ThemeToggle />
-          <ExportButton transactions={filteredTransactions} filename={currentProject?.name || "dashboard"} />
-          <Button variant="outline" size="sm" onClick={() => navigate("/detail")}>
-            <Eye className="w-4 h-4 mr-2" />
-            Detalhes
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => setShowTemplates(!showTemplates)}>
+            Templates
           </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowCalculated(!showCalculated)}>
+            Colunas
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setShowShare(true)}>
+            <Share2 className="h-4 w-4 mr-1" /> Compartilhar
+          </Button>
+          <ThemeToggle />
+          <ExportButton />
+          <Link to="/detail">
+            <Button variant="outline" size="sm">Detalhes</Button>
+          </Link>
         </div>
       </div>
 
-      <DashboardFilters
-        categories={categories}
-        costCenters={costCenters}
-        filters={filters}
-        onChange={setFilters}
-      />
+      {showTemplates && <TemplateSelector onSelect={(t) => { setTemplate(t); setShowTemplates(false); }} />}
+      {showCalculated && <CalculatedColumns />}
 
-      <SmartNarrative kpis={kpis} topCategories={topCategories} monthlyData={monthlyData} />
-
+      <DashboardFilters filters={filters} onChange={setFilters} categories={categories} costCenters={costCenters} />
       <KpiCards kpis={kpis} monthlyData={monthlyData} />
+      {renderCharts()}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ChartCard
-          title="Evolução Mensal"
-          onFocus={() => setFocusChart({ title: "Evolução Mensal", content: monthlyChart })}
-          delay={0.1}
-        >
-          {monthlyChart}
-        </ChartCard>
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Transações</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TransactionsTable transactions={transactions} />
+        </CardContent>
+      </Card>
 
-        <ChartCard
-          title="Despesas por Categoria"
-          onFocus={() => setFocusChart({ title: "Despesas por Categoria", content: categoryChart })}
-          delay={0.2}
-        >
-          {categoryChart}
-        </ChartCard>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <ChartCard
-          title="Composição por Centro de Custo"
-          className="lg:col-span-1"
-          onFocus={() => setFocusChart({ title: "Composição por Centro de Custo", content: costCenterChart })}
-          delay={0.3}
-        >
-          {costCenterData.length === 1 ? (
-            <div className="space-y-4">
-              {costCenterChart}
-              <div className="text-center">
-                <p className="text-sm text-slate-600 font-medium">{costCenterData[0].name}</p>
-                <p className="text-lg font-bold text-emerald-700">
-                  {costCenterData[0].value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                </p>
-                <p className="text-xs text-slate-400 mt-1">100% do total</p>
-              </div>
-            </div>
-          ) : (
-            costCenterChart
-          )}
-        </ChartCard>
-
-        <div className="lg:col-span-2 space-y-6">
-          <NaturalLanguageQuery transactions={filteredTransactions} />
-          <DecompositionTree transactions={filteredTransactions} />
-        </div>
-      </div>
-
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-      >
-        <TransactionsTable
-          transactions={filteredTransactions}
-          onRowClick={() => navigate("/detail")}
-        />
-      </motion.div>
-
-      <FocusMode
-        isOpen={!!focusChart}
-        onClose={() => setFocusChart(null)}
-        title={focusChart?.title || ""}
-      >
-        {focusChart?.content}
-      </FocusMode>
-    </div>
+      <ShareDialog
+        open={showShare}
+        onClose={() => setShowShare(false)}
+        projectName={currentProject?.name || 'Dashboard'}
+        onExportPDF={handleExportPDF}
+      />
+    </motion.div>
   );
 }
