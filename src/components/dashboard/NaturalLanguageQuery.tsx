@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, MessageSquare, BarChart3, PieChart, TrendingUp, X } from "lucide-react";
+import { Search, MessageSquare, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Transaction } from "@/contexts/AppContext";
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart as RePieChart, Pie, Cell } from "recharts";
 import { CustomTooltip } from "./CustomTooltip";
+import { cn } from "@/lib/utils";
 
 interface NaturalLanguageQueryProps {
   transactions: Transaction[];
@@ -21,7 +22,6 @@ export const NaturalLanguageQuery = ({ transactions }: NaturalLanguageQueryProps
   const processQuery = () => {
     const q = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     
-    // Receita por categoria
     if (q.includes("receita") && q.includes("categoria")) {
       const data: Record<string, number> = {};
       transactions.filter(t => t.flowType === "income").forEach(t => {
@@ -35,7 +35,6 @@ export const NaturalLanguageQuery = ({ transactions }: NaturalLanguageQueryProps
       return;
     }
     
-    // Despesa por categoria
     if (q.includes("despesa") && q.includes("categoria")) {
       const data: Record<string, number> = {};
       transactions.filter(t => t.flowType === "expense").forEach(t => {
@@ -49,21 +48,18 @@ export const NaturalLanguageQuery = ({ transactions }: NaturalLanguageQueryProps
       return;
     }
     
-    // Receita total
     if (q.includes("receita") && (q.includes("total") || q.includes("geral"))) {
       const total = transactions.filter(t => t.flowType === "income").reduce((s, t) => s + t.value, 0);
       setResult({ type: "kpi", title: "Receita Total", value: total, color: "emerald" });
       return;
     }
     
-    // Despesa total
     if (q.includes("despesa") && (q.includes("total") || q.includes("geral"))) {
       const total = transactions.filter(t => t.flowType === "expense").reduce((s, t) => s + Math.abs(t.value), 0);
       setResult({ type: "kpi", title: "Despesa Total", value: total, color: "rose" });
       return;
     }
     
-    // Saldo
     if (q.includes("saldo") || q.includes("lucro") || q.includes("resultado")) {
       const income = transactions.filter(t => t.flowType === "income").reduce((s, t) => s + t.value, 0);
       const expense = transactions.filter(t => t.flowType === "expense").reduce((s, t) => s + Math.abs(t.value), 0);
@@ -71,7 +67,6 @@ export const NaturalLanguageQuery = ({ transactions }: NaturalLanguageQueryProps
       return;
     }
     
-    // Por centro de custo
     if (q.includes("centro") || q.includes("custo") || q.includes("filial")) {
       const data: Record<string, number> = {};
       transactions.forEach(t => {
@@ -85,7 +80,6 @@ export const NaturalLanguageQuery = ({ transactions }: NaturalLanguageQueryProps
       return;
     }
     
-    // Maior despesa
     if (q.includes("maior") || q.includes("top")) {
       const data: Record<string, number> = {};
       transactions.filter(t => t.flowType === "expense").forEach(t => {
@@ -200,5 +194,3 @@ export const NaturalLanguageQuery = ({ transactions }: NaturalLanguageQueryProps
     </Card>
   );
 };
-
-import { cn } from "@/lib/utils";

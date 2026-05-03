@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -57,5 +58,3 @@ export const SmartNarrative = ({ kpis, topCategories, monthlyData }: SmartNarrat
     </motion.div>
   );
 };
-
-import { useMemo } from "react";
