@@ -96,8 +96,10 @@ export function useDashboardData(
 ) {
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => {
-      if (filters.category !== "all" && t.category !== filters.category) return false;
-      if (filters.costCenter !== "all" && t.costCenter !== filters.costCenter) return false;
+      const cat = filters.category;
+      const cc = filters.costCenter;
+      if (cat && cat !== "all" && t.category !== cat) return false;
+      if (cc && cc !== "all" && t.costCenter !== cc) return false;
       if (filters.search) {
         const searchLower = filters.search.toLowerCase();
         const match = 
