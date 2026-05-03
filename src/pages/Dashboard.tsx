@@ -277,14 +277,12 @@ export default function Dashboard() {
               <SelectItem value="yoy" className="text-xs">vs Ano Ant.</SelectItem>
             </SelectContent>
           </Select>
-          {transactions.length === 0 && (
-            <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white" onClick={() => {
-              const mock = generateMockTransactions();
-              setTransactions(mock);
-            }}>
-              <Database className="h-4 w-4 mr-1" /> Dados Demo
-            </Button>
-          )}
+          <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white" onClick={() => {
+            const mock = generateMockTransactions();
+            setTransactions(mock);
+          }}>
+            <Database className="h-4 w-4 mr-1" /> Dados Demo
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setShowTemplates(!showTemplates)}>
             Templates
           </Button>
