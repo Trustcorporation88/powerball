@@ -1,5 +1,17 @@
 import { ParsedSheet, ColumnMapping, Transaction } from "@/contexts/AppContext";
 
+function sanitizeName(value: any, fallback: string): string {
+  const str = String(value || "").trim();
+  if (!str) return fallback;
+  // Se for apenas um numero (positivo, negativo, decimal), usa fallback
+  if (/^-?\d+([.,]\d+)?$/.test(str.replace(/\s/g, ""))) return fallback;
+  return str;
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 export function buildTransactionsFromSheet(
   sheet: ParsedSheet,
   mappings: ColumnMapping[]
@@ -40,13 +52,12 @@ export function buildTransactionsFromSheet(
 
     const date = dateCol ? parseDate(row[dateCol]) : new Date().toISOString().split("T")[0];
 
-    // Extrai categoria - se não mapeada, tenta achar uma coluna com texto curto
-    let category = catCol ? String(row[catCol] || "") : "";
+    let category = sanitizeName(catCol ? row[catCol] : null, "");
     if (!category) {
       // Tenta encontrar categoria em outras colunas de texto
       for (const key of Object.keys(row)) {
         const val = String(row[key] || "");
-        if (val.length > 0 && val.length < 50 && !val.match(/^\d/)) {
+        if (val.length > 0 && val.length < 50 && !val.match(/^-?\d/)) {
           category = val;
           break;
         }
@@ -54,21 +65,22 @@ export function buildTransactionsFromSheet(
     }
     if (!category) category = "Não classificado";
 
-    // Extrai centro de custo
-    let costCenter = ccCol ? String(row[ccCol] || "") : "";
+    let costCenter = sanitizeName(ccCol ? row[ccCol] : null, "");
     if (!costCenter) costCenter = "Geral";
+
+    let description = sanitizeName(descCol ? row[descCol] : null, `Lançamento ${index + 1}`);
 
     transactions.push({
       id: `tx-${index}`,
       date,
-      description: descCol ? String(row[descCol] || "") : `Lançamento ${index + 1}`,
+      description,
       category,
-      subcategory: subcatCol ? String(row[subcatCol] || "") : "",
-      account: accountCol ? String(row[accountCol] || "") : "",
+      subcategory: sanitizeName(subcatCol ? row[subcatCol] : null, ""),
+      account: sanitizeName(accountCol ? row[accountCol] : null, ""),
       costCenter,
-      unit: unitCol ? String(row[unitCol] || "") : "",
-      value,
-      currency: currencyCol ? String(row[currencyCol] || "") : "BRL",
+      unit: sanitizeName(unitCol ? row[unitCol] : null, ""),
+      value: round2(value),
+      currency: sanitizeName(currencyCol ? row[currencyCol] : null, "BRL"),
       flowType: value >= 0 ? "income" : "expense",
     });
   });
@@ -79,15 +91,17 @@ export function buildTransactionsFromSheet(
 function parseDate(rawDate: any): string {
   if (!rawDate) return new Date().toISOString().split("T")[0];
   
-  if (typeof rawDate === "number") {
-    const epoch = new Date(1899, 11, 30);
-    const days = rawDate;
-    const date = new Date(epoch.getTime() + days * 24 * 60 * 60 * 1000);
-    return date.toISOString().split("T")[0];
-  }
-  
   if (rawDate instanceof Date) {
     return rawDate.toISOString().split("T")[0];
+  }
+  
+  if (typeof rawDate === "number") {
+    // Excel serial date: 1 = 1900-01-01 (com bug de 1900), ou epoch 1899-12-30
+    const excelEpoch = new Date(1899, 11, 30);
+    const date = new Date(excelEpoch.getTime() + rawDate * 24 * 60 * 60 * 1000);
+    if (!isNaN(date.getTime())) {
+      return date.toISOString().split("T")[0];
+    }
   }
   
   const str = String(rawDate).trim();

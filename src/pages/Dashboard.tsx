@@ -15,12 +15,14 @@ import { ChartCard } from "@/components/dashboard/ChartCard";
 import { ThemeToggle } from "@/components/dashboard/ThemeToggle";
 import {
   ArrowLeft,
+  Eye,
   BarChart3,
   PieChart,
   TrendingUp,
-  Eye,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   LineChart,
   Line,
@@ -39,6 +41,13 @@ import {
 import { motion } from "framer-motion";
 
 const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4"];
+
+const EmptyChart = ({ message }: { message: string }) => (
+  <div className="h-[300px] flex flex-col items-center justify-center text-slate-400 gap-2">
+    <AlertCircle className="w-8 h-8 text-slate-300" />
+    <p className="text-sm">{message}</p>
+  </div>
+);
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -66,7 +75,7 @@ export default function Dashboard() {
 
   const totalExpense = useMemo(() => categoryData.reduce((s, c) => s + c.value, 0), [categoryData]);
 
-  const monthlyChart = (
+  const monthlyChart = monthlyData.length > 1 ? (
     <ResponsiveContainer width="100%" height={300}>
       <LineChart data={monthlyData}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -78,9 +87,11 @@ export default function Dashboard() {
         <Line type="monotone" dataKey="expense" name="Despesa" stroke="#ef4444" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />
       </LineChart>
     </ResponsiveContainer>
+  ) : (
+    <EmptyChart message="Dados insuficientes — mínimo 2 meses para evolução" />
   );
 
-  const categoryChart = (
+  const categoryChart = categoryData.length > 0 ? (
     <ResponsiveContainer width="100%" height={300}>
       <BarChart data={categoryData}>
         <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -94,9 +105,11 @@ export default function Dashboard() {
         </Bar>
       </BarChart>
     </ResponsiveContainer>
+  ) : (
+    <EmptyChart message="Nenhuma categoria de despesa encontrada" />
   );
 
-  const costCenterChart = (
+  const costCenterChart = costCenterData.length > 0 ? (
     <ResponsiveContainer width="100%" height={250}>
       <RePieChart>
         <Pie
@@ -116,6 +129,8 @@ export default function Dashboard() {
         <Legend />
       </RePieChart>
     </ResponsiveContainer>
+  ) : (
+    <EmptyChart message="Nenhum centro de custo encontrado" />
   );
 
   return (
@@ -180,7 +195,20 @@ export default function Dashboard() {
           onFocus={() => setFocusChart({ title: "Composição por Centro de Custo", content: costCenterChart })}
           delay={0.3}
         >
-          {costCenterChart}
+          {costCenterData.length === 1 ? (
+            <div className="space-y-4">
+              {costCenterChart}
+              <div className="text-center">
+                <p className="text-sm text-slate-600 font-medium">{costCenterData[0].name}</p>
+                <p className="text-lg font-bold text-emerald-700">
+                  {costCenterData[0].value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">100% do total</p>
+              </div>
+            </div>
+          ) : (
+            costCenterChart
+          )}
         </ChartCard>
 
         <div className="lg:col-span-2 space-y-6">

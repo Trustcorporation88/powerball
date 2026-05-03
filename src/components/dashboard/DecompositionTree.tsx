@@ -19,6 +19,17 @@ interface DecompositionTreeProps {
   transactions: Transaction[];
 }
 
+function formatCurrency(value: number): string {
+  return Math.abs(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function cleanName(name: string): string {
+  // Se for numero cru, retorna label generico
+  if (/^-?\d+([.,]\d+)?$/.test(name.trim())) return "Sem nome";
+  if (!name.trim()) return "Sem nome";
+  return name;
+}
+
 export const DecompositionTree = ({ transactions }: DecompositionTreeProps) => {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set(["root"]));
 
@@ -32,24 +43,26 @@ export const DecompositionTree = ({ transactions }: DecompositionTreeProps) => {
       root.value += absValue;
       root.count += 1;
       
-      if (!byCategory[t.category]) {
-        byCategory[t.category] = { value: 0, count: 0, subcategories: {} };
+      const catKey = cleanName(t.category);
+      if (!byCategory[catKey]) {
+        byCategory[catKey] = { value: 0, count: 0, subcategories: {} };
       }
-      byCategory[t.category].value += absValue;
-      byCategory[t.category].count += 1;
+      byCategory[catKey].value += absValue;
+      byCategory[catKey].count += 1;
       
-      const sub = t.subcategory || "Sem subcategoria";
-      if (!byCategory[t.category].subcategories[sub]) {
-        byCategory[t.category].subcategories[sub] = { value: 0, count: 0, costCenters: {} };
+      const sub = cleanName(t.subcategory) || "Sem subcategoria";
+      if (!byCategory[catKey].subcategories[sub]) {
+        byCategory[catKey].subcategories[sub] = { value: 0, count: 0, costCenters: {} };
       }
-      byCategory[t.category].subcategories[sub].value += absValue;
-      byCategory[t.category].subcategories[sub].count += 1;
+      byCategory[catKey].subcategories[sub].value += absValue;
+      byCategory[catKey].subcategories[sub].count += 1;
       
-      if (!byCategory[t.category].subcategories[sub].costCenters[t.costCenter]) {
-        byCategory[t.category].subcategories[sub].costCenters[t.costCenter] = { value: 0, count: 0 };
+      const cc = cleanName(t.costCenter);
+      if (!byCategory[catKey].subcategories[sub].costCenters[cc]) {
+        byCategory[catKey].subcategories[sub].costCenters[cc] = { value: 0, count: 0 };
       }
-      byCategory[t.category].subcategories[sub].costCenters[t.costCenter].value += absValue;
-      byCategory[t.category].subcategories[sub].costCenters[t.costCenter].count += 1;
+      byCategory[catKey].subcategories[sub].costCenters[cc].value += absValue;
+      byCategory[catKey].subcategories[sub].costCenters[cc].count += 1;
     });
     
     root.children = Object.entries(byCategory)
@@ -104,35 +117,39 @@ export const DecompositionTree = ({ transactions }: DecompositionTreeProps) => {
       <div key={node.id} className="select-none">
         <div
           className={cn(
-            "flex items-center gap-2 py-2 px-3 rounded-lg transition-colors cursor-pointer",
+            "flex items-center gap-2 py-2 px-3 rounded-lg transition-colors",
             node.level === 0 ? "bg-slate-50 font-semibold" : "hover:bg-slate-50",
             node.level === 1 && "ml-0",
             node.level === 2 && "ml-6",
             node.level === 3 && "ml-12"
           )}
-          onClick={() => hasChildren && toggleNode(node.id)}
         >
           {hasChildren && (
-            isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
+            <button 
+              onClick={() => toggleNode(node.id)}
+              className="p-0.5 hover:bg-slate-200 rounded transition-colors shrink-0"
+            >
+              {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-slate-400" /> : <ChevronRight className="w-3.5 h-3.5 text-slate-400" />}
+            </button>
           )}
-          {!hasChildren && <div className="w-3.5" />}
+          {!hasChildren && <div className="w-5" />}
           
-          <Icon className={cn("w-4 h-4", node.level === 1 ? "text-emerald-500" : node.level === 2 ? "text-blue-500" : "text-slate-400")} />
+          <Icon className={cn("w-4 h-4 shrink-0", node.level === 1 ? "text-emerald-500" : node.level === 2 ? "text-blue-500" : "text-slate-400")} />
           
           <div className="flex-1 min-w-0">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <span className={cn("text-sm truncate", node.level === 0 ? "text-slate-900" : "text-slate-700")}>
                 {node.name}
               </span>
-              <span className="text-xs font-medium text-slate-600 ml-2">
-                {node.value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              <span className="text-xs font-medium text-slate-600 whitespace-nowrap">
+                {formatCurrency(node.value)}
               </span>
             </div>
             <div className="flex items-center gap-2 mt-1">
               <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
-                  animate={{ width: `${percentage}%` }}
+                  animate={{ width: `${Math.min(percentage, 100)}%` }}
                   transition={{ duration: 0.5, delay: 0.1 }}
                   className={cn(
                     "h-full rounded-full",
@@ -140,8 +157,11 @@ export const DecompositionTree = ({ transactions }: DecompositionTreeProps) => {
                   )}
                 />
               </div>
-              <span className="text-[10px] text-slate-400 w-8 text-right">{percentage.toFixed(0)}%</span>
+              <span className="text-[10px] text-slate-400 w-10 text-right">{percentage.toFixed(1)}%</span>
             </div>
+            {node.count > 0 && (
+              <p className="text-[10px] text-slate-400 mt-0.5">{node.count} lançamentos</p>
+            )}
           </div>
         </div>
         
@@ -161,6 +181,19 @@ export const DecompositionTree = ({ transactions }: DecompositionTreeProps) => {
       </div>
     );
   };
+
+  if (transactions.length === 0) {
+    return (
+      <Card className="border-slate-200">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Decomposição Hierárquica</CardTitle>
+        </CardHeader>
+        <CardContent className="p-4 pt-0">
+          <p className="text-sm text-slate-400 text-center py-8">Nenhum dado disponível para análise hierárquica</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-slate-200">

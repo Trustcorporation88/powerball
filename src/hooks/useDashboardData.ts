@@ -42,6 +42,10 @@ export interface CostCenterData {
   expense: number;
 }
 
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
 export function useDashboardData(transactions: Transaction[], filters: DashboardFilters) {
   const filteredTransactions = useMemo(() => {
     return transactions.filter((t) => {
@@ -137,14 +141,14 @@ export function useDashboardData(transactions: Transaction[], filters: Dashboard
     const safeTrend = (curr: number, prev: number) => prev === 0 ? 0 : ((curr - prev) / Math.abs(prev)) * 100;
     
     return {
-      income,
-      expense,
-      balance,
-      margin,
-      incomeTrend: safeTrend(income, prevIncome),
-      expenseTrend: safeTrend(expense, prevExpense),
-      balanceTrend: safeTrend(balance, prevBalance),
-      marginTrend: safeTrend(margin, prevMargin),
+      income: round2(income),
+      expense: round2(expense),
+      balance: round2(balance),
+      margin: round2(margin),
+      incomeTrend: round2(safeTrend(income, prevIncome)),
+      expenseTrend: round2(safeTrend(expense, prevExpense)),
+      balanceTrend: round2(safeTrend(balance, prevBalance)),
+      marginTrend: round2(safeTrend(margin, prevMargin)),
       transactionCount: filteredTransactions.length,
     };
   }, [filteredTransactions, previousPeriodTransactions]);
@@ -158,7 +162,9 @@ export function useDashboardData(transactions: Transaction[], filters: Dashboard
       else grouped[month].expense += Math.abs(t.value);
       grouped[month].balance = grouped[month].income - grouped[month].expense;
     });
-    return Object.values(grouped).sort((a, b) => a.month.localeCompare(b.month));
+    return Object.values(grouped)
+      .map(m => ({ ...m, income: round2(m.income), expense: round2(m.expense), balance: round2(m.balance) }))
+      .sort((a, b) => a.month.localeCompare(b.month));
   }, [filteredTransactions]);
 
   const categoryData = useMemo((): CategoryData[] => {
@@ -169,7 +175,7 @@ export function useDashboardData(transactions: Transaction[], filters: Dashboard
       total += Math.abs(t.value);
     });
     return Object.entries(grouped)
-      .map(([name, value]) => ({ name, value, percentage: total > 0 ? (value / total) * 100 : 0 }))
+      .map(([name, value]) => ({ name, value: round2(value), percentage: total > 0 ? round2((value / total) * 100) : 0 }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 8);
   }, [filteredTransactions]);
@@ -182,7 +188,12 @@ export function useDashboardData(transactions: Transaction[], filters: Dashboard
       else grouped[t.costCenter].expense += Math.abs(t.value);
     });
     return Object.entries(grouped)
-      .map(([name, { income, expense }]) => ({ name, value: Math.abs(income - expense), income, expense }))
+      .map(([name, { income, expense }]) => ({ 
+        name, 
+        value: round2(Math.abs(income - expense)), 
+        income: round2(income), 
+        expense: round2(expense) 
+      }))
       .sort((a, b) => b.value - a.value);
   }, [filteredTransactions]);
 
@@ -195,7 +206,7 @@ export function useDashboardData(transactions: Transaction[], filters: Dashboard
       grouped[t.category] = (grouped[t.category] || 0) + Math.abs(t.value);
     });
     return Object.entries(grouped)
-      .map(([name, value]) => ({ name, value }))
+      .map(([name, value]) => ({ name, value: round2(value) }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
   }, [filteredTransactions]);
@@ -206,7 +217,7 @@ export function useDashboardData(transactions: Transaction[], filters: Dashboard
     const ytdTransactions = transactions.filter(t => new Date(t.date) >= yearStart);
     const income = ytdTransactions.filter(t => t.flowType === "income").reduce((s, t) => s + t.value, 0);
     const expense = ytdTransactions.filter(t => t.flowType === "expense").reduce((s, t) => s + Math.abs(t.value), 0);
-    return { income, expense, balance: income - expense };
+    return { income: round2(income), expense: round2(expense), balance: round2(income - expense) };
   }, [transactions]);
 
   return {
