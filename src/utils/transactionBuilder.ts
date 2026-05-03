@@ -31,7 +31,6 @@ export function buildTransactionsFromSheet(
     if (typeof rawValue === "number") {
       value = rawValue;
     } else if (typeof rawValue === "string") {
-      // Remove símbolo de moeda e espaços
       const cleaned = rawValue
         .replace(/[R$\s]/g, "")
         .replace(/\./g, "")
@@ -41,14 +40,32 @@ export function buildTransactionsFromSheet(
 
     const date = dateCol ? parseDate(row[dateCol]) : new Date().toISOString().split("T")[0];
 
+    // Extrai categoria - se não mapeada, tenta achar uma coluna com texto curto
+    let category = catCol ? String(row[catCol] || "") : "";
+    if (!category) {
+      // Tenta encontrar categoria em outras colunas de texto
+      for (const key of Object.keys(row)) {
+        const val = String(row[key] || "");
+        if (val.length > 0 && val.length < 50 && !val.match(/^\d/)) {
+          category = val;
+          break;
+        }
+      }
+    }
+    if (!category) category = "Não classificado";
+
+    // Extrai centro de custo
+    let costCenter = ccCol ? String(row[ccCol] || "") : "";
+    if (!costCenter) costCenter = "Geral";
+
     transactions.push({
       id: `tx-${index}`,
       date,
       description: descCol ? String(row[descCol] || "") : `Lançamento ${index + 1}`,
-      category: catCol ? String(row[catCol] || "Não classificado") : "Não classificado",
+      category,
       subcategory: subcatCol ? String(row[subcatCol] || "") : "",
       account: accountCol ? String(row[accountCol] || "") : "",
-      costCenter: ccCol ? String(row[ccCol] || "") : "Geral",
+      costCenter,
       unit: unitCol ? String(row[unitCol] || "") : "",
       value,
       currency: currencyCol ? String(row[currencyCol] || "") : "BRL",
@@ -63,7 +80,6 @@ function parseDate(rawDate: any): string {
   if (!rawDate) return new Date().toISOString().split("T")[0];
   
   if (typeof rawDate === "number") {
-    // Excel serial date - conta a partir de 30/12/1899
     const epoch = new Date(1899, 11, 30);
     const days = rawDate;
     const date = new Date(epoch.getTime() + days * 24 * 60 * 60 * 1000);
@@ -76,7 +92,6 @@ function parseDate(rawDate: any): string {
   
   const str = String(rawDate).trim();
   
-  // Tenta diversos formatos brasileiros
   const ddmmyyyy = str.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
   if (ddmmyyyy) {
     const [, day, month, year] = ddmmyyyy;

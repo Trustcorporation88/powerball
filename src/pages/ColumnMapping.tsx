@@ -17,18 +17,15 @@ export default function ColumnMapping() {
   const { currentFile, setColumnMappings, setTransactions, updateProjectStatus, currentProject } = useApp();
   const [processing, setProcessing] = useState(false);
 
-  // Usa os dados reais do arquivo
   const allData = currentFile?.allData || [];
   const headers = currentFile?.headers || [];
   
   const columnInfo = detectColumnTypes(headers, allData);
 
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
-  const [initialized, setInitialized] = useState(false);
 
-  // Inicializa mappings quando os dados estiverem disponíveis
   useEffect(() => {
-    if (headers.length > 0 && allData.length > 0 && !initialized) {
+    if (headers.length > 0 && allData.length > 0) {
       const samplesByColumn: Record<string, any[]> = {};
       headers.forEach(h => {
         samplesByColumn[h] = allData.slice(0, 20).map(row => row[h]).filter(v => v !== undefined && v !== "" && v !== null);
@@ -42,9 +39,8 @@ export default function ColumnMapping() {
       }));
       
       setMappings(initialMappings);
-      setInitialized(true);
     }
-  }, [currentFile, headers, allData, initialized, columnInfo]);
+  }, [currentFile?.name, currentFile?.selectedSheet]);
 
   const updateMapping = (index: number, field: string, value: string) => {
     const updated = [...mappings];
@@ -63,7 +59,6 @@ export default function ColumnMapping() {
     setTimeout(() => {
       setColumnMappings(mappings);
       
-      // Constrói transações a partir dos dados reais
       if (currentFile && allData.length > 0) {
         const sheetData = {
           name: currentFile.selectedSheet || "Dados",
@@ -91,7 +86,6 @@ export default function ColumnMapping() {
   const hasValueMapping = mappings.some((m) => m.financialRole === "Valor");
   const mappedRoles = mappings.filter(m => m.financialRole !== "Nenhum");
 
-  // Se não há dados, mostra mensagem
   if (headers.length === 0) {
     return (
       <div className="p-6 max-w-6xl mx-auto">

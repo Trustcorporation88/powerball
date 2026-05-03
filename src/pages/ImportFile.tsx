@@ -12,7 +12,7 @@ import { toast } from "sonner";
 
 export default function ImportFile() {
   const navigate = useNavigate();
-  const { setCurrentFile } = useApp();
+  const { currentFile, setCurrentFile } = useApp();
   const { parse, parsing } = useExcelParser();
   const [parsedSheets, setParsedSheets] = useState<ParsedSheet[]>([]);
   const [selectedSheet, setSelectedSheet] = useState<string>("");
@@ -26,7 +26,6 @@ export default function ImportFile() {
       const firstSheet = result.sheets[0];
       setSelectedSheet(firstSheet.name);
       
-      // Salva todos os dados da aba selecionada no contexto
       setCurrentFile({ 
         name: file.name, 
         sheets: result.sheets.map((s) => s.name), 
@@ -47,14 +46,15 @@ export default function ImportFile() {
   const handleSelectSheet = (sheetName: string) => {
     setSelectedSheet(sheetName);
     const sheet = parsedSheets.find((s) => s.name === sheetName);
-    if (sheet) {
-      setCurrentFile((prev) => prev ? {
-        ...prev,
+    if (sheet && currentFile) {
+      const updated = {
+        ...currentFile,
         selectedSheet: sheetName,
         headers: sheet.headers,
         preview: sheet.data.slice(0, 20),
         allData: sheet.data,
-      } : null);
+      };
+      setCurrentFile(updated);
     }
   };
 

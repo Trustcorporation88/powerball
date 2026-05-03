@@ -70,7 +70,6 @@ export function detectColumnTypes(headers: string[], sampleData: any[]): Array<{
     let detected = "text";
     let confidence = 0.5;
     
-    // Verifica se é numérico por padrão
     const numericSamples = samples.filter(v => {
       if (typeof v === "number") return true;
       if (typeof v === "string") {
@@ -82,7 +81,6 @@ export function detectColumnTypes(headers: string[], sampleData: any[]): Array<{
     
     const numericRatio = samples.length > 0 ? numericSamples.length / samples.length : 0;
     
-    // Verifica se é data
     const dateSamples = samples.filter(v => {
       if (v instanceof Date) return true;
       if (typeof v === "string") {
@@ -110,31 +108,32 @@ export function detectColumnTypes(headers: string[], sampleData: any[]): Array<{
   });
 }
 
-export function inferFinancialRole(columnName: string, detectedType: string, samples: any[]): string {
+export function inferFinancialRole(columnName: string, detectedType: string, samples: any[] = []): string {
   const nameLower = columnName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
   
-  // Detecção por nome - datas
-  const datePatterns = ["data", "dt", "date", "vencimento", "emissao", "competencia", "periodo", "mes", "ano", "dia", "venc", "dtpgto", "dtpag", "dtvenc", "dtemis", "period", "year"];
+  // ===== DATA =====
+  const datePatterns = ["data", "dt", "date", "vencimento", "emissao", "competencia", "periodo", "mes", "ano", "dia", "venc", "dtpgto", "dtpag", "dtvenc", "dtemis", "period", "year", "vencim", "emissa", "compet", "pagto", "pgto"];
   if (datePatterns.some(p => nameLower.includes(p))) {
     return "Data do lançamento";
   }
   
-  // Detecção por nome - valores monetários
+  // ===== VALOR / MOEDA =====
   const valuePatterns = [
     "valor", "val", "valo", "montante", "recebido", "pago", "entrada", "saida", "total", 
     "custo", "preco", "lucro", "faturamento", "receita", "despesa", "saldo", "debito", 
     "credito", "juros", "multa", "desconto", "acrescimo", "quantia", "importe", "amount", 
     "price", "value", "vlr", "vltotal", "vlliquido", "vlbruto", "vlrparcela", "parcela",
-    "principal", "vloriginal", "atualizado", "corrigido", "pago", "recebido", "baixa",
-    "quitado", "pendente", "resta", "abatimento", "tarifa", "iof", "cms", "icms", "ipi",
-    "pis", "cofins", "ir", "csll", "inss", "iss", "simples", "fgts", "salario", "prolabore",
-    "honorarios", "comissao", "frete", "despesa", "receita", "ganho", "perda", "prov"
+    "principal", "vloriginal", "atualizado", "corrigido", "baixa", "quitado", "pendente", 
+    "resta", "abatimento", "tarifa", "iof", "cms", "icms", "ipi", "pis", "cofins", "ir", 
+    "csll", "inss", "iss", "simples", "fgts", "salario", "prolabore", "honorarios", 
+    "comissao", "frete", "ganho", "perda", "prov", "provisionado", "provisionamento",
+    "original", "atual", "corrig", "atualiz", "multa", "mora", "atraso", "provisao"
   ];
   if (valuePatterns.some(p => nameLower.includes(p))) {
     return "Valor";
   }
   
-  // Se o tipo detectado é currency/number e tem muitos valores numéricos, sugere Valor
+  // Se é numérico e tem muitos valores numéricos → Valor
   if ((detectedType === "currency" || detectedType === "number") && samples.length > 0) {
     const numericCount = samples.filter(v => {
       if (typeof v === "number") return true;
@@ -144,54 +143,72 @@ export function inferFinancialRole(columnName: string, detectedType: string, sam
       }
       return false;
     }).length;
-    if (numericCount / samples.length > 0.6) {
+    if (numericCount / samples.length > 0.5) {
       return "Valor";
     }
   }
   
-  // Detecção por nome - descrição
+  // ===== DESCRIÇÃO =====
   const descPatterns = [
     "descr", "hist", "lancamento", "nome", "referencia", "obs", "detalhe", "item", 
     "produto", "servico", "fornecedor", "cliente", "pagador", "recebedor", "beneficiario",
     "terceiro", "pessoa", "empresa", "contribuinte", "participante", "emitente", "sacado",
     "cedente", "favorecido", "tomador", "prestador", "credor", "devedor", "identificacao",
-    "doc", "documento", "complemento", "observacao", "motivo", "justificativa", "esp"
+    "doc", "documento", "complemento", "observacao", "motivo", "justificativa", "esp",
+    "especie", "historico", "lanc", "movimento", "operacao", "transacao", "titulo",
+    "numero", "nro", "nr", "seq", "sequencia", "protocolo", "chave", "identif"
   ];
   if (descPatterns.some(p => nameLower.includes(p))) {
     return "Descrição";
   }
   
-  // Detecção por nome - categoria
-  const catPatterns = ["categ", "tipo", "class", "grupo", "natureza", "origem", "rubrica", "rubric", "rct", "desp"];
+  // ===== CATEGORIA =====
+  const catPatterns = [
+    "categ", "tipo", "class", "grupo", "natureza", "origem", "rubrica", "rubric", 
+    "rct", "desp", "receit", "despesa", "receita", "classe", "tipo", "especie",
+    "modalidade", "forma", "meio", "canal", "segmento", "setor", "subsetor"
+  ];
   if (catPatterns.some(p => nameLower.includes(p))) {
     return "Categoria";
   }
   
-  // Detecção por nome - centro de custo
-  const ccPatterns = ["centro", "cc", "cost", "departamento", "depart", "setor", "area", "filial", "regional"];
+  // ===== CENTRO DE CUSTO =====
+  const ccPatterns = [
+    "centro", "cc", "cost", "departamento", "depart", "setor", "area", "filial", 
+    "regional", "unidade", "loja", "sede", "matriz", "predio", "local", "projeto",
+    "obra", "contrato", "regiao", "zona", "territorio", "distrito", "coordenacao",
+    "gerencia", "diretoria", "superintendencia", "nucleo", "polo", "base"
+  ];
   if (ccPatterns.some(p => nameLower.includes(p))) {
     return "Centro de custo";
   }
   
-  // Detecção por nome - conta
-  const accountPatterns = ["conta", "banco", "cartao", "bank", "contabil", "plano", "agencia", "ag"];
+  // ===== CONTA =====
+  const accountPatterns = [
+    "conta", "banco", "cartao", "bank", "contabil", "plano", "agencia", "ag", 
+    "contacontabil", "contabilidade", "bancaria", "instituicao", "financeira",
+    "caixa", "tesouraria", "cobranca", "arrecadacao"
+  ];
   if (accountPatterns.some(p => nameLower.includes(p))) {
     return "Conta";
   }
   
-  // Detecção por nome - unidade
-  const unitPatterns = ["unidade", "loja", "sede", "matriz", "predio", "local"];
+  // ===== UNIDADE =====
+  const unitPatterns = [
+    "unidade", "loja", "sede", "matriz", "predio", "local", "filial", "regional",
+    "unid", "und", "posto", "ponto", "base", "escritorio", "sala", "andar"
+  ];
   if (unitPatterns.some(p => nameLower.includes(p))) {
     return "Unidade";
   }
   
-  // Detecção por nome - moeda
-  const currencyPatterns = ["moeda", "currency", "cambio", "cotacao"];
+  // ===== MOEDA =====
+  const currencyPatterns = ["moeda", "currency", "cambio", "cotacao", "taxa", "indexador"];
   if (currencyPatterns.some(p => nameLower.includes(p))) {
     return "Moeda";
   }
   
-  // Fallback por tipo: se é currency/number e não casou nada, ainda sugere Valor
+  // Fallback por tipo
   if (detectedType === "currency" || detectedType === "number") {
     return "Valor";
   }
@@ -203,7 +220,6 @@ export function formatCellValue(value: any, type?: string): string {
   if (value === undefined || value === null || value === "") return "-";
   
   if (typeof value === "number") {
-    // Formata como moeda se parece ser valor monetário
     if (Math.abs(value) > 100 && type !== "quantity") {
       return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     }
@@ -215,7 +231,6 @@ export function formatCellValue(value: any, type?: string): string {
   }
   
   if (typeof value === "string") {
-    // Se for string numérica formatada
     const cleaned = value.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".");
     if (!isNaN(Number(cleaned)) && cleaned !== "") {
       const num = Number(cleaned);
