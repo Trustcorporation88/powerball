@@ -13,11 +13,20 @@ import { toast } from "sonner";
 
 export default function Projects() {
   const navigate = useNavigate();
-  const { projects, setCurrentProject } = useApp();
+  const { projects, setCurrentProject, removeProject } = useApp();
 
-  const handleView = (project: any) => {
-    setCurrentProject(project);
+  const handleView = async (project: { id: string; name: string; segment: string; status: "active" | "processing" | "error"; createdAt: string; lastProcessed?: string }) => {
+    await setCurrentProject(project);
     navigate("/dashboard");
+  };
+
+  const handleDelete = async (projectId: string) => {
+    if (!window.confirm("Deseja realmente excluir este projeto?")) {
+      return;
+    }
+
+    await removeProject(projectId);
+    toast.success("Projeto removido com sucesso");
   };
 
   return (
@@ -51,7 +60,7 @@ export default function Projects() {
                     <DropdownMenuItem onClick={() => handleView(project)}>
                       <Eye className="w-4 h-4 mr-2" /> Ver dashboard
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => toast.info("Em desenvolvimento")} className="text-rose-600">
+                    <DropdownMenuItem onClick={() => handleDelete(project.id)} className="text-rose-600">
                       <Trash2 className="w-4 h-4 mr-2" /> Excluir
                     </DropdownMenuItem>
                   </DropdownMenuContent>

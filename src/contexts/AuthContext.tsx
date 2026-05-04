@@ -1,44 +1,57 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-import { authenticateUser, registerUser, ensureAdminUser } from '@/services/auth';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { authenticateUser, registerUser, ensureAdminUser, updateUserProfile, type AuthenticatedUser } from '@/services/auth';
+import { readStorage, removeStorage, writeStorage } from '@/services/storage';
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
+const AUTH_STORAGE_KEY = 'datafin:user';
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthenticatedUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; message?: string; user?: User }>;
-  register: (name: string, email: string, password: string) => Promise<{ success: boolean; message?: string; user?: User }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string; user?: AuthenticatedUser }>;
+  register: (name: string, email: string, password: string) => Promise<{ success: boolean; message?: string; user?: AuthenticatedUser }>;
+  updateProfile: (profile: Pick<AuthenticatedUser, 'name' | 'email'>) => Promise<{ success: boolean; message?: string; user?: AuthenticatedUser }>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    ensureAdminUser();
-    const stored = localStorage.getItem('datafin_user');
-    if (stored) {
-      try {
-        setUser(JSON.parse(stored));
-      } catch {
-        localStorage.removeItem('datafin_user');
+    let cancelled = false;
+
+    const bootstrap = async () => {
+      await ensureAdminUser();
+
+      if (!cancelled) {
+        setUser(readStorage<AuthenticatedUser | null>(AUTH_STORAGE_KEY, null));
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+
+    void bootstrap();
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === AUTH_STORAGE_KEY) {
+        setUser(readStorage<AuthenticatedUser | null>(AUTH_STORAGE_KEY, null));
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('storage', handleStorage);
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
     const result = await authenticateUser(email, password);
     if (result.success && result.user) {
       setUser(result.user);
-      localStorage.setItem('datafin_user', JSON.stringify(result.user));
+      writeStorage(AUTH_STORAGE_KEY, result.user);
     }
     return result;
   };
@@ -49,19 +62,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const loginResult = await authenticateUser(email, password);
       if (loginResult.success && loginResult.user) {
         setUser(loginResult.user);
-        localStorage.setItem('datafin_user', JSON.stringify(loginResult.user));
+        writeStorage(AUTH_STORAGE_KEY, loginResult.user);
       }
     }
     return result;
   };
 
+  const updateProfileHandler = useCallback(async (profile: Pick<AuthenticatedUser, 'name' | 'email'>) => {
+    if (!user) {
+      return { success: false, message: 'Usuário não autenticado' };
+    }
+
+    const result = await updateUserProfile(user.email, profile);
+    if (result.success && result.user) {
+      setUser(result.user);
+      writeStorage(AUTH_STORAGE_KEY, result.user);
+    }
+
+    return result;
+  }, [user]);
+
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('datafin_user');
+    removeStorage(AUTH_STORAGE_KEY);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, updateProfile: updateProfileHandler, logout }}>
       {children}
     </AuthContext.Provider>
   );

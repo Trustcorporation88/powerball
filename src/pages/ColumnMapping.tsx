@@ -9,6 +9,8 @@ import { detectColumnTypes, inferFinancialRole, formatCellValue } from "@/utils/
 import { buildTransactionsFromSheet } from "@/utils/transactionBuilder";
 import type { ColumnMapping } from "@/contexts/AppContext";
 import { toast } from "sonner";
+import { validateTransactions } from "@/services/validation";
+import { ValidationSummary } from "@/components/ValidationSummary";
 
 const dataTypes = ["text", "number", "date", "currency", "percentage"];
 
@@ -17,16 +19,15 @@ export default function ColumnMapping() {
   const { currentFile, setColumnMappings, setTransactions, updateProjectStatus, currentProject } = useApp();
   const [processing, setProcessing] = useState(false);
 
-  const allData = currentFile?.allData || [];
-  const headers = currentFile?.headers || [];
-  
-  const columnInfo = detectColumnTypes(headers, allData);
+  const allData = useMemo(() => currentFile?.allData ?? [], [currentFile?.allData]);
+  const headers = useMemo(() => currentFile?.headers ?? [], [currentFile?.headers]);
+  const columnInfo = useMemo(() => detectColumnTypes(headers, allData), [headers, allData]);
 
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
 
   useEffect(() => {
     if (headers.length > 0 && allData.length > 0) {
-      const samplesByColumn: Record<string, any[]> = {};
+      const samplesByColumn: Record<string, unknown[]> = {};
       headers.forEach(h => {
         samplesByColumn[h] = allData.slice(0, 20).map(row => row[h]).filter(v => v !== undefined && v !== "" && v !== null);
       });
@@ -40,7 +41,7 @@ export default function ColumnMapping() {
       
       setMappings(initialMappings);
     }
-  }, [currentFile?.name, currentFile?.selectedSheet]);
+  }, [allData, columnInfo, currentFile?.name, currentFile?.selectedSheet, headers]);
 
   const updateMapping = (index: number, field: string, value: string) => {
     const updated = [...mappings];
@@ -49,7 +50,7 @@ export default function ColumnMapping() {
   };
 
   // Preview stats: simula o processamento para mostrar ao usuario o impacto
-  const previewStats = useMemo(() => {
+  const previewAnalysis = useMemo(() => {
     if (mappings.length === 0 || !currentFile || allData.length === 0) return null;
     
     const sheetData = {
@@ -60,8 +61,11 @@ export default function ColumnMapping() {
     };
     
     try {
-      const { stats } = buildTransactionsFromSheet(sheetData, mappings);
-      return stats;
+      const { stats, transactions } = buildTransactionsFromSheet(sheetData, mappings);
+      return {
+        stats,
+        report: validateTransactions(transactions, stats),
+      };
     } catch (e) {
       return null;
     }
@@ -71,7 +75,7 @@ export default function ColumnMapping() {
   const hasDateMapping = mappings.some((m) => m.financialRole === "Data do lançamento");
   const mappedRoles = mappings.filter(m => m.financialRole !== "Nenhum");
 
-  const handleProcess = () => {
+  const handleProcess = async () => {
     if (mappings.length === 0) {
       toast.error("Nenhuma coluna detectada. Verifique o arquivo.");
       return;
@@ -83,42 +87,47 @@ export default function ColumnMapping() {
     }
 
     setProcessing(true);
-    
-    setTimeout(() => {
-      setColumnMappings(mappings);
-      
-      if (currentFile && allData.length > 0) {
-        const sheetData = {
-          name: currentFile.selectedSheet || "Dados",
-          data: allData,
-          headers: headers,
-          rowCount: allData.length,
-        };
-        const { transactions: builtTransactions, stats } = buildTransactionsFromSheet(sheetData, mappings);
-        setTransactions(builtTransactions);
-        
-        if (currentProject) {
-          updateProjectStatus(currentProject.id, "active");
-        }
-        
-        if (builtTransactions.length === 0) {
-          toast.error("Nenhuma transação válida foi gerada. Verifique o mapeamento de colunas.");
-          setProcessing(false);
-          return;
-        }
-        
-        if (stats.invalidValues > 0) {
-          toast.warning(`${stats.invalidValues} registros com valores não numéricos foram tratados como zero.`);
-        }
-        
-        toast.success(`${builtTransactions.length} transações processadas! Total: ${stats.totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`);
-        navigate("/dashboard");
-      } else {
-        toast.error("Dados do arquivo não encontrados.");
+
+    await setColumnMappings(mappings);
+
+    if (currentFile && allData.length > 0) {
+      const sheetData = {
+        name: currentFile.selectedSheet || "Dados",
+        data: allData,
+        headers,
+        rowCount: allData.length,
+      };
+      const { transactions: builtTransactions, stats } = buildTransactionsFromSheet(sheetData, mappings);
+      const validationReport = validateTransactions(builtTransactions, stats);
+      await setTransactions(builtTransactions);
+
+      if (currentProject) {
+        await updateProjectStatus(currentProject.id, "active");
       }
-      
-      setProcessing(false);
-    }, 1500);
+
+      if (builtTransactions.length === 0) {
+        toast.error("Nenhuma transação válida foi gerada. Verifique o mapeamento de colunas.");
+        setProcessing(false);
+        return;
+      }
+
+      if (!validationReport.approved) {
+        toast.error("A validação local bloqueou a entrega. Corrija os erros antes de continuar.");
+        setProcessing(false);
+        return;
+      }
+
+      if (stats.invalidValues > 0) {
+        toast.warning(`${stats.invalidValues} registros com valores não numéricos foram tratados como zero.`);
+      }
+
+      toast.success(`${builtTransactions.length} transações processadas! Total: ${stats.totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`);
+      navigate("/dashboard");
+    } else {
+      toast.error("Dados do arquivo não encontrados.");
+    }
+
+    setProcessing(false);
   };
 
   if (headers.length === 0) {
@@ -233,49 +242,51 @@ export default function ColumnMapping() {
                 <h2 className="font-semibold text-emerald-900">Preview do Processamento</h2>
               </div>
               
-              {previewStats ? (
+              {previewAnalysis ? (
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-white rounded-lg p-3 border border-emerald-100">
                       <p className="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold">Registros Válidos</p>
-                      <p className="text-xl font-bold text-emerald-800">{previewStats.processedRows}</p>
-                      <p className="text-[10px] text-emerald-500">de {previewStats.totalRows} lidos</p>
+                      <p className="text-xl font-bold text-emerald-800">{previewAnalysis.stats.processedRows}</p>
+                      <p className="text-[10px] text-emerald-500">de {previewAnalysis.stats.totalRows} lidos</p>
                     </div>
                     <div className="bg-white rounded-lg p-3 border border-emerald-100">
                       <p className="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold">Valor Total</p>
                       <p className="text-xl font-bold text-emerald-800">
-                        {previewStats.totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        {previewAnalysis.stats.totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                       </p>
                       <p className="text-[10px] text-emerald-500">soma dos absolutos</p>
                     </div>
                   </div>
                   
-                  {previewStats.dateRange.min && (
+                  {previewAnalysis.stats.dateRange.min && (
                     <div className="bg-white rounded-lg p-3 border border-emerald-100">
                       <p className="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold">Período Detectado</p>
                       <p className="text-sm font-medium text-emerald-800">
-                        {previewStats.dateRange.min} → {previewStats.dateRange.max}
+                        {previewAnalysis.stats.dateRange.min} → {previewAnalysis.stats.dateRange.max}
                       </p>
                     </div>
                   )}
                   
-                  {previewStats.categoriesFound.length > 0 && (
+                  {previewAnalysis.stats.categoriesFound.length > 0 && (
                     <div className="bg-white rounded-lg p-3 border border-emerald-100">
                       <p className="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold">Categorias</p>
-                      <p className="text-sm text-emerald-800">{previewStats.categoriesFound.slice(0, 5).join(", ")}
-                        {previewStats.categoriesFound.length > 5 && ` +${previewStats.categoriesFound.length - 5}`}
+                      <p className="text-sm text-emerald-800">{previewAnalysis.stats.categoriesFound.slice(0, 5).join(", ")}
+                        {previewAnalysis.stats.categoriesFound.length > 5 && ` +${previewAnalysis.stats.categoriesFound.length - 5}`}
                       </p>
                     </div>
                   )}
                   
-                  {previewStats.invalidValues > 0 && (
+                  {previewAnalysis.stats.invalidValues > 0 && (
                     <div className="flex items-start gap-2 p-2 bg-amber-50 rounded border border-amber-100">
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
                       <p className="text-xs text-amber-700">
-                        {previewStats.invalidValues} registros com valores inválidos serão tratados como zero
+                        {previewAnalysis.stats.invalidValues} registros com valores inválidos serão tratados como zero
                       </p>
                     </div>
                   )}
+
+                  <ValidationSummary report={previewAnalysis.report} title="Pré-validação determinística" />
                 </div>
               ) : (
                 <p className="text-sm text-emerald-700">Ajuste o mapeamento para ver o preview</p>

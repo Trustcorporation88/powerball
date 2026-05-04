@@ -11,7 +11,7 @@ interface CrossFilterBarProps {
 }
 
 export default function CrossFilterBar({ data, title, selected, onSelect, color = '#3b82f6' }: CrossFilterBarProps) {
-  const sorted = useMemo(() => data.sort((a, b) => b.value - a.value), [data]);
+  const sorted = useMemo(() => [...data].sort((a, b) => b.value - a.value), [data]);
 
   return (
     <ChartCard title={title}>

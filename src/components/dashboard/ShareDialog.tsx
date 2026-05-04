@@ -3,23 +3,25 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Link, Copy, Mail, QrCode, FileText } from 'lucide-react';
 import { toast } from 'sonner';
+import { createShareSnapshot, type SharedDashboardSnapshot } from '@/services/shareSnapshots';
 
 interface ShareDialogProps {
   open: boolean;
   onClose: () => void;
   projectName: string;
   onExportPDF: () => void;
+  snapshot: SharedDashboardSnapshot;
 }
 
-export default function ShareDialog({ open, onClose, projectName, onExportPDF }: ShareDialogProps) {
+export default function ShareDialog({ open, onClose, projectName, onExportPDF, snapshot }: ShareDialogProps) {
   const [shareLink, setShareLink] = useState('');
 
-  const generateLink = useCallback(() => {
-    const token = crypto.randomUUID().slice(0, 8);
+  const generateLink = useCallback(async () => {
+    const token = await createShareSnapshot(snapshot);
     const link = `${window.location.origin}/shared/${token}`;
     setShareLink(link);
     toast.success('Link gerado com sucesso');
-  }, []);
+  }, [snapshot]);
 
   const copyLink = useCallback(() => {
     navigator.clipboard.writeText(shareLink);

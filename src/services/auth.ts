@@ -1,3 +1,12 @@
+import { db } from './db';
+
+export interface AuthenticatedUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
 async function hashPassword(password: string, salt?: string) {
   const encoder = new TextEncoder();
   const actualSalt = salt 
@@ -25,7 +34,6 @@ export async function registerUser(name: string, email: string, password: string
     return { success: false, message: 'Senha deve ter no mínimo 6 caracteres' };
   }
 
-  const { db } = await import('./db');
   const existing = await db.users.get(email);
   if (existing) {
     return { success: false, message: 'Email já cadastrado' };
@@ -46,7 +54,6 @@ export async function registerUser(name: string, email: string, password: string
 }
 
 export async function authenticateUser(email: string, password: string) {
-  const { db } = await import('./db');
   const user = await db.users.get(email);
   
   if (!user) {
@@ -61,12 +68,15 @@ export async function authenticateUser(email: string, password: string) {
 
   return {
     success: true,
-    user: { id: user.username, name: user.name, email: user.email },
+    user: { id: user.username, name: user.name, email: user.email, role: user.role } satisfies AuthenticatedUser,
   };
 }
 
 export async function ensureAdminUser() {
-  const { db } = await import('./db');
+  if (!import.meta.env.DEV) {
+    return;
+  }
+
   const admin = await db.users.get('admin@datafin.com');
   if (!admin) {
     const { hash, salt } = await hashPassword('admin123');
@@ -80,4 +90,44 @@ export async function ensureAdminUser() {
       createdAt: new Date().toISOString(),
     });
   }
+}
+
+export async function updateUserProfile(
+  email: string,
+  updates: Pick<AuthenticatedUser, 'name' | 'email'>,
+): Promise<{ success: boolean; message?: string; user?: AuthenticatedUser }> {
+  const user = await db.users.get(email);
+  if (!user) {
+    return { success: false, message: 'Usuário não encontrado' };
+  }
+
+  if (updates.email !== email) {
+    const existing = await db.users.get(updates.email);
+    if (existing) {
+      return { success: false, message: 'Email já cadastrado' };
+    }
+  }
+
+  const nextUser = {
+    ...user,
+    username: updates.email,
+    email: updates.email,
+    name: updates.name,
+  };
+
+  if (updates.email !== email) {
+    await db.users.delete(email);
+  }
+
+  await db.users.put(nextUser);
+
+  return {
+    success: true,
+    user: {
+      id: nextUser.username,
+      name: nextUser.name,
+      email: nextUser.email,
+      role: nextUser.role,
+    },
+  };
 }

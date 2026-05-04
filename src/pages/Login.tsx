@@ -76,9 +76,11 @@ export default function Login() {
           <p className="text-sm text-muted-foreground">
             Não tem conta? <Link to="/register" className="text-emerald-600 hover:underline">Cadastre-se</Link>
           </p>
-          <p className="text-xs text-muted-foreground">
-            Admin padrão: admin@datafin.com / admin123
-          </p>
+          {import.meta.env.DEV && (
+            <p className="text-xs text-muted-foreground">
+              Admin local: admin@datafin.com / admin123
+            </p>
+          )}
         </CardFooter>
       </Card>
     </div>

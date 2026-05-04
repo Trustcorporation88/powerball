@@ -3,27 +3,29 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sparkles, Send, X, Lightbulb, MessageSquare, History } from 'lucide-react';
+import { Sparkles, Send, X, Lightbulb, MessageSquare, History, Shield } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { queryNLP } from '@/services/ai';
+import { EXTERNAL_AI_DISABLED_REASON, queryNLP } from '@/services/ai';
+import type { Transaction } from '@/contexts/AppContext';
+import type { KpiData } from '@/hooks/useDashboardData';
 
 interface NLPProps {
-  transactions: any[];
-  kpis: any;
-  onFilterChange: (filters: any) => void;
+  transactions: Transaction[];
+  kpis: KpiData;
+  onFilterChange: (filters: (previous: Record<string, unknown>) => Record<string, unknown>) => void;
 }
 
 export default function NaturalLanguageQuery({ transactions, kpis, onFilterChange }: NLPProps) {
   const [question, setQuestion] = useState('');
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<Awaited<ReturnType<typeof queryNLP>> | null>(null);
   const [loading, setLoading] = useState(false);
-  const [history, setHistory] = useState<{ q: string; r: any }[]>([]);
+  const [history, setHistory] = useState<{ q: string; r: Awaited<ReturnType<typeof queryNLP>> }[]>([]);
 
-  const categories = [...new Set(transactions.map((t: any) => t.category))];
-  const costCenters = [...new Set(transactions.map((t: any) => t.costCenter))];
+  const categories = [...new Set(transactions.map((t) => t.category))];
+  const costCenters = [...new Set(transactions.map((t) => t.costCenter))];
 
-  const totalIncome = transactions.filter((t: any) => t.flowType === 'income').reduce((s: number, t: any) => s + t.value, 0);
-  const totalExpense = transactions.filter((t: any) => t.flowType === 'expense').reduce((s: number, t: any) => s + Math.abs(t.value), 0);
+  const totalIncome = transactions.filter((t) => t.flowType === 'income').reduce((s, t) => s + t.value, 0);
+  const totalExpense = transactions.filter((t) => t.flowType === 'expense').reduce((s, t) => s + Math.abs(t.value), 0);
 
   const contextualQuestions = [
     { q: `Qual a receita total?`, icon: '💰' },
@@ -72,10 +74,14 @@ export default function NaturalLanguageQuery({ transactions, kpis, onFilterChang
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <Sparkles className="h-4 w-4 text-yellow-500" />
-          Consulta Inteligente (IA)
+          Consulta assistida (modo local seguro)
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800 flex items-start gap-2">
+          <Shield className="h-3.5 w-3.5 mt-0.5" />
+          <span>{EXTERNAL_AI_DISABLED_REASON}</span>
+        </div>
         <div className="flex gap-2">
           <Input
             placeholder="Pergunte sobre seus dados..."
@@ -110,7 +116,7 @@ export default function NaturalLanguageQuery({ transactions, kpis, onFilterChang
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="flex items-center gap-2 text-sm text-muted-foreground">
               <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full" />
-              Consultando IA...
+              Processando consulta local...
             </motion.div>
           )}
 

@@ -18,6 +18,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { evaluateFormula, validateFormula } from "@/services/formulaEngine";
+import { readStorage, removeStorage, writeStorage } from "@/services/storage";
 
 type TransformType =
   | "rename"
@@ -63,25 +65,18 @@ export default function ETLPipeline() {
 
   useEffect(() => {
     if (storageKey) {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        try {
-          setSteps(JSON.parse(saved));
-        } catch {
-          localStorage.removeItem(storageKey);
-        }
-      }
+      setSteps(readStorage<TransformStep[]>(storageKey, []));
     }
   }, [storageKey]);
 
   useEffect(() => {
     if (storageKey) {
-      localStorage.setItem(storageKey, JSON.stringify(steps));
+      writeStorage(storageKey, steps);
     }
   }, [steps, storageKey]);
 
-  const headers = currentFile?.headers || [];
-  const baseData = currentFile?.allData || [];
+  const headers = useMemo(() => currentFile?.headers ?? [], [currentFile?.headers]);
+  const baseData = useMemo(() => currentFile?.allData ?? [], [currentFile?.allData]);
 
   const columnTypes: Record<string, string> = useMemo(() => {
     const types: Record<string, string> = {};
@@ -140,14 +135,7 @@ export default function ETLPipeline() {
             data = data.map((row) => {
               const r = { ...row };
               try {
-                let expr = formula;
-                Object.keys(r).forEach((k) => {
-                  const val = Number(
-                    String(r[k] || 0).replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".")
-                  );
-                  expr = expr.split(k).join(String(val || 0));
-                });
-                r[col] = Number(eval(expr)) || 0;
+                r[col] = evaluateFormula(String(formula), r);
               } catch {
                 r[col] = 0;
               }
@@ -273,34 +261,73 @@ export default function ETLPipeline() {
 
     switch (activeOp) {
       case "rename":
+        if (!opForm.col || !opForm.newName) {
+          toast.error("Informe a coluna e o novo nome");
+          return;
+        }
         label = "Renomear coluna";
         details = `${opForm.col} → ${opForm.newName}`;
         break;
       case "replace":
+        if (!opForm.col || opForm.find === undefined || opForm.replaceWith === undefined) {
+          toast.error("Preencha a substituição completa");
+          return;
+        }
         label = "Substituir valores";
         details = `${opForm.col}: "${opForm.find}" → "${opForm.replaceWith}"`;
         break;
       case "calcColumn":
+        if (!opForm.col) {
+          toast.error("Informe o nome da nova coluna");
+          return;
+        }
+        {
+          const validation = validateFormula(String(opForm.formula || ""), currentHeaders);
+          if (!validation.valid) {
+            toast.error(validation.error ?? "Fórmula inválida");
+            return;
+          }
+        }
         label = "Coluna calculada";
         details = `${opForm.col} = ${opForm.formula}`;
         break;
       case "filter":
+        if (!opForm.col || !opForm.operator) {
+          toast.error("Selecione coluna e operador");
+          return;
+        }
         label = "Filtrar linhas";
         details = `${opForm.col} ${opForm.operator} ${opForm.value}`;
         break;
       case "sort":
+        if (!opForm.col || !opForm.direction) {
+          toast.error("Selecione coluna e direção");
+          return;
+        }
         label = "Ordenar";
         details = `${opForm.col} ${opForm.direction === "asc" ? "crescente" : "decrescente"}`;
         break;
       case "groupBy":
+        if (!opForm.col || !opForm.agg) {
+          toast.error("Selecione coluna e agregação");
+          return;
+        }
         label = "Agrupar por";
         details = `${opForm.col} (${opForm.agg})`;
         break;
       case "removeCol":
+        if (!opForm.col) {
+          toast.error("Selecione a coluna a remover");
+          return;
+        }
         label = "Remover coluna";
         details = opForm.col;
         break;
       case "changeType":
+        if (!opForm.col || !opForm.newType) {
+          toast.error("Selecione coluna e novo tipo");
+          return;
+        }
         label = "Alterar tipo";
         details = `${opForm.col} → ${opForm.newType}`;
         break;
@@ -529,7 +556,7 @@ export default function ETLPipeline() {
                               value={opForm.formula || ""}
                               onChange={(e) => setOpForm({ ...opForm, formula: e.target.value })}
                               className="h-8 text-xs w-64 font-mono"
-                              placeholder="ex: col1 * col2"
+                              placeholder="ex: [Quantidade] * [Preco Unitario]"
                             />
                           </div>
                         </>
@@ -589,7 +616,7 @@ export default function ETLPipeline() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="soma" className="text-xs">Soma</SelectItem>
-                              <SelectItem value="média" className="text-xs">Média</SelectItem>
+                              <SelectItem value="media" className="text-xs">Média</SelectItem>
                               <SelectItem value="contagem" className="text-xs">Contagem</SelectItem>
                             </SelectContent>
                           </Select>
@@ -718,6 +745,9 @@ export default function ETLPipeline() {
                   className="w-full mt-3 text-xs text-red-500 hover:text-red-600 hover:bg-red-50"
                   onClick={() => {
                     setSteps([]);
+                    if (storageKey) {
+                      removeStorage(storageKey);
+                    }
                     toast.success("Todas as etapas foram removidas");
                   }}
                 >

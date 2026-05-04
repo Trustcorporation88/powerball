@@ -7,7 +7,7 @@ import { FolderOpen, PlusCircle, CheckCircle2, Activity, AlertTriangle, Clock, T
 import { motion } from 'framer-motion';
 
 export default function Home() {
-  const { projects, addProject } = useApp();
+  const { projects } = useApp();
   const navigate = useNavigate();
 
   const processedCount = projects.filter(p => p.status === 'active').length;

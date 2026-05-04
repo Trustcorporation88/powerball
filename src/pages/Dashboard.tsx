@@ -40,11 +40,15 @@ import MapChart from '@/components/dashboard/MapChart';
 import PowerPointExport from '@/components/dashboard/PowerPointExport';
 import { Database } from 'lucide-react';
 import { generateMockTransactions } from '@/data/mockData';
+import { useAuth } from '@/contexts/AuthContext';
+import { validateTransactions } from '@/services/validation';
+import { ValidationSummary } from '@/components/ValidationSummary';
 
 const COLORS = ['#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5', '#3b82f6', '#8b5cf6'];
 
 export default function Dashboard() {
-  const { transactions, currentProject, setTransactions, currentFile } = useApp();
+  const { transactions, currentProject, setTransactions, getRLSFilteredData } = useApp();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
 
   const drillCategory = searchParams.get('category') || null;
@@ -68,6 +72,14 @@ export default function Dashboard() {
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [comparisonType, setComparisonType] = useState<ComparisonType>('pop');
+  const visibleTransactions = useMemo(
+    () => getRLSFilteredData(user?.role ?? 'user'),
+    [getRLSFilteredData, user?.role],
+  );
+  const validationReport = useMemo(
+    () => validateTransactions(visibleTransactions),
+    [visibleTransactions],
+  );
 
   const activeFilters = {
     ...filters,
@@ -85,7 +97,7 @@ export default function Dashboard() {
     costCenters,
     comparison,
     keyInfluencers,
-  } = useDashboardData(transactions, activeFilters, comparisonType);
+  } = useDashboardData(visibleTransactions, activeFilters, comparisonType);
 
   const treemapData = useMemo(() =>
     categoryData.map((c: any) => ({ name: c.name, value: c.value })),
@@ -115,6 +127,7 @@ export default function Dashboard() {
   const handleLoadBookmark = (savedFilters: any) => {
     setFilters(savedFilters);
     setCrossFilterCategory(savedFilters.category || null);
+    setCrossFilterCostCenter(savedFilters.costCenter || null);
   };
 
   const mapPoints = useMemo(() => {
@@ -126,7 +139,7 @@ export default function Dashboard() {
       'Geral': { lat: -15.7801, lng: -47.9292 },
     };
     const grouped: Record<string, number> = {};
-    transactions.forEach(t => {
+    visibleTransactions.forEach(t => {
       const key = t.costCenter || 'Geral';
       grouped[key] = (grouped[key] || 0) + Math.abs(t.value);
     });
@@ -136,7 +149,7 @@ export default function Dashboard() {
       lat: cities[name]?.lat || -15.7801,
       lng: cities[name]?.lng || -47.9292,
     }));
-  }, [transactions]);
+  }, [visibleTransactions]);
 
   const renderCharts = () => {
     if (template === 'executive') {
@@ -165,7 +178,7 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </ChartCard>
           </div>
-          <KeyInfluencers transactions={transactions} targetMetric="expense" />
+          <KeyInfluencers transactions={visibleTransactions} targetMetric="expense" />
         </>
       );
     }
@@ -193,7 +206,7 @@ export default function Dashboard() {
               onSelect={handleCrossFilterCostCenter}
               color="#3b82f6"
             />
-            <KeyInfluencers transactions={transactions} targetMetric="expense" />
+             <KeyInfluencers transactions={visibleTransactions} targetMetric="expense" />
           </div>
         </>
       );
@@ -243,8 +256,8 @@ export default function Dashboard() {
               </PieChart>
             </ResponsiveContainer>
           </ChartCard>
-          <NaturalLanguageQuery transactions={transactions} kpis={kpis} onFilterChange={setFilters} />
-          <DecompositionTree transactions={transactions} />
+           <NaturalLanguageQuery transactions={visibleTransactions} kpis={kpis} onFilterChange={setFilters} />
+           <DecompositionTree transactions={visibleTransactions} />
         </div>
 
         {showMap && (
@@ -278,9 +291,9 @@ export default function Dashboard() {
             </SelectContent>
           </Select>
           <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white" onClick={() => {
-            const mock = generateMockTransactions();
-            setTransactions(mock);
-          }}>
+             const mock = generateMockTransactions();
+             void setTransactions(mock);
+           }}>
             <Database className="h-4 w-4 mr-1" /> Dados Demo
           </Button>
           <Button variant="outline" size="sm" onClick={() => setShowTemplates(!showTemplates)}>
@@ -322,7 +335,7 @@ export default function Dashboard() {
       {showTemplates && <TemplateSelector onSelect={(t) => { setTemplate(t); setShowTemplates(false); }} />}
       {showCalculated && <CalculatedColumns />}
 
-      {transactions.length === 0 && (
+      {visibleTransactions.length === 0 && (
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
           className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-dashed border-amber-300 rounded-xl p-8 text-center">
           <Database className="h-12 w-12 mx-auto text-amber-500 mb-3" />
@@ -332,9 +345,9 @@ export default function Dashboard() {
           </p>
           <div className="flex gap-3 justify-center">
             <Button size="lg" className="bg-amber-500 hover:bg-amber-600 text-white" onClick={() => {
-              const mock = generateMockTransactions();
-              setTransactions(mock);
-            }}>
+               const mock = generateMockTransactions();
+               void setTransactions(mock);
+             }}>
               <Database className="h-5 w-5 mr-2" /> Carregar 150 Transações Demo
             </Button>
             <Link to="/import">
@@ -346,52 +359,88 @@ export default function Dashboard() {
         </motion.div>
       )}
 
-      <SuggestedQuestions onSelect={(q) => {
-        setFilters((prev: any) => ({ ...prev, search: q }));
-      }} context={{ categories, period: filters.period }} />
-
-      <DashboardFilters filters={filters} onChange={setFilters} categories={categories} costCenters={costCenters} />
-      <KpiCards kpis={kpis} monthlyData={monthlyData} comparison={comparison} />
-
-      {comparison && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <GaugeChart title="Receita vs Meta" value={kpis.income} target={comparison.income * 1.2 || 10000} unit="R$" color="#059669" />
-          <GaugeChart title="Despesa Controlada" value={kpis.expense} target={comparison.expense * 0.9 || 10000} unit="R$" color="#ef4444" />
-          <GaugeChart title="Saldo" value={kpis.balance} target={Math.max(kpis.balance, 10000)} unit="R$" color="#3b82f6" />
-          <GaugeChart title="Margem %" value={kpis.margin} target={30} unit="%" color="#8b5cf6" />
-        </div>
+      {visibleTransactions.length > 0 && (
+        <ValidationSummary report={validationReport} title="Validação final da entrega" />
       )}
 
-      {renderCharts()}
+      {!validationReport.approved && visibleTransactions.length > 0 && (
+        <Card className="border-rose-200 bg-rose-50">
+          <CardContent className="p-5 text-sm text-rose-700">
+            A apresentação analítica foi bloqueada porque a validação local encontrou inconsistências críticas nos dados processados. Corrija o mapeamento/importação antes de prosseguir.
+          </CardContent>
+        </Card>
+      )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Transações</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TransactionsTable transactions={transactions} />
-        </CardContent>
-      </Card>
+      {validationReport.approved && (
+        <>
+          <SuggestedQuestions onSelect={(q) => {
+            setFilters((prev: any) => ({ ...prev, search: q }));
+          }} context={{ categories, period: filters.period }} />
+
+          <DashboardFilters filters={filters} onChange={setFilters} categories={categories} costCenters={costCenters} />
+          <KpiCards kpis={kpis} monthlyData={monthlyData} comparison={comparison} />
+
+          {comparison && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <GaugeChart title="Receita vs Meta" value={kpis.income} target={comparison.income * 1.2 || 10000} unit="R$" color="#059669" />
+              <GaugeChart title="Despesa Controlada" value={kpis.expense} target={comparison.expense * 0.9 || 10000} unit="R$" color="#ef4444" />
+              <GaugeChart title="Saldo" value={kpis.balance} target={Math.max(kpis.balance, 10000)} unit="R$" color="#3b82f6" />
+              <GaugeChart title="Margem %" value={kpis.margin} target={30} unit="%" color="#8b5cf6" />
+            </div>
+          )}
+
+          {renderCharts()}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Transações</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <TransactionsTable transactions={visibleTransactions} />
+            </CardContent>
+          </Card>
+        </>
+      )}
 
       <ShareDialog
         open={showShare}
         onClose={() => setShowShare(false)}
         projectName={currentProject?.name || 'Dashboard'}
         onExportPDF={handleExportPDF}
+        snapshot={{
+          projectName: currentProject?.name || 'Dashboard',
+          createdAt: new Date().toISOString(),
+          transactions: visibleTransactions,
+          kpis,
+          monthlyData,
+          categoryData,
+          costCenterData,
+          filters: activeFilters,
+          comparison: comparison ?? null,
+        }}
       />
 
       <WhatIfPanel
         open={showWhatIf}
         onClose={() => setShowWhatIf(false)}
-        transactions={transactions}
+        transactions={visibleTransactions}
         kpis={kpis}
       />
 
-      <AlertManager onClose={() => setShowAlerts(false)} />
+      {showAlerts && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowAlerts(false)}>
+          <div onClick={(event) => event.stopPropagation()}>
+            <AlertManager onClose={() => setShowAlerts(false)} />
+          </div>
+        </div>
+      )}
 
       <BookmarkManager
         currentFilters={activeFilters}
         onLoad={handleLoadBookmark}
+        open={showBookmarks}
+        onOpenChange={setShowBookmarks}
+        hideTrigger
       />
     </motion.div>
   );

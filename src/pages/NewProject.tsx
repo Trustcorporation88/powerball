@@ -21,27 +21,27 @@ export default function NewProject() {
   const [segment, setSegment] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!segment) {
       toast.error("Selecione um segmento");
       return;
     }
+
     setLoading(true);
-    setTimeout(() => {
-      const newProject = {
-        id: Date.now().toString(),
-        name,
-        segment: segments.find(s => s.id === segment)?.label || segment,
-        status: "active" as const,
-        createdAt: new Date().toISOString().split("T")[0],
-      };
-      addProject(newProject);
-      setCurrentProject(newProject);
-      toast.success("Projeto criado com sucesso!");
-      navigate("/import");
-      setLoading(false);
-    }, 600);
+    const newProject = {
+      id: Date.now().toString(),
+      name,
+      segment: segments.find(s => s.id === segment)?.label || segment,
+      status: "active" as const,
+      createdAt: new Date().toISOString().split("T")[0],
+    };
+
+    await addProject(newProject);
+    await setCurrentProject(newProject);
+    toast.success("Projeto criado com sucesso!");
+    navigate("/import");
+    setLoading(false);
   };
 
   return (

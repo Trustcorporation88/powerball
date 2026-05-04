@@ -26,6 +26,9 @@ interface BookmarkEntry {
 interface BookmarkManagerProps {
   currentFilters: Record<string, unknown>;
   onLoad: (filters: Record<string, unknown>) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }
 
 const STORAGE_KEY = "datfin_bookmarks";
@@ -33,11 +36,16 @@ const STORAGE_KEY = "datfin_bookmarks";
 export default function BookmarkManager({
   currentFilters,
   onLoad,
+  open,
+  onOpenChange,
+  hideTrigger = false,
 }: BookmarkManagerProps) {
   const [bookmarks, setBookmarks] = useState<BookmarkEntry[]>([]);
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
   const [newName, setNewName] = useState("");
   const [showSaveForm, setShowSaveForm] = useState(false);
+  const isOpen = open ?? internalOpen;
+  const setIsOpen = onOpenChange ?? setInternalOpen;
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -74,7 +82,7 @@ export default function BookmarkManager({
       onLoad(entry.filters);
       setIsOpen(false);
     },
-    [onLoad]
+    [onLoad, setIsOpen]
   );
 
   const filterSummary = (filters: Record<string, unknown>) => {
@@ -100,20 +108,22 @@ export default function BookmarkManager({
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
-        className="border-amber-200 text-amber-700 hover:bg-amber-50"
-        onClick={() => setIsOpen(true)}
-      >
-        <Bookmark className="w-4 h-4 mr-2" />
-        Favoritos
-        {bookmarks.length > 0 && (
-          <Badge className="ml-1.5 bg-amber-100 text-amber-700 hover:bg-amber-100 text-[10px] px-1.5">
-            {bookmarks.length}
-          </Badge>
-        )}
-      </Button>
+      {!hideTrigger && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="border-amber-200 text-amber-700 hover:bg-amber-50"
+          onClick={() => setIsOpen(true)}
+        >
+          <Bookmark className="w-4 h-4 mr-2" />
+          Favoritos
+          {bookmarks.length > 0 && (
+            <Badge className="ml-1.5 bg-amber-100 text-amber-700 hover:bg-amber-100 text-[10px] px-1.5">
+              {bookmarks.length}
+            </Badge>
+          )}
+        </Button>
+      )}
 
       <AnimatePresence>
         {isOpen && (

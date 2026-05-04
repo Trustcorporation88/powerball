@@ -27,6 +27,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { useApp } from "@/contexts/AppContext";
+import { buildProjectStorageKey, readStorage, writeStorage } from "@/services/storage";
 
 interface Alert {
   id: string;
@@ -64,10 +66,8 @@ const OPERATOR_LABELS: Record<string, string> = {
   "=": "igual a",
 };
 
-const STORAGE_KEY_ALERTS = "datfin_alerts";
-const STORAGE_KEY_HISTORY = "datfin_alert_history";
-
 export default function AlertManager({ onClose }: AlertManagerProps) {
+  const { currentProject } = useApp();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [history, setHistory] = useState<AlertHistory[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -79,28 +79,21 @@ export default function AlertManager({ onClose }: AlertManagerProps) {
     threshold: 0,
   });
 
-  useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_ALERTS);
-    if (saved) {
-      try {
-        setAlerts(JSON.parse(saved));
-      } catch { /* ignore parse error */ }
-    }
-    const savedHistory = localStorage.getItem(STORAGE_KEY_HISTORY);
-    if (savedHistory) {
-      try {
-        setHistory(JSON.parse(savedHistory));
-      } catch { /* ignore parse error */ }
-    }
-  }, []);
+  const alertsKey = currentProject ? buildProjectStorageKey(currentProject.id, "alerts") : "datafin:alerts";
+  const historyKey = currentProject ? buildProjectStorageKey(currentProject.id, "alert-history") : "datafin:alert-history";
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_ALERTS, JSON.stringify(alerts));
-  }, [alerts]);
+    setAlerts(readStorage<Alert[]>(alertsKey, []));
+    setHistory(readStorage<AlertHistory[]>(historyKey, []));
+  }, [alertsKey, historyKey]);
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(history));
-  }, [history]);
+    writeStorage(alertsKey, alerts);
+  }, [alerts, alertsKey]);
+
+  useEffect(() => {
+    writeStorage(historyKey, history);
+  }, [history, historyKey]);
 
   const addAlert = useCallback(() => {
     if (!newAlert.name.trim()) return;

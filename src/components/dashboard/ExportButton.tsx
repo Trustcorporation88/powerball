@@ -66,7 +66,7 @@ export default function ExportButton({ data }: ExportButtonProps) {
       XLSX.utils.book_append_sheet(wb, wsTrans, 'Transações');
 
       const incomeTotal = dataToExport.filter(t => t.flowType === 'income').reduce((s, t) => s + t.value, 0);
-      const expenseTotal = dataToExport.filter(t => t.flowType === 'expense').reduce((s, t) => s + t.value, 0);
+      const expenseTotal = dataToExport.filter(t => t.flowType === 'expense').reduce((s, t) => s + Math.abs(t.value), 0);
 
       const resumoHeaders = ['Métrica', 'Valor'];
       const resumoRows = [

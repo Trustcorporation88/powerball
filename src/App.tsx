@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -6,19 +7,21 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { AppProvider } from "./contexts/AppContext";
 import { AppLayout } from "./components/layout/AppLayout";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Home from "./pages/Home";
-import Projects from "./pages/Projects";
-import NewProject from "./pages/NewProject";
-import ImportFile from "./pages/ImportFile";
-import ColumnMapping from "./pages/ColumnMapping";
-import Dashboard from "./pages/Dashboard";
-import DetailView from "./pages/DetailView";
-import Settings from "./pages/Settings";
-import ETLPipeline from "./pages/ETLPipeline";
-import Relationships from "./pages/Relationships";
-import NotFound from "./pages/NotFound";
+
+const Login = lazy(() => import("./pages/Login"));
+const Register = lazy(() => import("./pages/Register"));
+const Home = lazy(() => import("./pages/Home"));
+const Projects = lazy(() => import("./pages/Projects"));
+const NewProject = lazy(() => import("./pages/NewProject"));
+const ImportFile = lazy(() => import("./pages/ImportFile"));
+const ColumnMapping = lazy(() => import("./pages/ColumnMapping"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const DetailView = lazy(() => import("./pages/DetailView"));
+const Settings = lazy(() => import("./pages/Settings"));
+const ETLPipeline = lazy(() => import("./pages/ETLPipeline"));
+const Relationships = lazy(() => import("./pages/Relationships"));
+const SharedDashboard = lazy(() => import("./pages/SharedDashboard"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
 
@@ -28,29 +31,32 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 const AppRoutes = () => (
-  <Routes>
-    <Route path="/" element={<Login />} />
-    <Route path="/register" element={<Register />} />
-    <Route
-      element={
-        <PrivateRoute>
-          <AppLayout />
-        </PrivateRoute>
-      }
-    >
-      <Route path="/home" element={<Home />} />
-      <Route path="/projects" element={<Projects />} />
-      <Route path="/projects/new" element={<NewProject />} />
-      <Route path="/import" element={<ImportFile />} />
-      <Route path="/etl" element={<ETLPipeline />} />
-      <Route path="/relationships" element={<Relationships />} />
-      <Route path="/mapping" element={<ColumnMapping />} />
-      <Route path="/dashboard" element={<Dashboard />} />
-      <Route path="/detail" element={<DetailView />} />
-      <Route path="/settings" element={<Settings />} />
-    </Route>
-    <Route path="*" element={<NotFound />} />
-  </Routes>
+  <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Carregando...</div>}>
+    <Routes>
+      <Route path="/" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/shared/:token" element={<SharedDashboard />} />
+      <Route
+        element={
+          <PrivateRoute>
+            <AppLayout />
+          </PrivateRoute>
+        }
+      >
+        <Route path="/home" element={<Home />} />
+        <Route path="/projects" element={<Projects />} />
+        <Route path="/projects/new" element={<NewProject />} />
+        <Route path="/import" element={<ImportFile />} />
+        <Route path="/etl" element={<ETLPipeline />} />
+        <Route path="/relationships" element={<Relationships />} />
+        <Route path="/mapping" element={<ColumnMapping />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/detail" element={<DetailView />} />
+        <Route path="/settings" element={<Settings />} />
+      </Route>
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  </Suspense>
 );
 
 const App = () => (

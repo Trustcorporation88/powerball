@@ -61,6 +61,13 @@ export interface DBDashboardLayout {
   name: string;
 }
 
+export interface DBShareSnapshot {
+  token: string;
+  createdAt: string;
+  projectName: string;
+  snapshotJson: string;
+}
+
 const db = new Dexie('DataFinDB') as Dexie & {
   projects: EntityTable<DBProject, 'id'>;
   files: EntityTable<DBFileData, 'id'>;
@@ -68,6 +75,7 @@ const db = new Dexie('DataFinDB') as Dexie & {
   transactions: EntityTable<DBTransaction, 'id'>;
   users: EntityTable<DBUser, 'username'>;
   layouts: EntityTable<DBDashboardLayout, 'id'>;
+  shares: EntityTable<DBShareSnapshot, 'token'>;
 };
 
 db.version(1).stores({
@@ -77,6 +85,16 @@ db.version(1).stores({
   transactions: '++id, projectId, date, category, flowType',
   users: 'username',
   layouts: '++id, projectId',
+});
+
+db.version(2).stores({
+  projects: 'id, status, createdAt',
+  files: '++id, projectId',
+  mappings: '++id, projectId',
+  transactions: '++id, projectId, date, category, flowType',
+  users: 'username',
+  layouts: '++id, projectId',
+  shares: 'token, createdAt',
 });
 
 export { db };

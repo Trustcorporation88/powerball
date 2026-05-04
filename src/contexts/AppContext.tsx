@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import * as db from '@/services/db';
 import { generateMockTransactions } from '@/data/mockData';
+import { buildProjectStorageKey, readStorage, removeStorage, writeStorage } from '@/services/storage';
 
 export interface Project {
   id: string;
@@ -95,6 +96,18 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType>({} as AppContextType);
 
+function getTablesKey(projectId: string): string {
+  return buildProjectStorageKey(projectId, 'tables');
+}
+
+function getRelationshipsKey(projectId: string): string {
+  return buildProjectStorageKey(projectId, 'relationships');
+}
+
+function getRlsKey(projectId: string): string {
+  return buildProjectStorageKey(projectId, 'rls');
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProject, setCurrentProjectState] = useState<Project | null>(null);
@@ -107,30 +120,51 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [rlsRules, setRLSRulesState] = useState<RLSRule[]>([]);
 
   useEffect(() => {
-    db.getProjects().then(async loaded => {
-      if (loaded.length > 0) {
-        setProjects(loaded);
-        setLoading(false);
-      } else {
-        const demoProject: Project = {
-          id: 'demo-' + Date.now(),
-          name: 'Projeto Demo',
-          segment: 'Serviços',
-          status: 'active',
-          createdAt: new Date().toISOString().split('T')[0],
-          lastProcessed: new Date().toISOString(),
-        };
-        await db.saveProject(demoProject);
-        setProjects([demoProject]);
-        setCurrentProjectState(demoProject);
+    let cancelled = false;
 
-        const mockTxns = generateMockTransactions();
-        setTransactionsState(mockTxns);
-        await db.saveTransactions(demoProject.id, mockTxns as any);
+    const bootstrap = async () => {
+      const loadedProjects = await db.getProjects();
 
-        setLoading(false);
+      if (cancelled) {
+        return;
       }
-    });
+
+      if (loadedProjects.length > 0) {
+        setProjects(loadedProjects);
+        setLoading(false);
+        return;
+      }
+
+      const demoProject: Project = {
+        id: `demo-${Date.now()}`,
+        name: 'Projeto Demo',
+        segment: 'Serviços',
+        status: 'active',
+        createdAt: new Date().toISOString().split('T')[0],
+        lastProcessed: new Date().toISOString(),
+      };
+      const mockTxns = generateMockTransactions();
+
+      await Promise.all([
+        db.saveProject(demoProject),
+        db.saveTransactions(demoProject.id, mockTxns),
+      ]);
+
+      if (cancelled) {
+        return;
+      }
+
+      setProjects([demoProject]);
+      setCurrentProjectState(demoProject);
+      setTransactionsState(mockTxns);
+      setLoading(false);
+    };
+
+    void bootstrap();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const addProject = useCallback(async (p: Project) => {
@@ -140,34 +174,45 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const removeProject = useCallback(async (id: string) => {
     await db.deleteProject(id);
+    removeStorage(getTablesKey(id));
+    removeStorage(getRelationshipsKey(id));
+    removeStorage(getRlsKey(id));
     setProjects(prev => prev.filter(p => p.id !== id));
     if (currentProject?.id === id) {
       setCurrentProjectState(null);
+      setCurrentFileState(null);
+      setColumnMappingsState([]);
+      setTransactionsState([]);
+      setAdditionalTables([]);
+      setTableRelationships([]);
+      setRLSRulesState([]);
     }
   }, [currentProject]);
 
   const setCurrentProject = useCallback(async (p: Project | null) => {
     setCurrentProjectState(p);
-    if (p) {
-      const file = await db.getFileData(p.id);
-      if (file) setCurrentFileState(file as ParsedFileData);
-      const mappings = await db.getMappings(p.id);
-      if (mappings.length) setColumnMappingsState(mappings as ColumnMapping[]);
-      const txns = await db.getTransactions(p.id);
-      if (txns.length) setTransactionsState(txns as unknown as Transaction[]);
-
-      const savedTables = localStorage.getItem(`datfin_tables_${p.id}`);
-      if (savedTables) setAdditionalTables(JSON.parse(savedTables));
-      else setAdditionalTables([]);
-
-      const savedRels = localStorage.getItem(`datfin_rels_${p.id}`);
-      if (savedRels) setTableRelationships(JSON.parse(savedRels));
-      else setTableRelationships([]);
-
-      const savedRLS = localStorage.getItem(`datfin_rls_${p.id}`);
-      if (savedRLS) setRLSRulesState(JSON.parse(savedRLS));
-      else setRLSRulesState([]);
+    if (!p) {
+      setCurrentFileState(null);
+      setColumnMappingsState([]);
+      setTransactionsState([]);
+      setAdditionalTables([]);
+      setTableRelationships([]);
+      setRLSRulesState([]);
+      return;
     }
+
+    const [file, mappings, txns] = await Promise.all([
+      db.getFileData(p.id),
+      db.getMappings(p.id),
+      db.getTransactions(p.id),
+    ]);
+
+    setCurrentFileState(file ? (file as ParsedFileData) : null);
+    setColumnMappingsState(mappings as ColumnMapping[]);
+    setTransactionsState(txns as Transaction[]);
+    setAdditionalTables(readStorage<AdditionalTable[]>(getTablesKey(p.id), []));
+    setTableRelationships(readStorage<TableRelationship[]>(getRelationshipsKey(p.id), []));
+    setRLSRulesState(readStorage<RLSRule[]>(getRlsKey(p.id), []));
   }, []);
 
   const setCurrentFile = useCallback(async (f: ParsedFileData | null) => {
@@ -188,14 +233,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setColumnMappings = useCallback(async (m: ColumnMapping[]) => {
     setColumnMappingsState(m);
     if (currentProject) {
-      await db.saveMappings(currentProject.id, m as any);
+      await db.saveMappings(currentProject.id, m);
     }
   }, [currentProject]);
 
   const setTransactions = useCallback(async (t: Transaction[]) => {
     setTransactionsState(t);
     if (currentProject) {
-      await db.saveTransactions(currentProject.id, t as any);
+      await db.saveTransactions(currentProject.id, t);
     }
   }, [currentProject]);
 
@@ -211,7 +256,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAdditionalTables(prev => {
       const updated = [...prev, table];
       if (currentProject) {
-        localStorage.setItem(`datfin_tables_${currentProject.id}`, JSON.stringify(updated));
+        writeStorage(getTablesKey(currentProject.id), updated);
       }
       return updated;
     });
@@ -221,14 +266,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAdditionalTables(prev => {
       const updated = prev.filter(t => t.id !== id);
       if (currentProject) {
-        localStorage.setItem(`datfin_tables_${currentProject.id}`, JSON.stringify(updated));
+        writeStorage(getTablesKey(currentProject.id), updated);
       }
       return updated;
     });
     setTableRelationships(prev => {
       const updated = prev.filter(r => r.leftTable !== id && r.rightTable !== id);
       if (currentProject) {
-        localStorage.setItem(`datfin_rels_${currentProject.id}`, JSON.stringify(updated));
+        writeStorage(getRelationshipsKey(currentProject.id), updated);
       }
       return updated;
     });
@@ -238,7 +283,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTableRelationships(prev => {
       const updated = [...prev, rel];
       if (currentProject) {
-        localStorage.setItem(`datfin_rels_${currentProject.id}`, JSON.stringify(updated));
+        writeStorage(getRelationshipsKey(currentProject.id), updated);
       }
       return updated;
     });
@@ -248,7 +293,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTableRelationships(prev => {
       const updated = prev.filter(r => r.id !== id);
       if (currentProject) {
-        localStorage.setItem(`datfin_rels_${currentProject.id}`, JSON.stringify(updated));
+        writeStorage(getRelationshipsKey(currentProject.id), updated);
       }
       return updated;
     });
@@ -257,7 +302,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const setRLSRules = useCallback((rules: RLSRule[]) => {
     setRLSRulesState(rules);
     if (currentProject) {
-      localStorage.setItem(`datfin_rls_${currentProject.id}`, JSON.stringify(rules));
+      writeStorage(getRlsKey(currentProject.id), rules);
     }
   }, [currentProject]);
 
@@ -265,7 +310,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRLSRulesState(prev => {
       const updated = [...prev, rule];
       if (currentProject) {
-        localStorage.setItem(`datfin_rls_${currentProject.id}`, JSON.stringify(updated));
+        writeStorage(getRlsKey(currentProject.id), updated);
       }
       return updated;
     });
@@ -275,7 +320,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRLSRulesState(prev => {
       const updated = prev.filter(r => r.id !== id);
       if (currentProject) {
-        localStorage.setItem(`datfin_rls_${currentProject.id}`, JSON.stringify(updated));
+        writeStorage(getRlsKey(currentProject.id), updated);
       }
       return updated;
     });
@@ -286,7 +331,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const userRule = rlsRules.find(r => r.role === userRole);
     if (!userRule) return transactions;
     return transactions.filter(t => {
-      const val = (t as any)[userRule.column];
+      const val = t[userRule.column as keyof Transaction];
       return userRule.values.includes(String(val));
     });
   }, [transactions, rlsRules]);
