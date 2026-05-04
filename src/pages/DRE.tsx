@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import DRERulesManager from "@/components/dre/DRERulesManager";
 import DREExportButton from "@/components/dre/DREExportButton";
 import { DREDataGuide } from "@/components/dre/DREDataGuide";
+import { AdvancedMetricsDialog } from "@/components/dre/AdvancedMetricsDialog";
 import { BenchmarkDialog } from "@/components/BenchmarkDialog";
 import { AuditReportDisplay } from "@/components/AuditReportDisplay";
 import { performFullAudit, type AuditReport } from "@/services/audit";
@@ -604,6 +605,21 @@ export default function DRE() {
           profitMargin: (dreReport.summary.resultadoLiquido / dreReport.summary.receitaBruta) * 100 || 0,
         }}
       />
+
+      {/* Advanced Metrics - Botão integrado no componente */}
+      {deliveryTransactions.length > 0 && (
+        <div className="fixed bottom-6 right-6 z-50">
+          <AdvancedMetricsDialog
+            receitaBruta={dreReport.summary.receitaBruta}
+            receitaLiquida={dreReport.summary.receitaLiquida}
+            lucroBruto={dreReport.summary.lucroBruto}
+            ebitda={dreReport.summary.ebitda}
+            resultadoLiquido={dreReport.summary.resultadoLiquido}
+            custos={dreReport.groupTotals.find(g => g.group === "Custos")?.amount ?? 0}
+            despesasOperacionais={dreReport.groupTotals.find(g => g.group === "Despesas Operacionais")?.amount ?? 0}
+          />
+        </div>
+      )}
     </div>
   );
 }
