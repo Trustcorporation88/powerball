@@ -17,6 +17,8 @@ import DRERulesManager from "@/components/dre/DRERulesManager";
 import DREExportButton from "@/components/dre/DREExportButton";
 import { DREDataGuide } from "@/components/dre/DREDataGuide";
 import { BenchmarkDialog } from "@/components/BenchmarkDialog";
+import { AuditReportDisplay } from "@/components/AuditReportDisplay";
+import { performFullAudit, type AuditReport } from "@/services/audit";
 import { buildDREReport } from "@/services/dre";
 import { mergeValidationReports, validateDRETransactions, validateTransactions } from "@/services/validation";
 import { generateMockTransactions } from "@/data/mockData";
@@ -120,6 +122,9 @@ export default function DRE() {
   const [periodGranularity, setPeriodGranularity] = useState<PeriodGranularity>("month");
   const [selectedPeriod, setSelectedPeriod] = useState<string>("all");
   const [showBenchmark, setShowBenchmark] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [dreAudit, setDreAudit] = useState<AuditReport | null>(null);
+  const [transactionsAudit, setTransactionsAudit] = useState<AuditReport | null>(null);
 
   const visibleTransactions = useMemo(
     () => getRLSFilteredData(user?.role ?? "user"),
@@ -267,6 +272,14 @@ export default function DRE() {
   const comparisonPeriodLabel = comparisonPeriodOption?.label ?? null;
   const baseForPercentage = Math.abs(dreReport.summary.receitaLiquida) || Math.abs(dreReport.summary.receitaBruta) || 1;
   const isApproved = mergedValidationReport.approved;
+
+  const handleRunAudit = async () => {
+    setAuditLoading(true);
+    const result = await performFullAudit(dreReport, visibleTransactions);
+    setDreAudit(result.dre);
+    setTransactionsAudit(result.transactions);
+    setAuditLoading(false);
+  };
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
