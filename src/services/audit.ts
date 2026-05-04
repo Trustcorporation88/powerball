@@ -361,3 +361,527 @@ export async function performFullAudit(
     transactions: transactionsAudit,
   };
 }
+
+/**
+ * Auditoria de Importação - Validar estrutura de dados na origem
+ */
+export async function auditImportData(
+  headers: string[],
+  data: Record<string, unknown>[]
+): Promise<AuditReport> {
+  if (!DEEPSEEK_API_KEY) {
+    return offlineAuditImport(headers, data);
+  }
+
+  try {
+    const sample = data.slice(0, 5);
+    const prompt = `Você é um auditor de qualidade de dados especializado em importação de arquivos financeiros.
+
+HEADERS IMPORTADOS:
+${headers.join(', ')}
+
+AMOSTRA DOS DADOS (primeiras 5 linhas):
+${JSON.stringify(sample, null, 2)}
+
+TAREFA:
+1. Valide se os headers são apropriados para dados financeiros
+2. Verifique se os valores são do tipo esperado (datas como data, valores como número)
+3. Identifique outliers óbvios ou valores suspeitos
+4. Verifique se há campos obrigatórios faltando (data, valor, descrição)
+5. Detecte padrões de erro em nomes de colunas
+
+RESPONDA EM JSON:
+{
+  "confidence": 0-100,
+  "passed": true/false,
+  "issues": [
+    {
+      "severity": "critical" | "warning" | "info",
+      "category": "consistency",
+      "title": "Título do problema",
+      "description": "Descrição",
+      "affectedItem": "Nome da coluna ou linha",
+      "suggestion": "Como corrigir"
+    }
+  ],
+  "summary": "Resumo geral",
+  "checksPerformed": número,
+  "checksPassed": número
+}`;
+
+    const response = await fetch(DEEPSEEK_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: 'Você é um auditor de qualidade de dados rigoroso. Retorne APENAS JSON válido.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.1,
+        max_tokens: 1500,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const responseData = await response.json();
+    const content = responseData.choices?.[0]?.message?.content;
+
+    if (!content) {
+      throw new Error('Empty response');
+    }
+
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('No JSON found');
+    }
+
+    const result = JSON.parse(jsonMatch[0]);
+    
+    return {
+      engine: 'deepseek',
+      ...result,
+      validatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error('Import audit failed:', error);
+    return offlineAuditImport(headers, data);
+  }
+}
+
+/**
+ * Auditoria de Fluxo de Caixa - Validar saldos e movimentação
+ */
+export async function auditCashFlow(
+  monthlyData: Array<{ month: string; income: number; expense: number; balance: number }>
+): Promise<AuditReport> {
+  if (!DEEPSEEK_API_KEY) {
+    return offlineAuditCashFlow(monthlyData);
+  }
+
+  try {
+    const prompt = `Você é um auditor de fluxo de caixa especializado em análise financeira.
+
+DADOS DO FLUXO DE CAIXA (últimos 6 meses):
+${JSON.stringify(monthlyData.slice(-6), null, 2)}
+
+TAREFA:
+1. Valide se o cálculo de saldo está correto (saldo anterior + receita - despesa)
+2. Identifique jumps anormais entre meses (variações >100% sem explicação)
+3. Detecte saldos negativos repetidos (pode indicar caixa descoberto)
+4. Verifique se receitas são realistas comparado a despesas
+5. Identifique padrões de sazonalidade anormais
+
+RESPONDA EM JSON:
+{
+  "confidence": 0-100,
+  "passed": true/false,
+  "issues": [
+    {
+      "severity": "critical" | "warning" | "info",
+      "category": "consistency",
+      "title": "Título",
+      "description": "Descrição",
+      "affectedItem": "Mês afetado",
+      "suggestion": "Como corrigir"
+    }
+  ],
+  "summary": "Resumo",
+  "checksPerformed": número,
+  "checksPassed": número
+}`;
+
+    const response = await fetch(DEEPSEEK_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: 'Você é um auditor de fluxo de caixa rigoroso. Retorne APENAS JSON válido.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.1,
+        max_tokens: 1500,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const responseData = await response.json();
+    const content = responseData.choices?.[0]?.message?.content;
+
+    if (!content) {
+      throw new Error('Empty response');
+    }
+
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('No JSON found');
+    }
+
+    const result = JSON.parse(jsonMatch[0]);
+    
+    return {
+      engine: 'deepseek',
+      ...result,
+      validatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error('CashFlow audit failed:', error);
+    return offlineAuditCashFlow(monthlyData);
+  }
+}
+
+/**
+ * Auditoria de Centros de Custo - Validar distribuição
+ */
+export async function auditCostCenterDistribution(
+  costCenters: Array<{ name: string; income: number; expense: number; percentage: number }>
+): Promise<AuditReport> {
+  if (!DEEPSEEK_API_KEY) {
+    return offlineAuditCostCenter(costCenters);
+  }
+
+  try {
+    const prompt = `Você é um auditor de centros de custo.
+
+DISTRIBUIÇÃO POR CENTRO:
+${JSON.stringify(costCenters, null, 2)}
+
+TAREFA:
+1. Valide se os percentuais somam ~100%
+2. Identifique centros com alocação irrealista (<0.1% ou >50%)
+3. Detecte nomes duplicados ou similares
+4. Verifique se há centros sem movimentação
+5. Analise se a distribuição é equilibrada
+
+RESPONDA EM JSON:
+{
+  "confidence": 0-100,
+  "passed": true/false,
+  "issues": [],
+  "summary": "Resumo",
+  "checksPerformed": número,
+  "checksPassed": número
+}`;
+
+    const response = await fetch(DEEPSEEK_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: 'Você é um auditor de centros de custo. Retorne APENAS JSON válido.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.1,
+        max_tokens: 1200,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const responseData = await response.json();
+    const content = responseData.choices?.[0]?.message?.content;
+
+    if (!content) {
+      throw new Error('Empty response');
+    }
+
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('No JSON found');
+    }
+
+    const result = JSON.parse(jsonMatch[0]);
+    
+    return {
+      engine: 'deepseek',
+      ...result,
+      validatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error('CostCenter audit failed:', error);
+    return offlineAuditCostCenter(costCenters);
+  }
+}
+
+/**
+ * Auditoria de Dashboard - Validar consolidação
+ */
+export async function auditDashboardConsolidation(
+  summary: {
+    totalIncome: number;
+    totalExpense: number;
+    netResult: number;
+    projectCount?: number;
+    transactionCount?: number;
+  }
+): Promise<AuditReport> {
+  if (!DEEPSEEK_API_KEY) {
+    return offlineAuditDashboard(summary);
+  }
+
+  try {
+    const prompt = `Você é um auditor de consolidação de dados de dashboard.
+
+RESUMO DO DASHBOARD:
+${JSON.stringify(summary, null, 2)}
+
+TAREFA:
+1. Valide se netResult = totalIncome - totalExpense
+2. Verifique se totalIncome e totalExpense têm sinais corretos
+3. Detecte valores zerados quando deveriam haver dados
+4. Valide contadores (projectCount, transactionCount)
+
+RESPONDA EM JSON:
+{
+  "confidence": 0-100,
+  "passed": true/false,
+  "issues": [],
+  "summary": "Resumo",
+  "checksPerformed": número,
+  "checksPassed": número
+}`;
+
+    const response = await fetch(DEEPSEEK_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: 'Você é um auditor de consolidação. Retorne APENAS JSON válido.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.1,
+        max_tokens: 1000,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status}`);
+    }
+
+    const responseData = await response.json();
+    const content = responseData.choices?.[0]?.message?.content;
+
+    if (!content) {
+      throw new Error('Empty response');
+    }
+
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('No JSON found');
+    }
+
+    const result = JSON.parse(jsonMatch[0]);
+    
+    return {
+      engine: 'deepseek',
+      ...result,
+      validatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error('Dashboard audit failed:', error);
+    return offlineAuditDashboard(summary);
+  }
+}
+
+/**
+ * Auditoria offline para importação
+ */
+function offlineAuditImport(headers: string[], data: Record<string, unknown>[]): AuditReport {
+  const issues: AuditIssue[] = [];
+  let checksPerformed = 0;
+  let checksPassed = 0;
+
+  // Check: Headers obrigatórios
+  checksPerformed++;
+  const requiredHeaders = ['data', 'valor', 'descricao', 'categoria'];
+  const lowerHeaders = headers.map(h => h.toLowerCase());
+  const missingHeaders = requiredHeaders.filter(h => !lowerHeaders.some(lh => lh.includes(h)));
+  
+  if (missingHeaders.length > 0) {
+    issues.push({
+      severity: 'critical',
+      category: 'consistency',
+      title: 'Colunas obrigatórias faltando',
+      description: `Faltam: ${missingHeaders.join(', ')}`,
+      suggestion: 'Adicione as colunas obrigatórias antes de importar',
+    });
+  } else {
+    checksPassed++;
+  }
+
+  // Check: Linhas vazias
+  checksPerformed++;
+  const emptyRows = data.filter(row => !Object.values(row).some(v => v !== null && v !== undefined && v !== ''));
+  if (emptyRows.length > 0) {
+    issues.push({
+      severity: 'warning',
+      category: 'consistency',
+      title: `${emptyRows.length} linhas vazias detectadas`,
+      description: 'Há linhas sem dados que serão ignoradas',
+      suggestion: 'Remova as linhas vazias antes de importar',
+    });
+  } else {
+    checksPassed++;
+  }
+
+  const confidence = checksPerformed > 0 ? Math.round((checksPassed / checksPerformed) * 100) : 100;
+
+  return {
+    engine: 'offline',
+    confidence,
+    passed: issues.filter(i => i.severity === 'critical').length === 0,
+    issues,
+    summary: issues.length === 0 
+      ? 'Importação validada: estrutura correta.'
+      : `Encontrados ${issues.length} problema(s) na importação.`,
+    validatedAt: new Date().toISOString(),
+    checksPerformed,
+    checksPassed,
+  };
+}
+
+/**
+ * Auditoria offline para fluxo de caixa
+ */
+function offlineAuditCashFlow(
+  monthlyData: Array<{ month: string; income: number; expense: number; balance: number }>
+): AuditReport {
+  const issues: AuditIssue[] = [];
+  let checksPerformed = 0;
+  let checksPassed = 0;
+
+  monthlyData.forEach((month, index) => {
+    checksPerformed++;
+    const expectedBalance = month.income - Math.abs(month.expense);
+    if (Math.abs(month.balance - expectedBalance) > 0.01) {
+      issues.push({
+        severity: 'critical',
+        category: 'calculation',
+        title: 'Saldo incorreto',
+        description: `${month.month}: Esperado R$ ${expectedBalance.toFixed(2)}, Encontrado R$ ${month.balance.toFixed(2)}`,
+        affectedItem: month.month,
+        suggestion: 'Saldo = Receita - Despesa',
+      });
+    } else {
+      checksPassed++;
+    }
+  });
+
+  const confidence = checksPerformed > 0 ? Math.round((checksPassed / checksPerformed) * 100) : 100;
+
+  return {
+    engine: 'offline',
+    confidence,
+    passed: issues.filter(i => i.severity === 'critical').length === 0,
+    issues,
+    summary: issues.length === 0 
+      ? 'Fluxo de caixa validado: saldos corretos.'
+      : `Encontrados ${issues.length} problema(s) no fluxo.`,
+    validatedAt: new Date().toISOString(),
+    checksPerformed,
+    checksPassed,
+  };
+}
+
+/**
+ * Auditoria offline para centros de custo
+ */
+function offlineAuditCostCenter(
+  costCenters: Array<{ name: string; income: number; expense: number; percentage: number }>
+): AuditReport {
+  const issues: AuditIssue[] = [];
+  let checksPerformed = 0;
+  let checksPassed = 0;
+
+  checksPerformed++;
+  const totalPercentage = costCenters.reduce((sum, cc) => sum + cc.percentage, 0);
+  if (Math.abs(totalPercentage - 100) > 1) {
+    issues.push({
+      severity: 'warning',
+      category: 'consistency',
+      title: 'Percentuais não somam 100%',
+      description: `Total: ${totalPercentage.toFixed(2)}%`,
+      suggestion: 'Verifique a distribuição dos centros',
+    });
+  } else {
+    checksPassed++;
+  }
+
+  const confidence = checksPerformed > 0 ? Math.round((checksPassed / checksPerformed) * 100) : 100;
+
+  return {
+    engine: 'offline',
+    confidence,
+    passed: true,
+    issues,
+    summary: 'Centros de custo validados.',
+    validatedAt: new Date().toISOString(),
+    checksPerformed,
+    checksPassed,
+  };
+}
+
+/**
+ * Auditoria offline para dashboard
+ */
+function offlineAuditDashboard(summary: {
+  totalIncome: number;
+  totalExpense: number;
+  netResult: number;
+}): AuditReport {
+  const issues: AuditIssue[] = [];
+  let checksPerformed = 0;
+  let checksPassed = 0;
+
+  checksPerformed++;
+  const expectedNetResult = summary.totalIncome - Math.abs(summary.totalExpense);
+  if (Math.abs(summary.netResult - expectedNetResult) > 0.01) {
+    issues.push({
+      severity: 'critical',
+      category: 'calculation',
+      title: 'Resultado líquido incorreto',
+      description: `Esperado: R$ ${expectedNetResult.toFixed(2)}, Encontrado: R$ ${summary.netResult.toFixed(2)}`,
+      suggestion: 'Resultado = Receita - Despesa',
+    });
+  } else {
+    checksPassed++;
+  }
+
+  const confidence = checksPerformed > 0 ? Math.round((checksPassed / checksPerformed) * 100) : 100;
+
+  return {
+    engine: 'offline',
+    confidence,
+    passed: issues.filter(i => i.severity === 'critical').length === 0,
+    issues,
+    summary: issues.length === 0 
+      ? 'Dashboard consolidado corretamente.'
+      : `Encontrados ${issues.length} problema(s).`,
+    validatedAt: new Date().toISOString(),
+    checksPerformed,
+    checksPassed,
+  };
+}

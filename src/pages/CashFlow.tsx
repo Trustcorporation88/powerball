@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, BarChart3, Database, FileSpreadsheet, LineChart as LineChartIcon } from "lucide-react";
 import {
@@ -20,6 +20,8 @@ import { ValidationSummary } from "@/components/ValidationSummary";
 import { validateTransactions } from "@/services/validation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuditPanel } from "@/components/audit/AuditPanel";
+import { auditCashFlow, type AuditReport } from "@/services/audit";
 
 function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -28,6 +30,9 @@ function formatCurrency(value: number) {
 export default function CashFlow() {
   const { currentProject, getRLSFilteredData, setTransactions } = useApp();
   const { user } = useAuth();
+  const [auditReport, setAuditReport] = useState<AuditReport | null>(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditKey, setAuditKey] = useState<string>("");
 
   const visibleTransactions = useMemo(
     () => getRLSFilteredData(user?.role ?? "user"),
@@ -71,6 +76,49 @@ export default function CashFlow() {
   const totalExpense = monthlyFlow.reduce((sum, entry) => sum + entry.expense, 0);
   const totalNet = totalIncome - totalExpense;
   const endingBalance = monthlyFlow.at(-1)?.cumulative ?? totalNet;
+
+  const runCashFlowAudit = useCallback(async () => {
+    if (monthlyFlow.length === 0) {
+      return;
+    }
+
+    setAuditLoading(true);
+    try {
+      const dataForAudit = monthlyFlow.map(m => ({
+        month: m.month,
+        income: m.income,
+        expense: m.expense,
+        balance: m.cumulative,
+      }));
+
+      const report = await auditCashFlow(dataForAudit);
+      setAuditReport(report);
+    } catch (error) {
+      console.error('CashFlow audit failed:', error);
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [monthlyFlow]);
+
+  // Auto-run audit when monthly flow changes
+  useEffect(() => {
+    if (monthlyFlow.length === 0) {
+      setAuditReport(null);
+      return;
+    }
+
+    const currentKey = JSON.stringify(monthlyFlow);
+    if (currentKey !== auditKey) {
+      setAuditKey(currentKey);
+      setAuditReport(null);
+      
+      const timer = setTimeout(() => {
+        runCashFlowAudit();
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [monthlyFlow, auditKey, runCashFlowAudit]);
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -135,6 +183,17 @@ export default function CashFlow() {
       )}
 
       {visibleTransactions.length > 0 && <ValidationSummary report={validationReport} title="Validação do fluxo de caixa" />}
+
+      {monthlyFlow.length > 0 && (
+        <AuditPanel
+          type="cashflow"
+          audit={auditReport}
+          loading={auditLoading}
+          onRunAudit={runCashFlowAudit}
+          blocking={true}
+          disabled={monthlyFlow.length === 0}
+        />
+      )}
 
       {validationReport.approved && visibleTransactions.length > 0 && (
         <>

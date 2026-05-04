@@ -44,6 +44,8 @@ import { ValidationSummary } from '@/components/ValidationSummary';
 import { queryNLP } from '@/services/ai';
 import { ProFeatureButton } from '@/components/ProFeature';
 import { EmptyState } from '@/components/EmptyState';
+import { AuditPanel } from '@/components/audit/AuditPanel';
+import { auditDashboardConsolidation, type AuditReport } from '@/services/audit';
 
 const COLORS = ['#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5', '#3b82f6', '#8b5cf6'];
 
@@ -61,6 +63,9 @@ export default function Dashboard() {
   const { transactions, currentProject, setTransactions, getRLSFilteredData } = useApp();
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [auditReport, setAuditReport] = useState<AuditReport | null>(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditKey, setAuditKey] = useState<string>("");
 
   const drillCategory = searchParams.get('category') || null;
   const drillCostCenter = searchParams.get('costCenter') || null;
@@ -132,6 +137,50 @@ export default function Dashboard() {
     categoryData.map((c: any) => ({ name: c.name, value: c.value })),
     [categoryData]
   );
+
+  const runDashboardAudit = useCallback(async () => {
+    if (!kpis || Object.keys(kpis).length === 0) {
+      return;
+    }
+
+    setAuditLoading(true);
+    try {
+      const summary = {
+        totalIncome: kpis.totalIncome || 0,
+        totalExpense: kpis.totalExpense || 0,
+        netResult: (kpis.totalIncome || 0) - (kpis.totalExpense || 0),
+        projectCount: currentProject ? 1 : 0,
+        transactionCount: visibleTransactions.length,
+      };
+
+      const report = await auditDashboardConsolidation(summary);
+      setAuditReport(report);
+    } catch (error) {
+      console.error('Dashboard audit failed:', error);
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [kpis, currentProject, visibleTransactions.length]);
+
+  // Auto-run audit when KPIs change
+  useEffect(() => {
+    if (!kpis || Object.keys(kpis).length === 0) {
+      setAuditReport(null);
+      return;
+    }
+
+    const currentKey = JSON.stringify(kpis);
+    if (currentKey !== auditKey) {
+      setAuditKey(currentKey);
+      setAuditReport(null);
+      
+      const timer = setTimeout(() => {
+        runDashboardAudit();
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [kpis, auditKey, runDashboardAudit]);
 
   const handleGlobalClick = useCallback((payload: any) => {
     if (payload?.name) {
@@ -438,6 +487,17 @@ export default function Dashboard() {
 
       {visibleTransactions.length > 0 && (
         <ValidationSummary report={validationReport} title="Validação final da entrega" />
+      )}
+
+      {visibleTransactions.length > 0 && kpis && (
+        <AuditPanel
+          type="dashboard"
+          audit={auditReport}
+          loading={auditLoading}
+          onRunAudit={runDashboardAudit}
+          blocking={false}
+          disabled={Object.keys(kpis).length === 0}
+        />
       )}
 
       {!validationReport.approved && visibleTransactions.length > 0 && (

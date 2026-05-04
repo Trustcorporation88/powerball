@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { RealUploadArea } from "@/components/RealUploadArea";
@@ -13,6 +13,8 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { AuditPanel } from "@/components/audit/AuditPanel";
+import { auditImportData, type AuditReport } from "@/services/audit";
 
 type ImportMode = "single" | "combine";
 
@@ -35,6 +37,10 @@ export default function ImportFile() {
   const navigate = useNavigate();
   const { currentProject, currentFile, setCurrentFile } = useApp();
   const { parse, parsing } = useExcelParser();
+  const [auditReport, setAuditReport] = useState<AuditReport | null>(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditKey, setAuditKey] = useState<string>("");
+  
   const initialStoredSheets = useMemo(
     () => Array.isArray(currentFile?.sheets)
       ? currentFile.sheets.filter((sheet): sheet is ParsedSheet =>
@@ -247,8 +253,62 @@ export default function ImportFile() {
       return;
     }
 
+    // Check if audit has critical issues and blocking is enabled
+    const hasCritical = auditReport?.issues.some(i => i.severity === 'critical') ?? false;
+    if (hasCritical) {
+      toast.error("Existem problemas críticos na auditoria. Resolva antes de continuar.");
+      return;
+    }
+
     navigate("/mapping");
   };
+
+  const runImportAudit = useCallback(async () => {
+    if (!currentSheet || currentSheet.headers.length === 0) {
+      return;
+    }
+
+    setAuditLoading(true);
+    try {
+      const dataToAudit = importMode === "combine" 
+        ? combinedSelection?.allData || []
+        : currentSheet.data;
+
+      const report = await auditImportData(currentSheet.headers, dataToAudit);
+      setAuditReport(report);
+    } catch (error) {
+      console.error('Audit failed:', error);
+      toast.error("Erro ao executar auditoria");
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [currentSheet, importMode, combinedSelection]);
+
+  // Auto-run audit when sheet changes
+  useEffect(() => {
+    if (!currentSheet || currentSheet.headers.length === 0) {
+      setAuditReport(null);
+      return;
+    }
+
+    const currentKey = JSON.stringify({
+      headers: currentSheet.headers,
+      rowCount: currentSheet.data.length,
+      mode: importMode,
+    });
+
+    if (currentKey !== auditKey) {
+      setAuditKey(currentKey);
+      setAuditReport(null);
+      
+      // Auto-run audit after a short delay
+      const timer = setTimeout(() => {
+        runImportAudit();
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [currentSheet, importMode, auditKey, runImportAudit]);
 
   return (
     <div className="p-6 max-w-6xl mx-auto">
@@ -363,6 +423,17 @@ export default function ImportFile() {
               )}
             </CardContent>
           </Card>
+
+          {currentSheet && (
+            <AuditPanel
+              type="import"
+              audit={auditReport}
+              loading={auditLoading}
+              onRunAudit={runImportAudit}
+              blocking={true}
+              disabled={!currentSheet}
+            />
+          )}
 
           {parsedSheets.length > 1 && (
             <div className="space-y-3">

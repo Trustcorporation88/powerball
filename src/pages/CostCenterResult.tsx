@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, BarChart3, Building2, Database, FileSpreadsheet, FileText } from "lucide-react";
 import {
@@ -18,6 +18,8 @@ import { ValidationSummary } from "@/components/ValidationSummary";
 import { validateTransactions } from "@/services/validation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuditPanel } from "@/components/audit/AuditPanel";
+import { auditCostCenterDistribution, type AuditReport } from "@/services/audit";
 
 function formatCurrency(value: number) {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -26,6 +28,9 @@ function formatCurrency(value: number) {
 export default function CostCenterResult() {
   const { currentProject, getRLSFilteredData, setTransactions } = useApp();
   const { user } = useAuth();
+  const [auditReport, setAuditReport] = useState<AuditReport | null>(null);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditKey, setAuditKey] = useState<string>("");
 
   const visibleTransactions = useMemo(
     () => getRLSFilteredData(user?.role ?? "user"),
@@ -63,6 +68,50 @@ export default function CostCenterResult() {
   const totalBalance = costCenterRows.reduce((sum, row) => sum + row.balance, 0);
   const bestCenter = costCenterRows[0] ?? null;
   const worstCenter = costCenterRows.at(-1) ?? null;
+
+  const runCostCenterAudit = useCallback(async () => {
+    if (costCenterRows.length === 0) {
+      return;
+    }
+
+    setAuditLoading(true);
+    try {
+      const totalIncome = costCenterRows.reduce((sum, row) => sum + row.income, 0);
+      const dataForAudit = costCenterRows.map(row => ({
+        name: row.name,
+        income: row.income,
+        expense: row.expense,
+        percentage: totalIncome > 0 ? (row.income / totalIncome) * 100 : 0,
+      }));
+
+      const report = await auditCostCenterDistribution(dataForAudit);
+      setAuditReport(report);
+    } catch (error) {
+      console.error('CostCenter audit failed:', error);
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [costCenterRows]);
+
+  // Auto-run audit when cost centers change
+  useEffect(() => {
+    if (costCenterRows.length === 0) {
+      setAuditReport(null);
+      return;
+    }
+
+    const currentKey = JSON.stringify(costCenterRows);
+    if (currentKey !== auditKey) {
+      setAuditKey(currentKey);
+      setAuditReport(null);
+      
+      const timer = setTimeout(() => {
+        runCostCenterAudit();
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [costCenterRows, auditKey, runCostCenterAudit]);
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -127,6 +176,17 @@ export default function CostCenterResult() {
       )}
 
       {visibleTransactions.length > 0 && <ValidationSummary report={validationReport} title="Validação do resultado por centro de custo" />}
+
+      {costCenterRows.length > 0 && (
+        <AuditPanel
+          type="costcenter"
+          audit={auditReport}
+          loading={auditLoading}
+          onRunAudit={runCostCenterAudit}
+          blocking={false}
+          disabled={costCenterRows.length === 0}
+        />
+      )}
 
       {validationReport.approved && visibleTransactions.length > 0 && (
         <>
