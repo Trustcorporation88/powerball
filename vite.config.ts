@@ -7,6 +7,15 @@ export default defineConfig(() => ({
   server: {
     host: "::",
     port: 8081,
+    proxy: {
+      // Proxy ReceitaWS para evitar CORS em dev (mesmo comportamento que Vercel Edge Function)
+      '/api/receitaws': {
+        target: 'https://www.receitaws.com.br/v1/cnpj',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/receitaws/, ''),
+        secure: true,
+      },
+    },
   },
   plugins: [dyadComponentTagger(), react()],
   resolve: {

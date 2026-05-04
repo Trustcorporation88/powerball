@@ -8,9 +8,8 @@
  * https://solucoes.receita.fazenda.gov.br/servicos/cnpjreva/cnpjreva_solicitacao.asp
  */
 
-const RECEITAWS_BASE = import.meta.env.PROD 
-  ? '/api/receitaws' // Usa proxy Vercel em produção (evita CORS)
-  : 'https://www.receitaws.com.br/v1'; // Direto em dev (pode falhar por CORS)
+// Sempre usa proxy /api/receitaws/ (Vite proxy em dev, Vercel Edge Function em prod)
+const RECEITAWS_BASE = '/api/receitaws';
 const RATE_LIMIT_DELAY = 20000; // 20s entre requisições (segurança para 3/min)
 let lastRequestTime = 0;
 
@@ -111,9 +110,8 @@ export async function consultCNPJ(cnpj: string): Promise<CNPJValidationResult> {
   try {
     await waitRateLimit();
 
-    const endpoint = import.meta.env.PROD 
-      ? `${RECEITAWS_BASE}/${cleaned}` // Proxy: /api/receitaws/10657629000162
-      : `${RECEITAWS_BASE}/cnpj/${cleaned}`; // Direto: /v1/cnpj/10657629000162
+    // Sempre usa proxy (Vite proxy em dev, Vercel Edge Function em prod)
+    const endpoint = `${RECEITAWS_BASE}/${cleaned}`;
 
     const response = await fetch(endpoint, {
       headers: {
