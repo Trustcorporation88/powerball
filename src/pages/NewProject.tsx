@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
-import { ArrowLeft, Building2, Briefcase, Store, Factory } from "lucide-react";
+import { ArrowLeft, Building2, Briefcase, Store, Factory, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { CNPJValidator } from "@/components/CNPJValidator";
+import type { CNPJData } from "@/services/receitaws";
 
 const segments = [
   { id: "servicos", label: "Serviços", icon: Briefcase },
@@ -20,6 +23,16 @@ export default function NewProject() {
   const [name, setName] = useState("");
   const [segment, setSegment] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showCNPJValidator, setShowCNPJValidator] = useState(false);
+  const [cnpjData, setCnpjData] = useState<CNPJData | null>(null);
+
+  const handleCNPJValidated = (data: CNPJData) => {
+    setName(data.nome_fantasia || data.razao_social);
+    const atividade = data.atividade_principal?.[0]?.text || '';
+    setCnpjData(data);
+    setShowCNPJValidator(false);
+    toast.success(`CNPJ ${data.cnpj} validado com sucesso!`);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,15 +73,33 @@ export default function NewProject() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <Label htmlFor="name">Nome do projeto</Label>
+            <div className="flex items-center justify-between mb-1.5">
+              <Label htmlFor="name">Nome do projeto</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowCNPJValidator(true)}
+                className="h-7 text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
+              >
+                <ShieldCheck className="w-3 h-3 mr-1" />
+                Validar CNPJ
+              </Button>
+            </div>
             <Input
               id="name"
               placeholder="Ex: Análise Financeira 2024"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="mt-1.5"
+              className="mt-0"
             />
+            {cnpjData && (
+              <div className="mt-2 p-2 bg-emerald-50 border border-emerald-200 rounded text-xs text-emerald-700">
+                <p className="font-semibold">✓ CNPJ Validado: {cnpjData.cnpj}</p>
+                <p>{cnpjData.razao_social}</p>
+              </div>
+            )}
           </div>
 
           <div>
@@ -99,6 +130,12 @@ export default function NewProject() {
           </div>
         </form>
       </div>
+
+      <CNPJValidator
+        open={showCNPJValidator}
+        onClose={() => setShowCNPJValidator(false)}
+        onValidated={handleCNPJValidated}
+      />
     </div>
   );
 }

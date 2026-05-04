@@ -16,6 +16,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import DRERulesManager from "@/components/dre/DRERulesManager";
 import DREExportButton from "@/components/dre/DREExportButton";
 import { DREDataGuide } from "@/components/dre/DREDataGuide";
+import { BenchmarkDialog } from "@/components/BenchmarkDialog";
 import { buildDREReport } from "@/services/dre";
 import { mergeValidationReports, validateDRETransactions, validateTransactions } from "@/services/validation";
 import { generateMockTransactions } from "@/data/mockData";
@@ -118,6 +119,7 @@ export default function DRE() {
   const { user } = useAuth();
   const [periodGranularity, setPeriodGranularity] = useState<PeriodGranularity>("month");
   const [selectedPeriod, setSelectedPeriod] = useState<string>("all");
+  const [showBenchmark, setShowBenchmark] = useState(false);
 
   const visibleTransactions = useMemo(
     () => getRLSFilteredData(user?.role ?? "user"),
@@ -284,6 +286,14 @@ export default function DRE() {
 
         <div className="flex items-center gap-2 flex-wrap">
           <DREDataGuide />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowBenchmark(true)}
+            className="border-blue-300 text-blue-700 hover:bg-blue-50"
+          >
+            <BarChart3 className="h-4 w-4 mr-1" /> Benchmark B3
+          </Button>
           <Button
             size="sm"
             className="bg-amber-500 hover:bg-amber-600 text-white"
@@ -547,6 +557,18 @@ export default function DRE() {
           </Card>
         </>
       )}
+
+      {/* Benchmark Dialog */}
+      <BenchmarkDialog
+        open={showBenchmark}
+        onClose={() => setShowBenchmark(false)}
+        userMetrics={{
+          revenue: dreReport.summary.receitaLiquida,
+          grossProfit: dreReport.summary.lucroBruto,
+          operatingIncome: dreReport.summary.ebitda,
+          profitMargin: (dreReport.summary.resultadoLiquido / dreReport.summary.receitaBruta) * 100 || 0,
+        }}
+      />
     </div>
   );
 }
