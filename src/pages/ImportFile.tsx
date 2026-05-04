@@ -11,6 +11,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 
 type ImportMode = "single" | "combine";
@@ -290,6 +291,35 @@ export default function ImportFile() {
               Projeto atual: <span className="font-semibold text-slate-900">{currentProject.name}</span>
             </CardContent>
           </Card>
+
+          {parsedSheets.length > 1 && (
+            <Card className="border-emerald-200 bg-emerald-50">
+              <CardContent className="p-5 space-y-3">
+                <div>
+                  <h2 className="font-semibold text-emerald-900 text-lg">Selecione a aba da planilha</h2>
+                  <p className="text-sm text-emerald-700 mt-1">
+                    Arquivo: <span className="font-medium">{fileName}</span> • {parsedSheets.length} aba(s) detectada(s)
+                  </p>
+                </div>
+
+                <Select value={selectedSheet} onValueChange={handleSelectSheet}>
+                  <SelectTrigger className="w-full bg-white border-emerald-300 text-base h-12">
+                    <SelectValue placeholder="Escolha uma aba..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {parsedSheets.map((sheet) => (
+                      <SelectItem key={sheet.name} value={sheet.name} className="text-base py-3">
+                        <div className="flex items-center justify-between gap-4 w-full">
+                          <span className="font-medium">{sheet.name}</span>
+                          <span className="text-sm text-slate-500">{sheet.rowCount} linhas • {sheet.headers.length} colunas</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </CardContent>
+            </Card>
+          )}
 
           {parsedSheets.length > 1 && (
             <Card className="border-slate-200">
