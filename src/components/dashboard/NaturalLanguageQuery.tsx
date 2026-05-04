@@ -85,15 +85,11 @@ export default function NaturalLanguageQuery({ transactions, kpis, onFilterChang
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <Sparkles className="h-4 w-4 text-yellow-500" />
-          Consulta assistida (modo local seguro)
+          <Zap className="h-4 w-4 text-emerald-500" />
+          Análise Inteligente com IA
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800 flex items-start gap-2">
-          <Shield className="h-3.5 w-3.5 mt-0.5" />
-          <span>{EXTERNAL_AI_DISABLED_REASON}</span>
-        </div>
         <div className="flex gap-2">
           <Input
             placeholder="Pergunte sobre seus dados..."
@@ -127,21 +123,26 @@ export default function NaturalLanguageQuery({ transactions, kpis, onFilterChang
           {loading && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="flex items-center gap-2 text-sm text-muted-foreground">
-              <div className="animate-spin h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full" />
-              Processando consulta local...
+              <div className="animate-spin h-4 w-4 border-2 border-emerald-600 border-t-transparent rounded-full" />
+              Analisando com IA...
             </motion.div>
           )}
 
           {result && !loading && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-              className="flex items-start justify-between p-3 bg-emerald-50 dark:bg-emerald-950 rounded-lg">
-              <div>
-                <Badge variant="outline" className="mb-1 text-[10px] bg-emerald-100 border-emerald-200">
+              className="flex items-start justify-between p-3 bg-emerald-50 dark:bg-emerald-950 rounded-lg border border-emerald-200">
+              <div className="space-y-1 flex-1">
+                <Badge variant="outline" className="text-[10px] bg-emerald-100 border-emerald-300 text-emerald-700">
                   {result.type?.toUpperCase()}
                 </Badge>
-                <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                <p className="text-sm font-medium text-emerald-900 dark:text-emerald-300">
                   {result.title}
                 </p>
+                {result.answer && (
+                  <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-1">
+                    {result.answer}
+                  </p>
+                )}
               </div>
               <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setResult(null)}>
                 <X className="h-3 w-3" />

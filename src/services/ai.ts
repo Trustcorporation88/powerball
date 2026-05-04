@@ -1,5 +1,6 @@
 const DEEPSEEK_API = 'https://api.deepseek.com/chat/completions';
-export const EXTERNAL_AI_DISABLED_REASON = 'IA externa desativada para proteger dados financeiros sensíveis.';
+const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY;
+const USE_AI = Boolean(DEEPSEEK_API_KEY);
 
 interface NLPResult {
   type: 'kpi' | 'bar' | 'line' | 'pie' | 'table' | 'area' | 'error';
@@ -11,6 +12,7 @@ interface NLPResult {
     search?: string;
   };
   error?: string;
+  answer?: string;
 }
 
 export async function queryNLP(
@@ -24,12 +26,74 @@ export async function queryNLP(
     dateRange: string;
   }
 ): Promise<NLPResult> {
-  console.info(EXTERNAL_AI_DISABLED_REASON, {
-    endpoint: DEEPSEEK_API,
-    categories: context.categories.length,
-    costCenters: context.costCenters.length,
-  });
-  return keywordFallback(question);
+  if (!USE_AI) {
+    console.info('DeepSeek desativada — usando fallback local');
+    return keywordFallback(question);
+  }
+
+  try {
+    const prompt = `Você é um assistente financeiro especializado em análise de DRE e relatórios gerenciais.
+
+Dados atuais:
+- Receita total: R$ ${context.totalIncome.toFixed(2)}
+- Despesa total: R$ ${context.totalExpense.toFixed(2)}
+- Saldo líquido: R$ ${context.balance.toFixed(2)}
+- Categorias disponíveis: ${context.categories.join(', ')}
+- Centros de custo: ${context.costCenters.join(', ')}
+- Período: ${context.dateRange}
+
+Pergunta do usuário: ${question}
+
+Responda de forma OBJETIVA E CURTA (máximo 2 frases) e em JSON com esta estrutura:
+{
+  "type": "kpi" | "bar" | "line" | "pie" | "table",
+  "title": "Título do gráfico/análise",
+  "answer": "Resposta curta e direta",
+  "filter": { "category": "nome", "costCenter": "nome", "period": "thisMonth" }
+}
+
+Se a pergunta não puder ser respondida com os dados disponíveis, retorne type: "error" e explique brevemente.`;
+
+    const response = await fetch(DEEPSEEK_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: 'Você é um assistente financeiro preciso e objetivo.' },
+          { role: 'user', content: prompt },
+        ],
+        temperature: 0.3,
+        max_tokens: 500,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('DeepSeek API error:', response.status);
+      return keywordFallback(question);
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+
+    if (!content) {
+      return keywordFallback(question);
+    }
+
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      return keywordFallback(question);
+    }
+
+    const result = JSON.parse(jsonMatch[0]);
+    return result as NLPResult;
+  } catch (error) {
+    console.error('DeepSeek query failed:', error);
+    return keywordFallback(question);
+  }
 }
 
 function keywordFallback(question: string): NLPResult {
