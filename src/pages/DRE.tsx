@@ -15,6 +15,7 @@ import { useApp } from "@/contexts/AppContext";
 import { useAuth } from "@/contexts/AuthContext";
 import DRERulesManager from "@/components/dre/DRERulesManager";
 import DREExportButton from "@/components/dre/DREExportButton";
+import { DREDataGuide } from "@/components/dre/DREDataGuide";
 import { buildDREReport } from "@/services/dre";
 import { mergeValidationReports, validateDRETransactions, validateTransactions } from "@/services/validation";
 import { generateMockTransactions } from "@/data/mockData";
@@ -282,6 +283,7 @@ export default function DRE() {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <DREDataGuide />
           <Button
             size="sm"
             className="bg-amber-500 hover:bg-amber-600 text-white"
