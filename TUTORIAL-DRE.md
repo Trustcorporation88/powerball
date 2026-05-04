@@ -4,9 +4,25 @@
 
 **DRE (Demonstração do Resultado do Exercício)** é um relatório financeiro que mostra se sua empresa teve **lucro ou prejuízo** em um período.
 
-Estrutura do DRE:
+### 📅 Tipos de DRE no Sistema
+
+O sistema permite gerar **3 tipos de DRE**:
+
+| Tipo | O que mostra | Quando usar |
+|------|--------------|-------------|
+| **DRE MENSAL** 📆 | Resultado **apenas do mês** selecionado | Ver performance de Janeiro, Fevereiro, etc |
+| **DRE TRIMESTRAL** 📊 | Resultado **acumulado do trimestre** (3 meses) | Análise trimestral (T1, T2, T3, T4) |
+| **DRE ANUAL** 📈 | Resultado **acumulado do ano inteiro** | Fechamento anual, balanço fiscal |
+
+**Exemplo prático:**
+- **DRE Mensal (Janeiro/2024):** Soma transações de 01/01/2024 a 31/01/2024
+- **DRE Trimestral (T1/2024):** Soma transações de 01/01/2024 a 31/03/2024
+- **DRE Anual (2024):** Soma transações de 01/01/2024 a 31/12/2024
+
+### 📐 Estrutura do DRE
+
 ```
-Receita Bruta
+Receita Bruta (vendas do período)
 (-) Deduções (impostos sobre vendas)
 = Receita Líquida
 (-) Custos (CMV, CPV)
@@ -18,6 +34,8 @@ Receita Bruta
 (-) Impostos sobre Lucro
 = Resultado Líquido (Lucro/Prejuízo)
 ```
+
+**⚠️ IMPORTANTE:** Cada linha do DRE soma **apenas as transações do período selecionado**!
 
 ---
 
@@ -48,10 +66,18 @@ Para gerar o DRE, você precisa **transações financeiras** com os seguintes ca
 
 ## 🗂️ CATEGORIAS E GRUPOS DRE
 
-O sistema classifica automaticamente as transações nos **7 grupos do DRE**:
+O sistema classifica automaticamente as transações nos **7 grupos do DRE**.
+
+**📊 Como funciona:**
+- **DRE Mensal (jan/2024):** Soma apenas transações de janeiro
+- **DRE Anual (2024):** Soma transações de janeiro + fevereiro + ... + dezembro
+
+Cada grupo abaixo mostra **exemplos práticos** de como inserir os dados:
+
+---
 
 ### 1️⃣ **Receita Bruta** 💰
-Todas as vendas e receitas principais do negócio.
+Todas as vendas e receitas principais do negócio **no período selecionado**.
 
 **Categorias que entram aqui:**
 - `Vendas`
@@ -69,6 +95,10 @@ Subcategoria: Consultoria
 Valor: +15000.00
 Tipo: income
 ```
+
+**Como aparece no DRE:**
+- **DRE Janeiro:** R$ 15.000,00 (apenas essa venda)
+- **DRE Anual:** R$ 15.000,00 + todas as outras vendas do ano
 
 ---
 
@@ -222,6 +252,89 @@ Subcategoria: Venda de Ativo
 Valor: +5000.00
 Tipo: income
 ```
+
+---
+
+## 📊 EXEMPLO VISUAL: DRE Mensal vs Anual
+
+### **Cenário: Empresa com 3 meses de dados**
+
+**Transações lançadas:**
+
+| Mês | Categoria | Valor |
+|-----|-----------|-------|
+| Janeiro | Vendas | R$ 50.000 |
+| Janeiro | Tributos sobre Vendas | -R$ 4.650 |
+| Janeiro | Custos | -R$ 20.000 |
+| Janeiro | Despesas Operacionais | -R$ 15.000 |
+| **Fevereiro** | Vendas | R$ 60.000 |
+| **Fevereiro** | Tributos sobre Vendas | -R$ 5.580 |
+| **Fevereiro** | Custos | -R$ 24.000 |
+| **Fevereiro** | Despesas Operacionais | -R$ 15.000 |
+| **Março** | Vendas | R$ 55.000 |
+| **Março** | Tributos sobre Vendas | -R$ 5.115 |
+| **Março** | Custos | -R$ 22.000 |
+| **Março** | Despesas Operacionais | -R$ 15.000 |
+
+---
+
+### **DRE MENSAL - Janeiro/2024**
+```
+┌─────────────────────────────────────┬─────────────┐
+│ JANEIRO/2024                        │    VALOR    │
+├─────────────────────────────────────┼─────────────┤
+│ Receita Bruta                       │  R$ 50.000  │
+│ (-) Deduções                        │  -R$ 4.650  │
+│ = Receita Líquida                   │  R$ 45.350  │
+│ (-) Custos                          │ -R$ 20.000  │
+│ = Lucro Bruto                       │  R$ 25.350  │
+│ (-) Despesas Operacionais           │ -R$ 15.000  │
+│ = EBITDA                            │  R$ 10.350  │
+│ = Resultado Líquido                 │  R$ 10.350  │
+└─────────────────────────────────────┴─────────────┘
+```
+
+### **DRE TRIMESTRAL - T1/2024 (Jan+Fev+Mar)**
+```
+┌─────────────────────────────────────┬─────────────┐
+│ T1/2024 (JAN+FEV+MAR)               │    VALOR    │
+├─────────────────────────────────────┼─────────────┤
+│ Receita Bruta                       │ R$ 165.000  │
+│ (-) Deduções                        │ -R$ 15.345  │
+│ = Receita Líquida                   │ R$ 149.655  │
+│ (-) Custos                          │ -R$ 66.000  │
+│ = Lucro Bruto                       │  R$ 83.655  │
+│ (-) Despesas Operacionais           │ -R$ 45.000  │
+│ = EBITDA                            │  R$ 38.655  │
+│ = Resultado Líquido                 │  R$ 38.655  │
+└─────────────────────────────────────┴─────────────┘
+```
+
+### **DRE ANUAL - 2024 (12 meses)**
+```
+┌─────────────────────────────────────┬─────────────┐
+│ ANUAL 2024 (12 MESES)               │    VALOR    │
+├─────────────────────────────────────┼─────────────┤
+│ Receita Bruta                       │ R$ 660.000  │
+│ (-) Deduções                        │ -R$ 61.380  │
+│ = Receita Líquida                   │ R$ 598.620  │
+│ (-) Custos                          │-R$ 264.000  │
+│ = Lucro Bruto                       │ R$ 334.620  │
+│ (-) Despesas Operacionais           │-R$ 180.000  │
+│ = EBITDA                            │ R$ 154.620  │
+│ = Resultado Líquido                 │ R$ 154.620  │
+└─────────────────────────────────────┴─────────────┘
+```
+
+**💡 Observações importantes:**
+
+1. **DRE Mensal** mostra apenas o **mês específico**
+2. **DRE Trimestral** soma **3 meses consecutivos**
+3. **DRE Anual** soma **todos os 12 meses do ano**
+4. Cada tipo responde perguntas diferentes:
+   - Mensal: "Como foi janeiro?"
+   - Trimestral: "Como foi o primeiro trimestre?"
+   - Anual: "Quanto lucrei no ano?"
 
 ---
 
