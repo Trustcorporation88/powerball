@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sparkles, Send, X, Lightbulb, MessageSquare, History, Shield } from 'lucide-react';
+import { Sparkles, Send, X, Lightbulb, MessageSquare, History, Shield, Zap } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EXTERNAL_AI_DISABLED_REASON, queryNLP } from '@/services/ai';
 import type { Transaction } from '@/contexts/AppContext';
