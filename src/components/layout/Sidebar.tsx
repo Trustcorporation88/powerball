@@ -18,17 +18,25 @@ import {
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
-const menuItems = [
-  { icon: LayoutDashboard, label: "Home", path: "/home" },
-  { icon: FolderOpen, label: "Projetos", path: "/projects" },
-  { icon: FileSpreadsheet, label: "Importar", path: "/import" },
-  { icon: Wand2, label: "ETL Pipeline", path: "/etl" },
-  { icon: GitBranch, label: "Relacionamentos", path: "/relationships" },
-  { icon: BarChart3, label: "Dashboard", path: "/dashboard" },
-  { icon: Bell, label: "Alertas", path: "/dashboard" },
-  { icon: Bookmark, label: "Bookmarks", path: "/dashboard" },
-  { icon: MapPin, label: "Mapas", path: "/dashboard" },
-  { icon: Settings, label: "Configurações", path: "/settings" },
+type MenuItem = {
+  key: string;
+  icon: typeof LayoutDashboard;
+  label: string;
+  path: string;
+  isActive: (pathname: string, panel: string | null) => boolean;
+};
+
+const menuItems: MenuItem[] = [
+  { key: "home", icon: LayoutDashboard, label: "Home", path: "/home", isActive: (pathname) => pathname === "/home" },
+  { key: "projects", icon: FolderOpen, label: "Projetos", path: "/projects", isActive: (pathname) => pathname === "/projects" },
+  { key: "import", icon: FileSpreadsheet, label: "Importar", path: "/import", isActive: (pathname) => pathname === "/import" },
+  { key: "etl", icon: Wand2, label: "ETL Pipeline", path: "/etl", isActive: (pathname) => pathname === "/etl" },
+  { key: "relationships", icon: GitBranch, label: "Relacionamentos", path: "/relationships", isActive: (pathname) => pathname === "/relationships" },
+  { key: "dashboard", icon: BarChart3, label: "Dashboard", path: "/dashboard", isActive: (pathname, panel) => pathname === "/dashboard" && !panel },
+  { key: "alerts", icon: Bell, label: "Alertas", path: "/dashboard?panel=alerts", isActive: (pathname, panel) => pathname === "/dashboard" && panel === "alerts" },
+  { key: "bookmarks", icon: Bookmark, label: "Bookmarks", path: "/dashboard?panel=bookmarks", isActive: (pathname, panel) => pathname === "/dashboard" && panel === "bookmarks" },
+  { key: "map", icon: MapPin, label: "Mapas", path: "/dashboard?panel=map", isActive: (pathname, panel) => pathname === "/dashboard" && panel === "map" },
+  { key: "settings", icon: Settings, label: "Configurações", path: "/settings", isActive: (pathname) => pathname === "/settings" },
 ];
 
 export const Sidebar = () => {
@@ -36,6 +44,7 @@ export const Sidebar = () => {
   const location = useLocation();
   const { logout, user } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const panel = new URLSearchParams(location.search).get("panel");
 
   return (
     <aside
@@ -63,10 +72,10 @@ export const Sidebar = () => {
 
       <nav className="flex-1 py-4 px-2 space-y-1">
         {menuItems.map((item) => {
-          const isActive = location.pathname === item.path;
+          const isActive = item.isActive(location.pathname, panel);
           return (
             <button
-              key={item.path}
+              key={item.key}
               onClick={() => navigate(item.path)}
               className={cn(
                 "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-sm",

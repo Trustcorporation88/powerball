@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Share2, Sliders, Bell, Bookmark, MapPin, FileText, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -49,10 +49,11 @@ const COLORS = ['#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5'
 export default function Dashboard() {
   const { transactions, currentProject, setTransactions, getRLSFilteredData } = useApp();
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const drillCategory = searchParams.get('category') || null;
   const drillCostCenter = searchParams.get('costCenter') || null;
+  const panel = searchParams.get('panel');
 
   const [filters, setFilters] = useState<any>({
     period: 'all',
@@ -80,6 +81,24 @@ export default function Dashboard() {
     () => validateTransactions(visibleTransactions),
     [visibleTransactions],
   );
+
+  const updatePanel = useCallback((nextPanel: 'alerts' | 'bookmarks' | 'map' | null) => {
+    const nextParams = new URLSearchParams(searchParams);
+
+    if (nextPanel) {
+      nextParams.set('panel', nextPanel);
+    } else {
+      nextParams.delete('panel');
+    }
+
+    setSearchParams(nextParams, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    setShowAlerts(panel === 'alerts');
+    setShowBookmarks(panel === 'bookmarks');
+    setShowMap(panel === 'map');
+  }, [panel]);
 
   const activeFilters = {
     ...filters,
@@ -305,13 +324,13 @@ export default function Dashboard() {
           <Button variant="outline" size="sm" onClick={() => setShowWhatIf(true)}>
             <Sliders className="h-4 w-4 mr-1" /> Simular
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowAlerts(true)}>
+          <Button variant="outline" size="sm" onClick={() => updatePanel('alerts')}>
             <Bell className="h-4 w-4 mr-1" /> Alertas
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowBookmarks(true)}>
+          <Button variant="outline" size="sm" onClick={() => updatePanel('bookmarks')}>
             <Bookmark className="h-4 w-4 mr-1" /> Favoritos
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowMap(!showMap)}>
+          <Button variant="outline" size="sm" onClick={() => updatePanel(showMap ? null : 'map')}>
             <MapPin className="h-4 w-4 mr-1" /> Mapa
           </Button>
           <Button variant="outline" size="sm" onClick={() => setShowShare(true)}>
@@ -428,9 +447,9 @@ export default function Dashboard() {
       />
 
       {showAlerts && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setShowAlerts(false)}>
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => updatePanel(null)}>
           <div onClick={(event) => event.stopPropagation()}>
-            <AlertManager onClose={() => setShowAlerts(false)} />
+            <AlertManager onClose={() => updatePanel(null)} />
           </div>
         </div>
       )}
@@ -439,7 +458,12 @@ export default function Dashboard() {
         currentFilters={activeFilters}
         onLoad={handleLoadBookmark}
         open={showBookmarks}
-        onOpenChange={setShowBookmarks}
+        onOpenChange={(open) => {
+          setShowBookmarks(open);
+          if (!open) {
+            updatePanel(null);
+          }
+        }}
         hideTrigger
       />
     </motion.div>
