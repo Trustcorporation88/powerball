@@ -378,14 +378,75 @@ Tipo: income
 3. O sistema irá:
    - Agrupar transações pelos **7 grupos DRE**
    - Calcular automaticamente:
-     - Receita Líquida
-     - Lucro Bruto
-     - EBITDA
-     - Resultado Líquido
+     - **Receita Líquida** = Receita Bruta - Deduções
+     - **Lucro Bruto** = Receita Líquida - Custos
+     - **EBITDA** = Lucro Bruto - Despesas Operacionais
+     - **Resultado Líquido** = EBITDA + Resultado Financeiro - Impostos
 4. Visualize:
+   - **4 cartões principais** com indicadores-chave
    - **Tabela DRE** com valores detalhados
    - **Gráfico de evolução** mensal
    - **Análise vertical** (% sobre receita)
+
+---
+
+## 🎯 EBITDA: O Indicador Mais Importante
+
+### **O que é EBITDA?**
+
+**EBITDA** = **E**arnings **B**efore **I**nterest, **T**axes, **D**epreciation and **A**mortization
+
+Em português: **LAJIDA** = **L**ucro **A**ntes de **J**uros, **I**mpostos, **D**epreciação e **A**mortização
+
+**Por que é importante?**
+- Mostra a **capacidade operacional pura** do negócio
+- Ignora efeitos financeiros (juros), fiscais (impostos) e contábeis (depreciação)
+- Permite **comparar empresas** de diferentes setores e estruturas de capital
+- Indicador #1 usado por **investidores e bancos**
+
+### **Como é calculado:**
+
+```
+Receita Bruta
+(-) Deduções (impostos sobre vendas)
+= Receita Líquida
+(-) Custos (CMV/CPV)
+= Lucro Bruto
+(-) Despesas Operacionais (salários, marketing, etc)
+= ✨ EBITDA ✨
+```
+
+### **Interpretação:**
+
+| EBITDA | Significado |
+|--------|-------------|
+| **Positivo** 📈 | Negócio **lucrativo** antes de juros/impostos |
+| **Negativo** 📉 | Negócio **prejuízo operacional** (receita não cobre custos+despesas) |
+| **Zero** ⚖️ | Receita cobre exatamente custos e despesas |
+
+### **Margem EBITDA:**
+
+**Margem EBITDA (%)** = (EBITDA / Receita Líquida) × 100
+
+| Margem | Qualidade |
+|--------|-----------|
+| **> 20%** 🟢 | Excelente |
+| **10-20%** 🟡 | Bom |
+| **0-10%** 🟠 | Razoável |
+| **< 0%** 🔴 | Prejuízo operacional |
+
+**Exemplo:**
+- Receita Líquida: R$ 100.000
+- EBITDA: R$ 25.000
+- **Margem EBITDA: 25%** (excelente!)
+
+### **No Sistema:**
+
+O cartão **EBITDA** mostra:
+1. **Valor absoluto** (R$ 25.000)
+2. **Margem %** (25% badge superior)
+3. **Comparação** com período anterior
+4. **Legenda** "Earnings Before Interest, Taxes..."
 
 ---
 

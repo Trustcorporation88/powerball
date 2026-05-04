@@ -251,13 +251,20 @@ export default function DRE() {
       previous: comparisonReport?.summary.lucroBruto ?? 0,
       color: "text-blue-700",
       bg: "bg-blue-50 border-blue-200",
+      margin: dreReport.summary.receitaLiquida !== 0 
+        ? (dreReport.summary.lucroBruto / dreReport.summary.receitaLiquida * 100).toFixed(1) 
+        : null,
     },
     {
       label: "EBITDA",
+      subtitle: "Earnings Before Interest, Taxes, Depreciation & Amortization",
       value: dreReport.summary.ebitda,
       previous: comparisonReport?.summary.ebitda ?? 0,
       color: "text-violet-700",
       bg: "bg-violet-50 border-violet-200",
+      margin: dreReport.summary.receitaLiquida !== 0 
+        ? (dreReport.summary.ebitda / dreReport.summary.receitaLiquida * 100).toFixed(1) 
+        : null,
     },
     {
       label: "Resultado Líquido",
@@ -265,6 +272,9 @@ export default function DRE() {
       previous: comparisonReport?.summary.resultadoLiquido ?? 0,
       color: dreReport.summary.resultadoLiquido >= 0 ? "text-emerald-700" : "text-rose-700",
       bg: dreReport.summary.resultadoLiquido >= 0 ? "bg-emerald-50 border-emerald-200" : "bg-rose-50 border-rose-200",
+      margin: dreReport.summary.receitaLiquida !== 0 
+        ? (dreReport.summary.resultadoLiquido / dreReport.summary.receitaLiquida * 100).toFixed(1) 
+        : null,
     },
   ];
 
@@ -446,7 +456,19 @@ export default function DRE() {
               return (
                 <Card key={card.label} className={`border ${card.bg}`}>
                   <CardContent className="p-5">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{card.label}</p>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-wide text-muted-foreground">{card.label}</p>
+                        {card.subtitle && (
+                          <p className="text-[10px] text-muted-foreground/70 mt-0.5">{card.subtitle}</p>
+                        )}
+                      </div>
+                      {card.margin && (
+                        <div className="bg-white/60 px-2 py-0.5 rounded text-xs font-semibold">
+                          {card.margin}%
+                        </div>
+                      )}
+                    </div>
                     <p className={`text-2xl font-bold mt-2 ${card.color}`}>{formatCurrency(card.value)}</p>
                     {comparisonReport ? (
                       <p className="mt-2 text-xs text-slate-600">
