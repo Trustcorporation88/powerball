@@ -1,7 +1,7 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { HelpCircle, Download, CheckCircle2, Table } from "lucide-react";
+import { HelpCircle, Download, CheckCircle2, Table, BookOpen } from "lucide-react";
 
 export function DREDataGuide() {
   const handleDownloadTemplate = () => {
@@ -253,11 +253,25 @@ export function DREDataGuide() {
           </Card>
 
           {/* Download template */}
-          <div className="flex justify-center pt-4">
-            <Button onClick={handleDownloadTemplate} size="lg" className="gap-2">
-              <Download className="w-5 h-5" />
-              Baixar template de exemplo (CSV)
-            </Button>
+          <div className="flex flex-col gap-3 pt-4">
+            <div className="flex justify-center">
+              <Button onClick={handleDownloadTemplate} size="lg" className="gap-2">
+                <Download className="w-5 h-5" />
+                Baixar template de exemplo (CSV)
+              </Button>
+            </div>
+            
+            <div className="text-center">
+              <a 
+                href="https://github.com/Trustcorporation88/analise-planilha/blob/main/TUTORIAL-DRE.md" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm text-emerald-600 hover:text-emerald-700 hover:underline"
+              >
+                <BookOpen className="w-4 h-4" />
+                Ver tutorial completo (TUTORIAL-DRE.md)
+              </a>
+            </div>
           </div>
         </div>
       </DialogContent>
