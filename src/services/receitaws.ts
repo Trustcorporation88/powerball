@@ -146,9 +146,34 @@ export async function consultCNPJ(cnpj: string): Promise<CNPJValidationResult> {
 
     const isActive = data.situacao?.toUpperCase() === 'ATIVA';
 
+    // Transforma dados da ReceitaWS para nossa interface
+    const cnpjData: CNPJData = {
+      cnpj: data.cnpj || cleaned,
+      razao_social: data.nome || '',
+      nome_fantasia: data.fantasia || '',
+      atividade_principal: data.atividade_principal || [],
+      natureza_juridica: data.natureza_juridica || '',
+      situacao: data.situacao || '',
+      data_situacao: data.data_situacao || '',
+      capital_social: data.capital_social || '0',
+      porte: data.porte || '',
+      abertura: data.abertura || '',
+      email: data.email,
+      telefone: data.telefone,
+      endereco: {
+        logradouro: data.logradouro || '',
+        numero: data.numero || '',
+        complemento: data.complemento || '',
+        bairro: data.bairro || '',
+        municipio: data.municipio || '',
+        uf: data.uf || '',
+        cep: data.cep || '',
+      },
+    };
+
     return {
       valid: true,
-      data: data as CNPJData,
+      data: cnpjData,
       status: data.situacao?.toUpperCase() as any,
       error: !isActive ? `Empresa ${data.situacao}` : undefined,
     };
