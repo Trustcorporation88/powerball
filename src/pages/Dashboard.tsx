@@ -43,8 +43,19 @@ import { validateTransactions } from '@/services/validation';
 import { ValidationSummary } from '@/components/ValidationSummary';
 import { queryNLP } from '@/services/ai';
 import { ProFeatureButton } from '@/components/ProFeature';
+import { EmptyState } from '@/components/EmptyState';
 
 const COLORS = ['#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5', '#3b82f6', '#8b5cf6'];
+
+const periods = [
+  { id: "all", label: "Todo Período" },
+  { id: "today", label: "Hoje" },
+  { id: "7days", label: "Últimos 7 dias" },
+  { id: "30days", label: "Últimos 30 dias" },
+  { id: "thisMonth", label: "Este Mês" },
+  { id: "thisQuarter", label: "Este Trimestre" },
+  { id: "thisYear", label: "Este Ano" },
+];
 
 export default function Dashboard() {
   const { transactions, currentProject, setTransactions, getRLSFilteredData } = useApp();
@@ -444,9 +455,28 @@ export default function Dashboard() {
           }} context={{ categories, period: filters.period }} />
 
           <DashboardFilters filters={filters} onChange={setFilters} categories={categories} costCenters={costCenters} />
-          <KpiCards kpis={kpis} monthlyData={monthlyData} comparison={comparison} />
+          
+          {kpis.transactionCount === 0 && (filters.period !== 'all' || filters.category !== 'all' || filters.costCenter !== 'all' || filters.search !== '') && (
+            <EmptyState
+              title="Nenhuma transação encontrada"
+              message={`Filtro ativo: ${
+                filters.period !== 'all' ? periods.find(p => p.id === filters.period)?.label :
+                filters.category !== 'all' ? `Categoria: ${filters.category}` :
+                filters.costCenter !== 'all' ? `Centro de Custo: ${filters.costCenter}` :
+                'Busca textual'
+              }. Tente "Todo Período" ou ajuste os filtros.`}
+              action={{
+                label: 'Limpar todos os filtros',
+                onClick: () => setFilters({ period: 'all', category: 'all', costCenter: 'all', search: '' })
+              }}
+            />
+          )}
+          
+          {kpis.transactionCount > 0 && (
+            <KpiCards kpis={kpis} monthlyData={monthlyData} comparison={comparison} />
+          )}
 
-          {comparison && (
+          {kpis.transactionCount > 0 && comparison && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <GaugeChart title="Receita vs Meta" value={kpis.income} target={comparison.income * 1.2 || 10000} unit="R$" color="#059669" goal="maximize" />
               <GaugeChart title="Despesa Controlada" value={kpis.expense} target={comparison.expense * 0.9 || 10000} unit="R$" color="#ef4444" goal="minimize" />
@@ -455,16 +485,18 @@ export default function Dashboard() {
             </div>
           )}
 
-          {renderCharts()}
+          {kpis.transactionCount > 0 && renderCharts()}
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Transações</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <TransactionsTable transactions={visibleTransactions} />
-            </CardContent>
-          </Card>
+          {kpis.transactionCount > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Transações</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <TransactionsTable transactions={visibleTransactions} />
+              </CardContent>
+            </Card>
+          )}
         </>
       )}
 
