@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sparkles, Send, X, Lightbulb, MessageSquare, History, Shield, Zap } from 'lucide-react';
+import { Sparkles, Send, X, Lightbulb, MessageSquare, History, Shield, Zap, CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EXTERNAL_AI_DISABLED_REASON, queryNLP } from '@/services/ai';
 import type { Transaction } from '@/contexts/AppContext';
@@ -24,6 +24,8 @@ export default function NaturalLanguageQuery({ transactions, kpis, onFilterChang
   const [result, setResult] = useState<Awaited<ReturnType<typeof queryNLP>> | null>(null);
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<{ q: string; r: Awaited<ReturnType<typeof queryNLP>> }[]>([]);
+  
+  const hasApiKey = Boolean(import.meta.env.VITE_DEEPSEEK_API_KEY);
 
   const categories = useMemo(() => [...new Set(transactions.map((t) => t.category))], [transactions]);
   const costCenters = useMemo(() => [...new Set(transactions.map((t) => t.costCenter))], [transactions]);
@@ -84,10 +86,23 @@ export default function NaturalLanguageQuery({ transactions, kpis, onFilterChang
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Zap className="h-4 w-4 text-emerald-500" />
-          Análise Inteligente com IA
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Zap className="h-4 w-4 text-emerald-500" />
+            Análise Inteligente com IA
+          </CardTitle>
+          {hasApiKey ? (
+            <Badge variant="outline" className="text-xs bg-green-50 border-green-200 text-green-700">
+              <CheckCircle2 className="h-3 w-3 mr-1" />
+              DeepSeek Ativo
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-xs bg-amber-50 border-amber-200 text-amber-700">
+              <AlertCircle className="h-3 w-3 mr-1" />
+              Modo Local
+            </Badge>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex gap-2">
