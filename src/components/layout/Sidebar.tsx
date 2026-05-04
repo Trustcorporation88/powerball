@@ -4,6 +4,9 @@ import {
   LayoutDashboard,
   FolderOpen,
   FileSpreadsheet,
+  FileText,
+  Wallet,
+  Building2,
   Settings,
   LogOut,
   BarChart3,
@@ -17,6 +20,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { BrandIdentity } from "@/components/BrandIdentity";
 
 type MenuItem = {
   key: string;
@@ -27,12 +31,16 @@ type MenuItem = {
 };
 
 const menuItems: MenuItem[] = [
-  { key: "home", icon: LayoutDashboard, label: "Home", path: "/home", isActive: (pathname) => pathname === "/home" },
+  { key: "home", icon: LayoutDashboard, label: "Entregas", path: "/home", isActive: (pathname) => pathname === "/home" },
+  { key: "dre", icon: FileText, label: "DRE", path: "/dre", isActive: (pathname) => pathname === "/dre" },
+  { key: "cash-flow", icon: Wallet, label: "Fluxo de Caixa", path: "/fluxo-caixa", isActive: (pathname) => pathname === "/fluxo-caixa" },
+  { key: "cost-center", icon: Building2, label: "Centro de Custo", path: "/resultado-centro-custo", isActive: (pathname) => pathname === "/resultado-centro-custo" },
   { key: "projects", icon: FolderOpen, label: "Projetos", path: "/projects", isActive: (pathname) => pathname === "/projects" },
   { key: "import", icon: FileSpreadsheet, label: "Importar", path: "/import", isActive: (pathname) => pathname === "/import" },
   { key: "etl", icon: Wand2, label: "ETL Pipeline", path: "/etl", isActive: (pathname) => pathname === "/etl" },
   { key: "relationships", icon: GitBranch, label: "Relacionamentos", path: "/relationships", isActive: (pathname) => pathname === "/relationships" },
-  { key: "dashboard", icon: BarChart3, label: "Dashboard", path: "/dashboard", isActive: (pathname, panel) => pathname === "/dashboard" && !panel },
+  { key: "dashboard", icon: BarChart3, label: "Dashboard Analítico", path: "/dashboard", isActive: (pathname, panel) => pathname === "/dashboard" && !panel },
+  { key: "audit", icon: FileSpreadsheet, label: "Visão Auditável", path: "/detail", isActive: (pathname) => pathname === "/detail" },
   { key: "alerts", icon: Bell, label: "Alertas", path: "/dashboard?panel=alerts", isActive: (pathname, panel) => pathname === "/dashboard" && panel === "alerts" },
   { key: "bookmarks", icon: Bookmark, label: "Bookmarks", path: "/dashboard?panel=bookmarks", isActive: (pathname, panel) => pathname === "/dashboard" && panel === "bookmarks" },
   { key: "map", icon: MapPin, label: "Mapas", path: "/dashboard?panel=map", isActive: (pathname, panel) => pathname === "/dashboard" && panel === "map" },
@@ -49,19 +57,12 @@ export const Sidebar = () => {
   return (
     <aside
       className={cn(
-        "bg-slate-900 text-white flex flex-col transition-all duration-300 h-screen sticky top-0",
+        "bg-slate-900 text-white flex flex-col transition-all duration-300 h-screen sticky top-0 overflow-hidden",
         collapsed ? "w-16" : "w-64"
       )}
-    >
-      <div className="p-4 flex items-center justify-between border-b border-slate-700">
-        {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
-              <BarChart3 className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-bold text-lg">DataFin</span>
-          </div>
-        )}
+      >
+        <div className="p-4 flex items-center justify-between border-b border-slate-700">
+        {collapsed ? <BrandIdentity variant="icon" /> : <BrandIdentity variant="sidebar" />}
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="p-1 hover:bg-slate-700 rounded-md transition-colors"
@@ -70,7 +71,7 @@ export const Sidebar = () => {
         </button>
       </div>
 
-      <nav className="flex-1 py-4 px-2 space-y-1">
+      <nav className="flex-1 min-h-0 overflow-y-auto py-4 px-2 space-y-1">
         {menuItems.map((item) => {
           const isActive = item.isActive(location.pathname, panel);
           return (
@@ -92,7 +93,7 @@ export const Sidebar = () => {
         })}
       </nav>
 
-      <div className="p-4 border-t border-slate-700">
+      <div className="shrink-0 p-4 border-t border-slate-700">
         {!collapsed && (
           <div className="mb-3 px-3">
             <p className="text-xs text-slate-400">Logado como</p>

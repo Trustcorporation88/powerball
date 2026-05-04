@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Calendar, X, Filter, Search } from "lucide-react";
+import { useEffect, useState } from "react";
+import { X, Filter, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,10 @@ const periods = [
 
 export const DashboardFilters = ({ categories, costCenters, filters, onChange }: DashboardFiltersProps) => {
   const [localSearch, setLocalSearch] = useState(filters.search);
+
+  useEffect(() => {
+    setLocalSearch(filters.search);
+  }, [filters.search]);
 
   const activeCount = [
     filters.period !== "all",

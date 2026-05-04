@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { ArrowLeft, Download, Filter } from "lucide-react";
@@ -22,6 +22,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/contexts/AuthContext";
 import { validateTransactions } from "@/services/validation";
 import { ValidationSummary } from "@/components/ValidationSummary";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface MonthlyDetailPoint {
   month: string;
@@ -39,6 +40,7 @@ export default function DetailView() {
   const drillCategory = searchParams.get('category');
   const drillCostCenter = searchParams.get('costCenter');
   const drillPeriod = searchParams.get('period');
+  const [selectedPeriod, setSelectedPeriod] = useState(drillPeriod || "all");
 
   const visibleTransactions = useMemo(
     () => getRLSFilteredData(user?.role ?? "user"),
@@ -48,14 +50,30 @@ export default function DetailView() {
     () => validateTransactions(visibleTransactions),
     [visibleTransactions],
   );
+  const periodOptions = useMemo(
+    () => Array.from(new Set(visibleTransactions.map((transaction) => transaction.date.slice(0, 7)))).sort(),
+    [visibleTransactions],
+  );
+
+  useEffect(() => {
+    if (drillPeriod) {
+      setSelectedPeriod(drillPeriod);
+      return;
+    }
+
+    if (selectedPeriod !== "all" && !periodOptions.includes(selectedPeriod)) {
+      setSelectedPeriod("all");
+    }
+  }, [drillPeriod, periodOptions, selectedPeriod]);
 
   const filteredTransactions = useMemo(() => {
     return visibleTransactions.filter(t => {
       if (drillCategory && t.category !== drillCategory) return false;
       if (drillCostCenter && t.costCenter !== drillCostCenter) return false;
+      if (selectedPeriod !== "all" && !t.date.startsWith(selectedPeriod)) return false;
       return true;
     });
-  }, [visibleTransactions, drillCategory, drillCostCenter]);
+  }, [visibleTransactions, drillCategory, drillCostCenter, selectedPeriod]);
 
   const monthlyDetail = filteredTransactions.reduce<MonthlyDetailPoint[]>((acc, t) => {
     const month = t.date.slice(0, 7);
@@ -92,9 +110,9 @@ export default function DetailView() {
             <ArrowLeft className="w-4 h-4" />
             Voltar ao Dashboard
           </button>
-          <h1 className="text-2xl font-bold text-slate-900">Detalhe Analítico</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Visão Auditável</h1>
           <p className="text-slate-500 mt-1">
-            Visão detalhada dos lançamentos
+            Rastreio detalhado dos lançamentos e evidência do processamento
             {(drillCategory || drillCostCenter) && (
               <span className="ml-2 inline-flex items-center gap-1">
                 <Filter className="h-3 w-3" />
@@ -104,10 +122,27 @@ export default function DetailView() {
             )}
           </p>
         </div>
-        <ExportButton />
+        <div className="flex items-center gap-2">
+          <div className="w-48">
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger>
+                <SelectValue placeholder="Período" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os períodos</SelectItem>
+                {periodOptions.map((period) => (
+                  <SelectItem key={period} value={period}>
+                    {period}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <ExportButton data={filteredTransactions} />
+        </div>
       </div>
 
-      <ValidationSummary report={validationReport} title="Validação da visão detalhada" />
+      <ValidationSummary report={validationReport} title="Validação da visão auditável" />
 
       {!validationReport.approved && (
         <Card className="border-rose-200 bg-rose-50">
@@ -122,7 +157,7 @@ export default function DetailView() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card className="border-slate-200 lg:col-span-2">
               <CardHeader>
-                <CardTitle className="text-lg">Série Temporal</CardTitle>
+                <CardTitle className="text-lg">Série Temporal Auditável</CardTitle>
               </CardHeader>
               <CardContent>
                 <ResponsiveContainer width="100%" height={300}>
@@ -150,7 +185,7 @@ export default function DetailView() {
 
             <Card className="border-slate-200">
               <CardHeader>
-                <CardTitle className="text-lg">Resumo</CardTitle>
+                <CardTitle className="text-lg">Resumo Auditável</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <motion.div

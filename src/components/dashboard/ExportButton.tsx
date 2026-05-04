@@ -23,9 +23,9 @@ export default function ExportButton({ data }: ExportButtonProps) {
 
   const exportCSV = () => {
     try {
-      const headers = ['Data', 'Descrição', 'Categoria', 'Centro de Custo', 'Conta', 'Valor', 'Tipo'];
+      const headers = ['Data', 'Descrição', 'Categoria', 'Grupo DRE', 'Centro de Custo', 'Conta', 'Valor', 'Tipo'];
       const rows = dataToExport.map(t => [
-        t.date, t.description, t.category, t.costCenter, t.account,
+        t.date, t.description, t.category, t.dreGroup || '', t.costCenter, t.account,
         t.value?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }),
         t.flowType === 'income' ? 'Receita' : 'Despesa',
       ]);
@@ -49,9 +49,9 @@ export default function ExportButton({ data }: ExportButtonProps) {
       setExporting(true);
       const wb = XLSX.utils.book_new();
 
-      const transHeaders = ['Data', 'Descrição', 'Categoria', 'Subcategoria', 'Conta', 'Centro de Custo', 'Unidade', 'Valor (R$)', 'Moeda', 'Tipo'];
+      const transHeaders = ['Data', 'Descrição', 'Categoria', 'Grupo DRE', 'Subcategoria', 'Conta', 'Centro de Custo', 'Unidade', 'Valor (R$)', 'Moeda', 'Tipo'];
       const transRows = dataToExport.map(t => [
-        t.date, t.description, t.category, t.subcategory || '', t.account || '',
+        t.date, t.description, t.category, t.dreGroup || '', t.subcategory || '', t.account || '',
         t.costCenter, t.unit || '',
         t.value,
         t.currency || 'BRL',

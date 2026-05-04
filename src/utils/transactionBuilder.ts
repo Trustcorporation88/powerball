@@ -1,5 +1,7 @@
 import type { ColumnMapping, Transaction } from "@/contexts/AppContext";
 import type { ParsedSheet } from "@/utils/excelParser";
+import { resolveTransactionDREClassification } from "@/services/dre";
+import type { DREClassificationRule } from "@/services/dreRules";
 
 export interface BuildStats {
   totalRows: number;
@@ -149,7 +151,8 @@ function cleanText(value: any, fallback: string): string {
 
 export function buildTransactionsFromSheet(
   sheet: ParsedSheet,
-  mappings: ColumnMapping[]
+  mappings: ColumnMapping[],
+  dreRules: DREClassificationRule[] = [],
 ): { transactions: Transaction[]; stats: BuildStats } {
   const fieldMap: Record<string, string> = {};
 
@@ -168,6 +171,7 @@ export function buildTransactionsFromSheet(
   const accountCol = fieldMap["Conta"];
   const unitCol = fieldMap["Unidade"];
   const currencyCol = fieldMap["Moeda"];
+  const dreGroupCol = fieldMap["Grupo DRE"];
 
   const transactions: Transaction[] = [];
   const categoriesFound = new Set<string>();
@@ -273,17 +277,40 @@ export function buildTransactionsFromSheet(
 
     totalValue += Math.abs(value);
 
+    const subcategory = cleanText(subcatCol ? row[subcatCol] : null, "");
+    const account = cleanText(accountCol ? row[accountCol] : null, "");
+    const unit = cleanText(unitCol ? row[unitCol] : null, "");
+    const currency = cleanText(currencyCol ? row[currencyCol] : null, "BRL");
+    const explicitDreGroup = dreGroupCol ? row[dreGroupCol] : null;
+    const classification = resolveTransactionDREClassification({
+      id: `tx-${index}`,
+      date,
+      description,
+      category,
+      dreGroup: undefined,
+      dreOriginalGroup: String(explicitDreGroup ?? ""),
+      subcategory,
+      account,
+      costCenter,
+      unit,
+      value: round2(value),
+      currency,
+      flowType: value >= 0 ? "income" : "expense",
+    }, dreRules);
+
     transactions.push({
       id: `tx-${index}`,
       date,
       description,
       category,
-      subcategory: cleanText(subcatCol ? row[subcatCol] : null, ""),
-      account: cleanText(accountCol ? row[accountCol] : null, ""),
+      dreGroup: classification.group,
+      dreOriginalGroup: classification.source === "explicit" ? classification.group : undefined,
+      subcategory,
+      account,
       costCenter,
-      unit: cleanText(unitCol ? row[unitCol] : null, ""),
+      unit,
       value: round2(value),
-      currency: cleanText(currencyCol ? row[currencyCol] : null, "BRL"),
+      currency,
       flowType: value >= 0 ? "income" : "expense",
     });
   });

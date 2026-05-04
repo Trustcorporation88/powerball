@@ -15,6 +15,8 @@ export interface DBFileData {
   name: string;
   sheets: any[];
   selectedSheet: string;
+  selectedSheets?: string[];
+  importMode?: 'single' | 'combine';
   headers: string[];
   preview: any[];
   allData: any[];
@@ -35,6 +37,8 @@ export interface DBTransaction {
   date: string;
   description: string;
   category: string;
+  dreGroup?: string;
+  dreOriginalGroup?: string;
   subcategory: string;
   account: string;
   costCenter: string;
@@ -68,6 +72,17 @@ export interface DBShareSnapshot {
   snapshotJson: string;
 }
 
+export interface DBDRERule {
+  id: string;
+  projectId: string;
+  field: string;
+  operator: string;
+  value: string;
+  dreGroup: string;
+  priority: number;
+  createdAt: string;
+}
+
 const db = new Dexie('DataFinDB') as Dexie & {
   projects: EntityTable<DBProject, 'id'>;
   files: EntityTable<DBFileData, 'id'>;
@@ -76,6 +91,7 @@ const db = new Dexie('DataFinDB') as Dexie & {
   users: EntityTable<DBUser, 'username'>;
   layouts: EntityTable<DBDashboardLayout, 'id'>;
   shares: EntityTable<DBShareSnapshot, 'token'>;
+  dreRules: EntityTable<DBDRERule, 'id'>;
 };
 
 db.version(1).stores({
@@ -97,6 +113,17 @@ db.version(2).stores({
   shares: 'token, createdAt',
 });
 
+db.version(3).stores({
+  projects: 'id, status, createdAt',
+  files: '++id, projectId',
+  mappings: '++id, projectId',
+  transactions: '++id, projectId, date, category, flowType',
+  users: 'username',
+  layouts: '++id, projectId',
+  shares: 'token, createdAt',
+  dreRules: 'id, projectId, priority, dreGroup, field',
+});
+
 export { db };
 
 export async function saveProject(project: DBProject) {
@@ -116,6 +143,7 @@ export async function deleteProject(id: string) {
   await db.files.where('projectId').equals(id).delete();
   await db.mappings.where('projectId').equals(id).delete();
   await db.transactions.where('projectId').equals(id).delete();
+  await db.dreRules.where('projectId').equals(id).delete();
 }
 
 export async function saveFileData(data: DBFileData) {
@@ -138,7 +166,19 @@ export async function getMappings(projectId: string): Promise<DBColumnMapping[]>
 
 export async function saveTransactions(projectId: string, transactions: DBTransaction[]) {
   await db.transactions.where('projectId').equals(projectId).delete();
-  return db.transactions.bulkAdd(transactions.map(t => ({ ...t, projectId })));
+  return db.transactions.bulkAdd(
+    transactions.map((transaction, index) => {
+      const scopedId = transaction.id?.startsWith(`${projectId}::`)
+        ? transaction.id
+        : `${projectId}::${transaction.id ?? index}`;
+
+      return {
+        ...transaction,
+        id: scopedId,
+        projectId,
+      };
+    }),
+  );
 }
 
 export async function getTransactions(projectId: string): Promise<DBTransaction[]> {
@@ -152,6 +192,19 @@ export async function saveDashboardLayout(layout: DBDashboardLayout) {
 
 export async function getDashboardLayout(projectId: string): Promise<DBDashboardLayout | undefined> {
   return db.layouts.where('projectId').equals(projectId).first();
+}
+
+export async function saveDRERules(projectId: string, rules: DBDRERule[]) {
+  await db.dreRules.where('projectId').equals(projectId).delete();
+  if (rules.length === 0) {
+    return;
+  }
+
+  return db.dreRules.bulkPut(rules.map((rule) => ({ ...rule, projectId })));
+}
+
+export async function getDRERules(projectId: string): Promise<DBDRERule[]> {
+  return db.dreRules.where('projectId').equals(projectId).sortBy('priority');
 }
 
 export async function saveUser(user: DBUser) {

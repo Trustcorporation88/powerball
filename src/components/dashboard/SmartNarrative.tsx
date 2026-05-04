@@ -28,14 +28,18 @@ export const SmartNarrative = ({ kpis, topCategories, monthlyData }: SmartNarrat
       parts.push(`. A maior categoria de despesa foi ${topCategories[0].name} (${topCategories[0].value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})`);
     }
     
-    if (monthlyData.length > 1) {
-      const last = monthlyData[monthlyData.length - 1];
-      const prev = monthlyData[monthlyData.length - 2];
-      const balanceChange = prev.balance > 0 ? ((last.balance - prev.balance) / Math.abs(prev.balance)) * 100 : 0;
-      if (Math.abs(balanceChange) > 5) {
-        parts.push(`. O saldo do último mês ${balanceChange > 0 ? "cresceu" : "caiu"} ${Math.abs(balanceChange).toFixed(1)}% em relação ao anterior`);
+      if (monthlyData.length > 1) {
+        const last = monthlyData[monthlyData.length - 1];
+        const prev = monthlyData[monthlyData.length - 2];
+        const previousBase = Math.abs(prev.balance);
+        const balanceDelta = last.balance - prev.balance;
+        const balanceChange = previousBase >= 1000 ? (balanceDelta / previousBase) * 100 : null;
+        if (balanceChange !== null && Math.abs(balanceChange) > 5) {
+          parts.push(`. O saldo do último mês ${balanceChange > 0 ? "cresceu" : "caiu"} ${Math.abs(balanceChange).toFixed(1)}% em relação ao anterior`);
+        } else if (balanceDelta !== 0) {
+          parts.push(`. O saldo do último mês variou ${Math.abs(balanceDelta).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} em relação ao anterior`);
+        }
       }
-    }
     
     parts.push(`. Margem operacional de ${kpis.margin.toFixed(1)}%.`);
     

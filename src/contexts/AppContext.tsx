@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import * as db from '@/services/db';
-import { generateMockTransactions } from '@/data/mockData';
 import { buildProjectStorageKey, readStorage, removeStorage, writeStorage } from '@/services/storage';
+import type { DREClassificationRule } from '@/services/dreRules';
 
 export interface Project {
   id: string;
@@ -24,6 +24,8 @@ export interface Transaction {
   date: string;
   description: string;
   category: string;
+  dreGroup?: string;
+  dreOriginalGroup?: string;
   subcategory: string;
   account: string;
   costCenter: string;
@@ -37,6 +39,8 @@ export interface ParsedFileData {
   name: string;
   sheets: any[];
   selectedSheet: string;
+  selectedSheets?: string[];
+  importMode?: 'single' | 'combine';
   headers: string[];
   preview: any[];
   allData: any[];
@@ -77,6 +81,7 @@ interface AppContextType {
   additionalTables: AdditionalTable[];
   tableRelationships: TableRelationship[];
   rlsRules: RLSRule[];
+  dreRules: DREClassificationRule[];
   addProject: (p: Project) => Promise<void>;
   removeProject: (id: string) => Promise<void>;
   setCurrentProject: (p: Project | null) => Promise<void>;
@@ -91,6 +96,7 @@ interface AppContextType {
   setRLSRules: (rules: RLSRule[]) => void;
   addRLSRule: (rule: RLSRule) => void;
   removeRLSRule: (id: string) => void;
+  setDRERules: (rules: DREClassificationRule[]) => Promise<void>;
   getRLSFilteredData: (userRole: string) => Transaction[];
 }
 
@@ -118,6 +124,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [additionalTables, setAdditionalTables] = useState<AdditionalTable[]>([]);
   const [tableRelationships, setTableRelationships] = useState<TableRelationship[]>([]);
   const [rlsRules, setRLSRulesState] = useState<RLSRule[]>([]);
+  const [dreRules, setDRERulesState] = useState<DREClassificationRule[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,34 +136,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (loadedProjects.length > 0) {
-        setProjects(loadedProjects);
-        setLoading(false);
-        return;
-      }
-
-      const demoProject: Project = {
-        id: `demo-${Date.now()}`,
-        name: 'Projeto Demo',
-        segment: 'Serviços',
-        status: 'active',
-        createdAt: new Date().toISOString().split('T')[0],
-        lastProcessed: new Date().toISOString(),
-      };
-      const mockTxns = generateMockTransactions();
-
-      await Promise.all([
-        db.saveProject(demoProject),
-        db.saveTransactions(demoProject.id, mockTxns),
-      ]);
-
-      if (cancelled) {
-        return;
-      }
-
-      setProjects([demoProject]);
-      setCurrentProjectState(demoProject);
-      setTransactionsState(mockTxns);
+      setProjects(loadedProjects);
       setLoading(false);
     };
 
@@ -186,25 +166,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setAdditionalTables([]);
       setTableRelationships([]);
       setRLSRulesState([]);
+      setDRERulesState([]);
     }
   }, [currentProject]);
 
   const setCurrentProject = useCallback(async (p: Project | null) => {
     setCurrentProjectState(p);
+    setCurrentFileState(null);
+    setColumnMappingsState([]);
+    setTransactionsState([]);
+    setAdditionalTables([]);
+    setTableRelationships([]);
+    setRLSRulesState([]);
+    setDRERulesState([]);
+
     if (!p) {
-      setCurrentFileState(null);
-      setColumnMappingsState([]);
-      setTransactionsState([]);
-      setAdditionalTables([]);
-      setTableRelationships([]);
-      setRLSRulesState([]);
       return;
     }
 
-    const [file, mappings, txns] = await Promise.all([
+    const [file, mappings, txns, projectDreRules] = await Promise.all([
       db.getFileData(p.id),
       db.getMappings(p.id),
       db.getTransactions(p.id),
+      db.getDRERules(p.id),
     ]);
 
     setCurrentFileState(file ? (file as ParsedFileData) : null);
@@ -213,6 +197,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAdditionalTables(readStorage<AdditionalTable[]>(getTablesKey(p.id), []));
     setTableRelationships(readStorage<TableRelationship[]>(getRelationshipsKey(p.id), []));
     setRLSRulesState(readStorage<RLSRule[]>(getRlsKey(p.id), []));
+    setDRERulesState(projectDreRules as DREClassificationRule[]);
   }, []);
 
   const setCurrentFile = useCallback(async (f: ParsedFileData | null) => {
@@ -223,6 +208,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         name: f.name,
         sheets: f.sheets,
         selectedSheet: f.selectedSheet,
+        selectedSheets: f.selectedSheets,
+        importMode: f.importMode,
         headers: f.headers,
         preview: f.preview,
         allData: f.allData,
@@ -326,6 +313,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     });
   }, [currentProject]);
 
+  const setDRERules = useCallback(async (rules: DREClassificationRule[]) => {
+    setDRERulesState(rules);
+    if (currentProject) {
+      await db.saveDRERules(currentProject.id, rules);
+    }
+  }, [currentProject]);
+
   const getRLSFilteredData = useCallback((userRole: string): Transaction[] => {
     if (userRole === 'admin') return transactions;
     const userRule = rlsRules.find(r => r.role === userRole);
@@ -339,11 +333,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={{
       projects, currentProject, currentFile, columnMappings, transactions, loading,
-      additionalTables, tableRelationships, rlsRules,
+      additionalTables, tableRelationships, rlsRules, dreRules,
       addProject, removeProject, setCurrentProject, setCurrentFile, setColumnMappings,
       setTransactions, updateProjectStatus,
       addTable, removeTable, addRelationship, removeRelationship,
-      setRLSRules, addRLSRule, removeRLSRule, getRLSFilteredData,
+      setRLSRules, addRLSRule, removeRLSRule, setDRERules, getRLSFilteredData,
     }}>
       {children}
     </AppContext.Provider>

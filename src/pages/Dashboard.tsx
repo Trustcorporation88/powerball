@@ -26,8 +26,6 @@ import CrossFilterBar from '@/components/dashboard/CrossFilterBar';
 import TreemapChart from '@/components/dashboard/TreemapChart';
 import WaterfallChart from '@/components/dashboard/WaterfallChart';
 import DrillDownChart from '@/components/dashboard/DrillDownChart';
-import CalculatedColumns from '@/components/dashboard/CalculatedColumns';
-import TemplateSelector from '@/components/dashboard/TemplateSelector';
 import ShareDialog from '@/components/dashboard/ShareDialog';
 
 import GaugeChart from '@/components/dashboard/GaugeChart';
@@ -43,6 +41,8 @@ import { generateMockTransactions } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
 import { validateTransactions } from '@/services/validation';
 import { ValidationSummary } from '@/components/ValidationSummary';
+import { queryNLP } from '@/services/ai';
+import { ProFeatureButton } from '@/components/ProFeature';
 
 const COLORS = ['#059669', '#10b981', '#34d399', '#6ee7b7', '#a7f3d0', '#d1fae5', '#3b82f6', '#8b5cf6'];
 
@@ -64,15 +64,14 @@ export default function Dashboard() {
   const [crossFilterCategory, setCrossFilterCategory] = useState<string | null>(drillCategory);
   const [crossFilterCostCenter, setCrossFilterCostCenter] = useState<string | null>(drillCostCenter);
   const [drillDownCategory, setDrillDownCategory] = useState<string | null>(null);
-  const [template, setTemplate] = useState('default');
+  const template = 'default';
   const [showShare, setShowShare] = useState(false);
-  const [showTemplates, setShowTemplates] = useState(false);
-  const [showCalculated, setShowCalculated] = useState(false);
   const [showWhatIf, setShowWhatIf] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [comparisonType, setComparisonType] = useState<ComparisonType>('pop');
+  const [externalQuestionRequest, setExternalQuestionRequest] = useState<{ id: number; question: string } | null>(null);
   const visibleTransactions = useMemo(
     () => getRLSFilteredData(user?.role ?? 'user'),
     [getRLSFilteredData, user?.role],
@@ -148,6 +147,36 @@ export default function Dashboard() {
     setCrossFilterCategory(savedFilters.category || null);
     setCrossFilterCostCenter(savedFilters.costCenter || null);
   };
+
+  const handleSuggestedQuestion = useCallback(async (question: string) => {
+    setFilters((prev: any) => ({ ...prev, search: '' }));
+
+    const response = await queryNLP(question, {
+      totalIncome: kpis.income,
+      totalExpense: kpis.expense,
+      balance: kpis.balance,
+      categories,
+      costCenters,
+      dateRange: 'período atual',
+    });
+
+    if (response.filter) {
+      setFilters((prev: any) => ({
+        ...prev,
+        ...response.filter,
+      }));
+
+      if (response.filter.category !== undefined) {
+        setCrossFilterCategory(response.filter.category ?? null);
+      }
+
+      if (response.filter.costCenter !== undefined) {
+        setCrossFilterCostCenter(response.filter.costCenter ?? null);
+      }
+    }
+
+    setExternalQuestionRequest({ id: Date.now(), question });
+  }, [categories, costCenters, kpis.balance, kpis.expense, kpis.income]);
 
   const mapPoints = useMemo(() => {
     const cities: Record<string, { lat: number; lng: number }> = {
@@ -275,7 +304,12 @@ export default function Dashboard() {
               </PieChart>
             </ResponsiveContainer>
           </ChartCard>
-           <NaturalLanguageQuery transactions={visibleTransactions} kpis={kpis} onFilterChange={setFilters} />
+           <NaturalLanguageQuery
+             transactions={visibleTransactions}
+             kpis={kpis}
+             onFilterChange={setFilters}
+             externalQuestionRequest={externalQuestionRequest}
+           />
            <DecompositionTree transactions={visibleTransactions} />
         </div>
 
@@ -294,8 +328,10 @@ export default function Dashboard() {
             <ArrowLeft className="h-5 w-5" />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold">{currentProject?.name || 'Dashboard'}</h1>
-            <p className="text-sm text-muted-foreground">{currentProject?.segment}</p>
+            <h1 className="text-2xl font-bold">{currentProject?.name || 'Dashboard Analítico'}</h1>
+            <p className="text-sm text-muted-foreground">
+              {currentProject?.segment} • apoio analítico complementar à entrega DRE
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -315,12 +351,8 @@ export default function Dashboard() {
            }}>
             <Database className="h-4 w-4 mr-1" /> Dados Demo
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowTemplates(!showTemplates)}>
-            Templates
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setShowCalculated(!showCalculated)}>
-            Colunas
-          </Button>
+          <ProFeatureButton label="Templates" />
+          <ProFeatureButton label="Colunas" />
           <Button variant="outline" size="sm" onClick={() => setShowWhatIf(true)}>
             <Sliders className="h-4 w-4 mr-1" /> Simular
           </Button>
@@ -348,11 +380,26 @@ export default function Dashboard() {
               <FileText className="h-4 w-4 mr-1" /> Detalhes
             </Button>
           </Link>
+          <Link to="/dre">
+            <Button variant="outline" size="sm">
+              <FileSpreadsheet className="h-4 w-4 mr-1" /> DRE
+            </Button>
+          </Link>
         </div>
       </div>
 
-      {showTemplates && <TemplateSelector onSelect={(t) => { setTemplate(t); setShowTemplates(false); }} />}
-      {showCalculated && <CalculatedColumns />}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardContent className="p-4 text-sm text-blue-900 flex items-center justify-between gap-3 flex-wrap">
+          <span>
+            Esta tela agora funciona como <strong>apoio analítico</strong>. A entrega principal do projeto é o <strong>DRE Gerencial</strong>.
+          </span>
+          <Link to="/dre">
+            <Button size="sm" variant="outline">
+              <FileSpreadsheet className="h-4 w-4 mr-1" /> Abrir DRE
+            </Button>
+          </Link>
+        </CardContent>
+      </Card>
 
       {visibleTransactions.length === 0 && (
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
@@ -393,7 +440,7 @@ export default function Dashboard() {
       {validationReport.approved && (
         <>
           <SuggestedQuestions onSelect={(q) => {
-            setFilters((prev: any) => ({ ...prev, search: q }));
+            void handleSuggestedQuestion(q);
           }} context={{ categories, period: filters.period }} />
 
           <DashboardFilters filters={filters} onChange={setFilters} categories={categories} costCenters={costCenters} />
@@ -401,10 +448,10 @@ export default function Dashboard() {
 
           {comparison && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <GaugeChart title="Receita vs Meta" value={kpis.income} target={comparison.income * 1.2 || 10000} unit="R$" color="#059669" />
-              <GaugeChart title="Despesa Controlada" value={kpis.expense} target={comparison.expense * 0.9 || 10000} unit="R$" color="#ef4444" />
-              <GaugeChart title="Saldo" value={kpis.balance} target={Math.max(kpis.balance, 10000)} unit="R$" color="#3b82f6" />
-              <GaugeChart title="Margem %" value={kpis.margin} target={30} unit="%" color="#8b5cf6" />
+              <GaugeChart title="Receita vs Meta" value={kpis.income} target={comparison.income * 1.2 || 10000} unit="R$" color="#059669" goal="maximize" />
+              <GaugeChart title="Despesa Controlada" value={kpis.expense} target={comparison.expense * 0.9 || 10000} unit="R$" color="#ef4444" goal="minimize" />
+              <GaugeChart title="Saldo" value={kpis.balance} target={Math.max(comparison.balance, 10000)} unit="R$" color="#3b82f6" goal="maximize" />
+              <GaugeChart title="Margem %" value={kpis.margin} target={30} unit="%" color="#8b5cf6" goal="maximize" />
             </div>
           )}
 

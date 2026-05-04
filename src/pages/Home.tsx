@@ -1,9 +1,8 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useApp } from '@/contexts/AppContext';
-import { FolderOpen, PlusCircle, CheckCircle2, Activity, AlertTriangle, Clock, TrendingUp } from 'lucide-react';
+import { FolderOpen, PlusCircle, CheckCircle2, Activity, Clock, TrendingUp, FileText, BarChart3, FileSpreadsheet, Wallet, Building2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function Home() {
@@ -25,13 +24,92 @@ export default function Home() {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-6 space-y-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">DataFin</h1>
-          <p className="text-muted-foreground">Análise Financeira de Planilhas</p>
+          <h1 className="text-3xl font-bold">Central de Entregas</h1>
+          <p className="text-muted-foreground">Escolha a entrega principal do projeto e use o dashboard como apoio analítico</p>
         </div>
         <Button onClick={() => navigate('/projects/new')}>
           <PlusCircle className="h-4 w-4 mr-2" />
           Novo Projeto
         </Button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        {[
+          {
+            title: 'DRE Gerencial',
+            description: 'Entrega estruturada com receita líquida, lucro bruto, EBITDA e resultado líquido.',
+            route: '/dre',
+            action: 'Abrir DRE',
+            badge: 'Principal',
+            icon: FileText,
+            style: 'border-emerald-200 bg-emerald-50',
+          },
+          {
+            title: 'Dashboard Analítico',
+            description: 'Exploração por gráficos, tendências, centros de custo, filtros e consultas.',
+            route: '/dashboard',
+            action: 'Abrir Dashboard',
+            badge: 'Apoio',
+            icon: BarChart3,
+            style: 'border-blue-200 bg-blue-50',
+          },
+          {
+            title: 'Fluxo de Caixa',
+            description: 'Entradas, saídas, saldo do período e caixa acumulado em uma entrega própria.',
+            route: '/fluxo-caixa',
+            action: 'Abrir Fluxo de Caixa',
+            badge: 'Entrega',
+            icon: Wallet,
+            style: 'border-violet-200 bg-violet-50',
+          },
+          {
+            title: 'Resultado por Centro de Custo',
+            description: 'Receita, despesa, saldo e margem por centro de custo, com quadro consolidado.',
+            route: '/resultado-centro-custo',
+            action: 'Abrir Centro de Custo',
+            badge: 'Entrega',
+            icon: Building2,
+            style: 'border-sky-200 bg-sky-50',
+          },
+          {
+            title: 'Lançamentos Auditáveis',
+            description: 'Tabela detalhada para auditoria, exportação e rastreio dos lançamentos processados.',
+            route: '/detail',
+            action: 'Abrir Auditoria',
+            badge: 'Auditoria',
+            icon: FolderOpen,
+            style: 'border-fuchsia-200 bg-fuchsia-50',
+          },
+          {
+            title: 'Importação e Mapeamento',
+            description: 'Entrada da planilha, confirmação das colunas e classificação financeira + DRE.',
+            route: '/import',
+            action: 'Importar Dados',
+            badge: 'Entrada',
+            icon: FileSpreadsheet,
+            style: 'border-amber-200 bg-amber-50',
+          },
+        ].map((delivery, index) => (
+          <motion.div key={delivery.title} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.08 }}>
+            <Card className={`h-full ${delivery.style}`}>
+              <CardContent className="p-5 flex flex-col h-full">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="p-2 rounded-lg bg-white/70">
+                    <delivery.icon className="h-5 w-5 text-slate-800" />
+                  </div>
+                  <span className="text-[10px] uppercase tracking-wide font-semibold text-slate-600">{delivery.badge}</span>
+                </div>
+                <div className="mt-4 space-y-2 flex-1">
+                  <h2 className="text-lg font-semibold">{delivery.title}</h2>
+                  <p className="text-sm text-muted-foreground">{delivery.description}</p>
+                </div>
+                <Button className="mt-4" variant="outline" onClick={() => navigate(delivery.route)}>
+                  {delivery.action}
+                </Button>
+              </CardContent>
+            </Card>
+          </motion.div>
+        ))}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -108,15 +186,15 @@ export default function Home() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-amber-500" />
-              Dicas
+              <FileText className="h-4 w-4 text-emerald-500" />
+              Entregas prioritárias
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>• Importe arquivos .xlsx, .xlsm ou .csv</p>
-            <p>• Mapeie as colunas para papéis financeiros</p>
-            <p>• Use consultas em linguagem natural com IA</p>
-            <p>• Exporte dashboards em Excel e CSV</p>
+            <p>• DRE como entrega principal para resultado consolidado</p>
+            <p>• Fluxo de caixa para leitura operacional de entradas e saídas</p>
+            <p>• Resultado por centro de custo para responsabilização gerencial</p>
+            <p>• Visão auditável para evidência e rastreio dos lançamentos</p>
           </CardContent>
         </Card>
         <Card>
@@ -127,10 +205,10 @@ export default function Home() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>• Templates de dashboard por segmento</p>
-            <p>• Colunas calculadas estilo Excel</p>
-            <p>• Drill-down em categorias</p>
-            <p>• Compartilhamento de dashboards</p>
+            <p>• Classificação DRE direta pela planilha ou inferida</p>
+            <p>• Validação determinística antes da entrega</p>
+            <p>• Drill-down por categoria, centro de custo e período</p>
+            <p>• Exportações executivas e dados auditáveis</p>
           </CardContent>
         </Card>
       </div>

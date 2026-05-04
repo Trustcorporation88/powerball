@@ -15,6 +15,9 @@ const Projects = lazy(() => import("./pages/Projects"));
 const NewProject = lazy(() => import("./pages/NewProject"));
 const ImportFile = lazy(() => import("./pages/ImportFile"));
 const ColumnMapping = lazy(() => import("./pages/ColumnMapping"));
+const DRE = lazy(() => import("./pages/DRE"));
+const CashFlow = lazy(() => import("./pages/CashFlow"));
+const CostCenterResult = lazy(() => import("./pages/CostCenterResult"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const DetailView = lazy(() => import("./pages/DetailView"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -50,6 +53,9 @@ const AppRoutes = () => (
         <Route path="/etl" element={<ETLPipeline />} />
         <Route path="/relationships" element={<Relationships />} />
         <Route path="/mapping" element={<ColumnMapping />} />
+        <Route path="/dre" element={<DRE />} />
+        <Route path="/fluxo-caixa" element={<CashFlow />} />
+        <Route path="/resultado-centro-custo" element={<CostCenterResult />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/detail" element={<DetailView />} />
         <Route path="/settings" element={<Settings />} />

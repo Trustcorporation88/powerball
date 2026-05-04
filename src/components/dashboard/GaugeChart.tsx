@@ -8,6 +8,7 @@ interface GaugeChartProps {
   target: number;
   unit?: string;
   color?: string;
+  goal?: "maximize" | "minimize";
 }
 
 export default function GaugeChart({
@@ -16,15 +17,23 @@ export default function GaugeChart({
   target,
   unit = "R$",
   color = "#059669",
+  goal = "maximize",
 }: GaugeChartProps) {
   const percentage = useMemo(() => {
     if (target <= 0) return 0;
-    return Math.min((value / target) * 100, 100);
-  }, [value, target]);
+
+    if (goal === "minimize") {
+      if (value <= 0) return 100;
+      return Math.max(0, Math.min((target / value) * 100, 100));
+    }
+
+    return Math.max(0, Math.min((value / target) * 100, 100));
+  }, [goal, value, target]);
 
   const angle = useMemo(() => percentage * 1.8, [percentage]);
 
-  const isNearOrAbove = percentage >= 90;
+  const isGoalMet = goal === "minimize" ? value <= target : value >= target;
+  const isNearGoal = isGoalMet || percentage >= 90;
 
   const glowColor = color;
 
@@ -49,8 +58,17 @@ export default function GaugeChart({
     return `M ${startX} ${startY} A ${r} ${r} 0 ${largeArcFlag} 0 ${endArc.x} ${endArc.y}`;
   }, [startX, startY, r, largeArcFlag, endArc]);
 
-  const formatCurrency = (v: number) =>
-    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const formatValue = (v: number) => {
+    if (unit === "%") {
+      return `${v.toFixed(1)}%`;
+    }
+
+    if (unit === "R$") {
+      return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+    }
+
+    return `${unit} ${v.toLocaleString("pt-BR")}`;
+  };
 
   return (
     <div className="flex flex-col items-center">
@@ -80,9 +98,9 @@ export default function GaugeChart({
             initial={{ pathLength: 0 }}
             animate={{ pathLength: 1 }}
             transition={{ duration: 1.2, ease: "easeOut" }}
-            filter={isNearOrAbove ? `url(#glow-${title.replace(/\s/g, "")})` : undefined}
+            filter={isNearGoal ? `url(#glow-${title.replace(/\s/g, "")})` : undefined}
             style={{
-              filter: isNearOrAbove
+              filter: isNearGoal
                 ? `drop-shadow(0 0 6px ${glowColor})`
                 : undefined,
             }}
@@ -106,7 +124,7 @@ export default function GaugeChart({
             {percentage.toFixed(0)}%
           </motion.span>
           <span className="text-[10px] text-slate-500 mt-0.5">
-            {unit} {value.toLocaleString("pt-BR")} / {target.toLocaleString("pt-BR")}
+            {formatValue(value)} / meta {formatValue(target)}
           </span>
         </div>
       </div>
@@ -116,31 +134,31 @@ export default function GaugeChart({
       <div className="flex items-center gap-4 mt-1 text-xs text-slate-500">
         <div className="flex items-center gap-1">
           <span className="w-2.5 h-2.5 rounded-full bg-slate-200" />
-          Meta: {formatCurrency(target)}
+          Meta: {formatValue(target)}
         </div>
         <div className="flex items-center gap-1">
           <span
             className="w-2.5 h-2.5 rounded-full"
             style={{ backgroundColor: color }}
           />
-          Atual: {formatCurrency(value)}
+          Atual: {formatValue(value)}
         </div>
       </div>
 
-      {isNearOrAbove && (
-        <motion.div
-          initial={{ opacity: 0, y: 5 }}
-          animate={{ opacity: 1, y: 0 }}
-          className={cn(
-            "mt-2 px-3 py-1 rounded-full text-xs font-semibold",
-            percentage >= 100
-              ? "bg-emerald-100 text-emerald-700"
+      <motion.div
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={cn(
+          "mt-2 px-3 py-1 rounded-full text-xs font-semibold",
+          isGoalMet
+            ? "bg-emerald-100 text-emerald-700"
+            : goal === "minimize"
+              ? "bg-rose-100 text-rose-700"
               : "bg-amber-100 text-amber-700"
-          )}
-        >
-          {percentage >= 100 ? "Meta atingida!" : "Próximo da meta"}
-        </motion.div>
-      )}
+        )}
+      >
+        {isGoalMet ? "Meta atingida!" : goal === "minimize" ? "Acima da meta" : "Abaixo da meta"}
+      </motion.div>
     </div>
   );
 }

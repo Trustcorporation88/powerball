@@ -35,6 +35,21 @@ export async function queryNLP(
 function keywordFallback(question: string): NLPResult {
   const q = question.toLowerCase();
 
+  if ((q.includes('compare') || q.includes('compar')) && q.includes('receita') && q.includes('despesa')) {
+    return { type: 'line', title: 'Receita vs Despesa' };
+  }
+  if (q.includes('saldo') && (q.includes('mês') || q.includes('mes') || q.includes('mensal'))) {
+    return { type: 'line', title: 'Saldo Líquido por Mês' };
+  }
+  if (q.includes('top') && q.includes('despesa')) {
+    return { type: 'bar', title: 'Top 5 Despesas' };
+  }
+  if (q.includes('centro de custo') && (q.includes('gasta mais') || q.includes('maior'))) {
+    return { type: 'pie', title: 'Centro de Custo com Maior Despesa' };
+  }
+  if (q.includes('distribuição') && q.includes('categoria')) {
+    return { type: 'pie', title: 'Distribuição por Categoria' };
+  }
   if (q.includes('receita') && (q.includes('categoria') || q.includes('por'))) {
     return { type: 'bar', title: 'Receita por Categoria' };
   }
@@ -55,9 +70,6 @@ function keywordFallback(question: string): NLPResult {
   }
   if (q.includes('evolução') || q.includes('mensal') || q.includes('tempo')) {
     return { type: 'line', title: 'Evolução Mensal' };
-  }
-  if (q.includes('top') && q.includes('despesa')) {
-    return { type: 'bar', title: 'Top Despesas', filter: {} };
   }
   if (q.includes('margem') || q.includes('margem operacional')) {
     return { type: 'kpi', title: 'Margem Operacional' };

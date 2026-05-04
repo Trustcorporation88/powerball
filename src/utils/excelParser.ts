@@ -161,6 +161,11 @@ export function inferFinancialRole(columnName: string, detectedType: string, sam
   if (descPatterns.some(p => nameLower.includes(p))) {
     return "Descrição";
   }
+
+  const drePatterns = ["dre", "grupodre", "linhadre", "contadre", "classificacaodre", "estruturadre", "resultado"];
+  if (drePatterns.some(p => nameLower.includes(p))) {
+    return "Grupo DRE";
+  }
   
   // ===== CATEGORIA =====
   const catPatterns = [

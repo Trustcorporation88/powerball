@@ -1,6 +1,4 @@
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { LayoutTemplate } from 'lucide-react';
+import { ProFeatureCard } from '@/components/ProFeature';
 
 interface TemplateSelectorProps {
   onSelect: (template: string) => void;
@@ -34,32 +32,11 @@ const templates = [
 ];
 
 export default function TemplateSelector({ onSelect }: TemplateSelectorProps) {
+  void onSelect;
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <LayoutTemplate className="h-4 w-4" />
-          Templates de Dashboard
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-2 gap-2">
-          {templates.map(t => (
-            <Button
-              key={t.id}
-              variant="outline"
-              className="h-auto flex-col items-start p-3 gap-1"
-              onClick={() => onSelect(t.id)}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-lg">{t.icon}</span>
-                <span className="font-medium text-sm">{t.name}</span>
-              </div>
-              <span className="text-xs text-muted-foreground text-left">{t.description}</span>
-            </Button>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
+    <ProFeatureCard
+      title="Templates de Dashboard"
+      description={`Os templates avançados (${templates.map((template) => template.name).join(", ")}) ficam disponíveis apenas para Usuário Pro até a padronização completa das variações de layout.`}
+    />
   );
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -13,16 +13,20 @@ interface NLPProps {
   transactions: Transaction[];
   kpis: KpiData;
   onFilterChange: (filters: (previous: Record<string, unknown>) => Record<string, unknown>) => void;
+  externalQuestionRequest?: {
+    id: number;
+    question: string;
+  } | null;
 }
 
-export default function NaturalLanguageQuery({ transactions, kpis, onFilterChange }: NLPProps) {
+export default function NaturalLanguageQuery({ transactions, kpis, onFilterChange, externalQuestionRequest }: NLPProps) {
   const [question, setQuestion] = useState('');
   const [result, setResult] = useState<Awaited<ReturnType<typeof queryNLP>> | null>(null);
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<{ q: string; r: Awaited<ReturnType<typeof queryNLP>> }[]>([]);
 
-  const categories = [...new Set(transactions.map((t) => t.category))];
-  const costCenters = [...new Set(transactions.map((t) => t.costCenter))];
+  const categories = useMemo(() => [...new Set(transactions.map((t) => t.category))], [transactions]);
+  const costCenters = useMemo(() => [...new Set(transactions.map((t) => t.costCenter))], [transactions]);
 
   const totalIncome = transactions.filter((t) => t.flowType === 'income').reduce((s, t) => s + t.value, 0);
   const totalExpense = transactions.filter((t) => t.flowType === 'expense').reduce((s, t) => s + Math.abs(t.value), 0);
@@ -42,7 +46,7 @@ export default function NaturalLanguageQuery({ transactions, kpis, onFilterChang
     { q: `Mês com maior receita?`, icon: '📅' },
   ];
 
-  const handleQuery = async (q?: string) => {
+  const handleQuery = useCallback(async (q?: string) => {
     const queryText = q || question;
     if (!queryText.trim()) return;
     setLoading(true);
@@ -67,7 +71,15 @@ export default function NaturalLanguageQuery({ transactions, kpis, onFilterChang
         ...response.filter,
       }));
     }
-  };
+  }, [categories, costCenters, onFilterChange, question, totalExpense, totalIncome]);
+
+  useEffect(() => {
+    if (!externalQuestionRequest) {
+      return;
+    }
+
+    void handleQuery(externalQuestionRequest.question);
+  }, [externalQuestionRequest, handleQuery]);
 
   return (
     <Card>

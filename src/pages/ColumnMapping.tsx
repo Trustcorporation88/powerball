@@ -14,9 +14,17 @@ import { ValidationSummary } from "@/components/ValidationSummary";
 
 const dataTypes = ["text", "number", "date", "currency", "percentage"];
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "O processamento falhou antes de concluir o mapeamento.";
+}
+
 export default function ColumnMapping() {
   const navigate = useNavigate();
-  const { currentFile, setColumnMappings, setTransactions, updateProjectStatus, currentProject } = useApp();
+  const { currentFile, setColumnMappings, setTransactions, updateProjectStatus, currentProject, dreRules } = useApp();
   const [processing, setProcessing] = useState(false);
 
   const allData = useMemo(() => currentFile?.allData ?? [], [currentFile?.allData]);
@@ -61,18 +69,20 @@ export default function ColumnMapping() {
     };
     
     try {
-      const { stats, transactions } = buildTransactionsFromSheet(sheetData, mappings);
+      const { stats, transactions } = buildTransactionsFromSheet(sheetData, mappings, dreRules);
       return {
         stats,
         report: validateTransactions(transactions, stats),
+        dreGroupsFound: [...new Set(transactions.map((transaction) => transaction.dreGroup).filter(Boolean))],
       };
     } catch (e) {
       return null;
     }
-  }, [mappings, currentFile, allData, headers]);
+  }, [mappings, currentFile, allData, headers, dreRules]);
 
   const hasValueMapping = mappings.some((m) => m.financialRole === "Valor");
   const hasDateMapping = mappings.some((m) => m.financialRole === "Data do lançamento");
+  const hasDreMapping = mappings.some((m) => m.financialRole === "Grupo DRE");
   const mappedRoles = mappings.filter(m => m.financialRole !== "Nenhum");
 
   const handleProcess = async () => {
@@ -86,36 +96,43 @@ export default function ColumnMapping() {
       return;
     }
 
+    if (!currentFile || allData.length === 0) {
+      toast.error("Dados do arquivo não encontrados.");
+      return;
+    }
+
+    if (!currentProject) {
+      toast.error("Projeto atual não encontrado. Volte para Projetos e abra o projeto novamente.");
+      return;
+    }
+
     setProcessing(true);
 
-    await setColumnMappings(mappings);
+    try {
+      await setColumnMappings(mappings);
 
-    if (currentFile && allData.length > 0) {
       const sheetData = {
         name: currentFile.selectedSheet || "Dados",
         data: allData,
         headers,
         rowCount: allData.length,
       };
-      const { transactions: builtTransactions, stats } = buildTransactionsFromSheet(sheetData, mappings);
-      const validationReport = validateTransactions(builtTransactions, stats);
-      await setTransactions(builtTransactions);
 
-      if (currentProject) {
-        await updateProjectStatus(currentProject.id, "active");
-      }
+      const { transactions: builtTransactions, stats } = buildTransactionsFromSheet(sheetData, mappings, dreRules);
+      const validationReport = validateTransactions(builtTransactions, stats);
 
       if (builtTransactions.length === 0) {
         toast.error("Nenhuma transação válida foi gerada. Verifique o mapeamento de colunas.");
-        setProcessing(false);
         return;
       }
 
       if (!validationReport.approved) {
         toast.error("A validação local bloqueou a entrega. Corrija os erros antes de continuar.");
-        setProcessing(false);
         return;
       }
+
+      await setTransactions(builtTransactions);
+      await updateProjectStatus(currentProject.id, "active");
 
       if (stats.invalidValues > 0) {
         toast.warning(`${stats.invalidValues} registros com valores não numéricos foram tratados como zero.`);
@@ -123,11 +140,12 @@ export default function ColumnMapping() {
 
       toast.success(`${builtTransactions.length} transações processadas! Total: ${stats.totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`);
       navigate("/dashboard");
-    } else {
-      toast.error("Dados do arquivo não encontrados.");
+    } catch (error) {
+      console.error("Erro ao processar mapeamento:", error);
+      toast.error(getErrorMessage(error));
+    } finally {
+      setProcessing(false);
     }
-
-    setProcessing(false);
   };
 
   if (headers.length === 0) {
@@ -217,6 +235,7 @@ export default function ColumnMapping() {
                               <SelectItem value="Centro de custo" className="text-xs">Centro de custo</SelectItem>
                               <SelectItem value="Conta" className="text-xs">Conta</SelectItem>
                               <SelectItem value="Unidade" className="text-xs">Unidade</SelectItem>
+                              <SelectItem value="Grupo DRE" className="text-xs">Grupo DRE</SelectItem>
                               <SelectItem value="Moeda" className="text-xs">Moeda</SelectItem>
                             </SelectContent>
                           </Select>
@@ -276,6 +295,13 @@ export default function ColumnMapping() {
                       </p>
                     </div>
                   )}
+
+                  {previewAnalysis.dreGroupsFound.length > 0 && (
+                    <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                      <p className="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold">Estrutura DRE</p>
+                      <p className="text-sm text-emerald-800">{previewAnalysis.dreGroupsFound.join(", ")}</p>
+                    </div>
+                  )}
                   
                   {previewAnalysis.stats.invalidValues > 0 && (
                     <div className="flex items-start gap-2 p-2 bg-amber-50 rounded border border-amber-100">
@@ -321,6 +347,10 @@ export default function ColumnMapping() {
                   <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full mt-1.5 shrink-0" />
                   Categorias vazias = "Não classificado"
                 </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full mt-1.5 shrink-0" />
+                  Grupo DRE pode vir da planilha ou ser inferido automaticamente
+                </li>
               </ul>
             </CardContent>
           </Card>
@@ -348,6 +378,20 @@ export default function ColumnMapping() {
                 </div>
                 <p className="text-sm text-blue-700">
                   Mapeie uma coluna como <strong>Data do lançamento</strong> para análises temporais mais precisas.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {!hasDreMapping && hasValueMapping && (
+            <Card className="border-violet-200 bg-violet-50">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="w-5 h-5 text-violet-600" />
+                  <h2 className="font-semibold text-violet-800">Classificação DRE</h2>
+                </div>
+                <p className="text-sm text-violet-700">
+                  Se a planilha já possuir a estrutura contábil, mapeie uma coluna como <strong>Grupo DRE</strong>. Caso contrário, o sistema vai inferir a linha DRE pela categoria e descrição.
                 </p>
               </CardContent>
             </Card>

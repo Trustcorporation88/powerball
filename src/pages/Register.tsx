@@ -4,8 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { useAuth } from '@/contexts/AuthContext';
-import { BarChart3, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { BrandIdentity } from '@/components/BrandIdentity';
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -36,14 +37,12 @@ export default function Register() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="flex justify-center mb-4">
-            <div className="p-3 bg-emerald-100 dark:bg-emerald-900 rounded-xl">
-              <BarChart3 className="h-8 w-8 text-emerald-600" />
-            </div>
+        <CardHeader className="space-y-4 text-center">
+          <BrandIdentity />
+          <div className="space-y-1">
+            <CardTitle>Criar nova conta</CardTitle>
+            <CardDescription>Acesse o ambiente financeiro da Trust Corp</CardDescription>
           </div>
-          <CardTitle className="text-2xl">DataFin</CardTitle>
-          <CardDescription>Criar nova conta</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
