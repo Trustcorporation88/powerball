@@ -162,12 +162,12 @@ export function CNPJValidator({ open, onClose, onValidated }: CNPJValidatorProps
                 <div>
                   <p className="text-xs text-emerald-600 mb-1">Endereço</p>
                   <p className="text-sm text-emerald-900">
-                    {result.endereco.logradouro}, {result.endereco.numero}
-                    {result.endereco.complemento && ` - ${result.endereco.complemento}`}
+                    {result.endereco?.logradouro || ''}, {result.endereco?.numero || ''}
+                    {result.endereco?.complemento && ` - ${result.endereco.complemento}`}
                     <br />
-                    {result.endereco.bairro} - {result.endereco.municipio}/{result.endereco.uf}
+                    {result.endereco?.bairro || ''} - {result.endereco?.municipio || ''}/{result.endereco?.uf || ''}
                     <br />
-                    CEP: {result.endereco.cep}
+                    CEP: {result.endereco?.cep || ''}
                   </p>
                 </div>
 
