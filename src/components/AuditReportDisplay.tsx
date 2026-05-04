@@ -161,7 +161,8 @@ function AuditSection({ report, title }: { report: AuditReport; title: string })
 
 export function AuditReportDisplay({ dreAudit, transactionsAudit, loading, onRunAudit }: AuditReportDisplayProps) {
   const hasAnyReport = dreAudit || transactionsAudit;
-  const allPassed = dreAudit?.passed && transactionsAudit?.passed;
+  const usedDeepSeek = dreAudit?.engine === 'deepseek' && transactionsAudit?.engine === 'deepseek';
+  const allPassed = usedDeepSeek && dreAudit?.passed && transactionsAudit?.passed;
   const hasCritical = 
     (dreAudit?.issues.some(i => i.severity === 'critical')) || 
     (transactionsAudit?.issues.some(i => i.severity === 'critical'));
@@ -234,6 +235,18 @@ export function AuditReportDisplay({ dreAudit, transactionsAudit, loading, onRun
 
         {!loading && hasAnyReport && (
           <>
+            {!usedDeepSeek && (
+              <div className="p-4 bg-amber-50 border-2 border-amber-200 rounded-lg flex items-start gap-3">
+                <AlertTriangle className="h-6 w-6 text-amber-600 shrink-0" />
+                <div>
+                  <p className="font-semibold text-amber-900">⚠️ Auditoria IA não concluída</p>
+                  <p className="text-sm text-amber-700 mt-1">
+                    O sistema caiu em validação offline. Esta entrega não deve ser tratada como contra-testada pela DeepSeek.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {allPassed && (
               <div className="p-4 bg-emerald-50 border-2 border-emerald-200 rounded-lg flex items-start gap-3">
                 <CheckCircle2 className="h-6 w-6 text-emerald-600 shrink-0" />

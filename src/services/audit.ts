@@ -19,6 +19,7 @@ export interface AuditIssue {
 }
 
 export interface AuditReport {
+  engine: 'deepseek' | 'offline';
   confidence: number; // 0-100
   passed: boolean;
   issues: AuditIssue[];
@@ -121,6 +122,7 @@ RESPONDA EM JSON:
     const result = JSON.parse(jsonMatch[0]);
     
     return {
+      engine: 'deepseek',
       ...result,
       validatedAt: new Date().toISOString(),
     };
@@ -138,6 +140,7 @@ export async function auditTransactionClassifications(
 ): Promise<AuditReport> {
   if (!DEEPSEEK_API_KEY || transactions.length === 0) {
     return {
+      engine: 'offline',
       confidence: 100,
       passed: true,
       issues: [],
@@ -229,12 +232,14 @@ RESPONDA EM JSON:
     const result = JSON.parse(jsonMatch[0]);
     
     return {
+      engine: 'deepseek',
       ...result,
       validatedAt: new Date().toISOString(),
     };
   } catch (error) {
     console.error('Transaction audit failed:', error);
     return {
+      engine: 'offline',
       confidence: 50,
       passed: true,
       issues: [{
@@ -314,6 +319,7 @@ function offlineAudit(dreReport: DREReport): AuditReport {
   const confidence = checksPerformed > 0 ? Math.round((checksPassed / checksPerformed) * 100) : 100;
 
   return {
+    engine: 'offline',
     confidence,
     passed: issues.filter(i => i.severity === 'critical').length === 0,
     issues,

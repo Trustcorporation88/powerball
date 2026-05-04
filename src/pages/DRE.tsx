@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, BarChart3, Database, FileText, FileSpreadsheet } from "lucide-react";
 import {
@@ -126,6 +126,7 @@ export default function DRE() {
   const [auditLoading, setAuditLoading] = useState(false);
   const [dreAudit, setDreAudit] = useState<AuditReport | null>(null);
   const [transactionsAudit, setTransactionsAudit] = useState<AuditReport | null>(null);
+  const [lastAuditKey, setLastAuditKey] = useState<string | null>(null);
 
   const visibleTransactions = useMemo(
     () => getRLSFilteredData(user?.role ?? "user"),
@@ -282,15 +283,71 @@ export default function DRE() {
   const currentPeriodLabel = selectedPeriodOption?.label ?? "Consolidado geral";
   const comparisonPeriodLabel = comparisonPeriodOption?.label ?? null;
   const baseForPercentage = Math.abs(dreReport.summary.receitaLiquida) || Math.abs(dreReport.summary.receitaBruta) || 1;
+  const aiAuditEnabled = Boolean(import.meta.env.VITE_DEEPSEEK_API_KEY);
+  const auditKey = useMemo(
+    () =>
+      JSON.stringify({
+        projectId: currentProject?.id ?? null,
+        periodGranularity,
+        selectedPeriod,
+        summary: dreReport.summary,
+        transactions: deliveryTransactions.map((transaction) => ({
+          id: transaction.id,
+          date: transaction.date,
+          description: transaction.description,
+          value: transaction.value,
+          flowType: transaction.flowType,
+          category: transaction.category,
+          costCenter: transaction.costCenter,
+        })),
+      }),
+    [currentProject?.id, deliveryTransactions, dreReport.summary, periodGranularity, selectedPeriod],
+  );
   const isApproved = mergedValidationReport.approved;
+  const aiAuditCompleted = Boolean(lastAuditKey === auditKey && dreAudit && transactionsAudit);
+  const aiAuditUsedDeepSeek = Boolean(
+    aiAuditCompleted && dreAudit?.engine === "deepseek" && transactionsAudit?.engine === "deepseek",
+  );
+  const aiAuditHasCritical = Boolean(
+    dreAudit?.issues.some((issue) => issue.severity === "critical") ||
+      transactionsAudit?.issues.some((issue) => issue.severity === "critical"),
+  );
+  const aiAuditPassed = Boolean(dreAudit?.passed && transactionsAudit?.passed);
+  const waitingForAiAudit = aiAuditEnabled && isApproved && deliveryTransactions.length > 0 && (!aiAuditCompleted || auditLoading);
+  const blockedByAiAudit =
+    aiAuditEnabled && isApproved && aiAuditCompleted && (!aiAuditUsedDeepSeek || !aiAuditPassed || aiAuditHasCritical);
+  const finalDeliveryApproved = isApproved && (!aiAuditEnabled || (aiAuditCompleted && aiAuditUsedDeepSeek && aiAuditPassed && !aiAuditHasCritical));
 
-  const handleRunAudit = async () => {
+  const handleRunAudit = useCallback(async () => {
+    if (deliveryTransactions.length === 0) {
+      return;
+    }
+
     setAuditLoading(true);
-    const result = await performFullAudit(dreReport, visibleTransactions);
-    setDreAudit(result.dre);
-    setTransactionsAudit(result.transactions);
-    setAuditLoading(false);
-  };
+
+    try {
+      const result = await performFullAudit(dreReport, deliveryTransactions);
+      setDreAudit(result.dre);
+      setTransactionsAudit(result.transactions);
+      setLastAuditKey(auditKey);
+    } finally {
+      setAuditLoading(false);
+    }
+  }, [auditKey, deliveryTransactions, dreReport]);
+
+  useEffect(() => {
+    setDreAudit(null);
+    setTransactionsAudit(null);
+    setLastAuditKey(null);
+  }, [auditKey]);
+
+  useEffect(() => {
+    if (!aiAuditEnabled || !isApproved || deliveryTransactions.length === 0 || auditLoading || lastAuditKey === auditKey) {
+      return;
+    }
+
+    void handleRunAudit();
+  }, [aiAuditEnabled, auditKey, auditLoading, deliveryTransactions.length, handleRunAudit, isApproved, lastAuditKey]);
 
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
@@ -434,10 +491,27 @@ export default function DRE() {
       />
 
       {deliveryTransactions.length > 0 && (
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-          <ValidationSummary report={transactionValidationReport} title="Validação dos lançamentos do período" />
-          <ValidationSummary report={dreValidationReport} title="Validação contábil do DRE" />
-        </div>
+        <>
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            <ValidationSummary report={transactionValidationReport} title="Validação dos lançamentos do período" />
+            <ValidationSummary report={dreValidationReport} title="Validação contábil do DRE" />
+          </div>
+
+          {aiAuditEnabled ? (
+            <AuditReportDisplay
+              dreAudit={dreAudit}
+              transactionsAudit={transactionsAudit}
+              loading={auditLoading}
+              onRunAudit={isApproved ? handleRunAudit : undefined}
+            />
+          ) : (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardContent className="p-5 text-sm text-amber-700">
+                DeepSeek não configurada neste ambiente. A entrega segue apenas com validação local, sem contra-teste por IA.
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
 
       {!isApproved && deliveryTransactions.length > 0 && (
@@ -448,7 +522,23 @@ export default function DRE() {
         </Card>
       )}
 
-      {isApproved && deliveryTransactions.length > 0 && (
+      {waitingForAiAudit && (
+        <Card className="border-violet-200 bg-violet-50">
+          <CardContent className="p-5 text-sm text-violet-700">
+            A entrega final está aguardando a validação da DeepSeek para confirmar cálculos e classificações antes da apresentação.
+          </CardContent>
+        </Card>
+      )}
+
+      {blockedByAiAudit && (
+        <Card className="border-rose-200 bg-rose-50">
+          <CardContent className="p-5 text-sm text-rose-700">
+            A entrega final foi bloqueada porque a auditoria da DeepSeek encontrou inconsistências críticas ou não conseguiu concluir a validação por IA deste período.
+          </CardContent>
+        </Card>
+      )}
+
+      {finalDeliveryApproved && deliveryTransactions.length > 0 && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
             {summaryCards.map((card) => {
