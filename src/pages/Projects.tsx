@@ -32,7 +32,7 @@ export default function Projects() {
 
   const handleLoadDemo = async () => {
     try {
-      toast.loading('Carregando projeto demo...');
+      const loadingToast = toast.loading('Carregando projeto demo...');
       
       // Buscar planilha demo
       const response = await fetch('/dados_referencia.xlsx');
@@ -46,8 +46,8 @@ export default function Projects() {
 
       // Criar projeto demo
       const demoProject = {
-        id: `demo-${Date.now()}`,
-        name: 'Projeto Demo - Dados Referência',
+        id: `demo2-${Date.now()}`,
+        name: 'Projeto Demo2 - Dados Referência',
         segment: 'Demonstração',
         status: 'active' as const,
         createdAt: new Date().toISOString(),
@@ -58,6 +58,7 @@ export default function Projects() {
       await setCurrentProject(demoProject);
       await setCurrentFile(parsedData);
 
+      toast.dismiss(loadingToast);
       toast.success('Projeto demo criado com sucesso!');
       navigate('/mapping');
     } catch (error) {
