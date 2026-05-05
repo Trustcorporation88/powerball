@@ -89,6 +89,37 @@ export default function ExcelAssistant() {
     }
   };
 
+  const handleLoadDemo = async () => {
+    try {
+      toast.loading('Carregando planilha demo...');
+      const response = await fetch('/dados_referencia.xlsx');
+      const blob = await response.blob();
+      const file = new File([blob], 'dados_referencia.xlsx', {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+
+      const wb = await parseExcelWorkbook(file);
+      setWorkbook(wb);
+      setCurrentSheet(wb.sheets[0]);
+      setDisplayedSheet(wb.sheets[0]);
+
+      toast.success('Planilha demo carregada com sucesso!');
+
+      setMessages([
+        {
+          role: 'assistant',
+          content: `Planilha demo carregada! ${wb.sheets[0].rowCount} linhas, ${wb.sheets[0].columnCount} colunas. O que você gostaria de fazer?`,
+          timestamp: Date.now(),
+        },
+      ]);
+
+      setTimeout(scrollToBottom, 100);
+    } catch (error) {
+      toast.error('Erro ao carregar planilha demo');
+      console.error(error);
+    }
+  };
+
   const handleSendCommand = async () => {
     if (!inputCommand.trim() || !currentSheet) return;
 
@@ -327,6 +358,19 @@ export default function ExcelAssistant() {
                       className="hidden"
                     />
                   </div>
+                  <div className="mt-4 flex items-center gap-2">
+                    <div className="flex-1 border-t border-muted"></div>
+                    <span className="text-xs text-muted-foreground">OU</span>
+                    <div className="flex-1 border-t border-muted"></div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full mt-4"
+                    onClick={handleLoadDemo}
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Usar Planilha Demo
+                  </Button>
                 </CardContent>
               </Card>
             )}
