@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import {
   LineChart,
@@ -143,6 +144,16 @@ export default function ExcelAssistant() {
     setCurrentSheet(workbook.sheets[0]);
     setDisplayedSheet(workbook.sheets[0]);
     toast.info('Planilha resetada para versão original');
+  };
+
+  const handleSheetChange = (sheetName: string) => {
+    if (!workbook) return;
+    const selectedSheet = workbook.sheets.find((s) => s.name === sheetName);
+    if (selectedSheet) {
+      setCurrentSheet(selectedSheet);
+      setDisplayedSheet(selectedSheet);
+      toast.info(`Planilha "${sheetName}" selecionada`);
+    }
   };
 
   const renderChart = (response: AssistantResponse) => {
@@ -432,6 +443,20 @@ export default function ExcelAssistant() {
                     {displayedSheet.rowCount} linhas × {displayedSheet.columnCount} colunas
                   </span>
                 </CardTitle>
+                {workbook && workbook.sheets.length > 1 && (
+                  <div className="mt-4">
+                    <p className="text-sm text-muted-foreground mb-2">Selecione a aba:</p>
+                    <Tabs value={currentSheet?.name} onValueChange={handleSheetChange}>
+                      <TabsList className="w-full justify-start overflow-x-auto flex-wrap h-auto">
+                        {workbook.sheets.map((sheet) => (
+                          <TabsTrigger key={sheet.name} value={sheet.name}>
+                            {sheet.name}
+                          </TabsTrigger>
+                        ))}
+                      </TabsList>
+                    </Tabs>
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 <ScrollArea className="h-[600px]">
