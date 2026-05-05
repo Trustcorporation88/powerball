@@ -25,6 +25,7 @@ const ETLPipeline = lazy(() => import("./pages/ETLPipeline"));
 const Relationships = lazy(() => import("./pages/Relationships"));
 const SharedDashboard = lazy(() => import("./pages/SharedDashboard"));
 const Diagnostic = lazy(() => import("./pages/Diagnostic"));
+const ExcelAssistant = lazy(() => import("./pages/ExcelAssistant"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -61,6 +62,7 @@ const AppRoutes = () => (
         <Route path="/detail" element={<DetailView />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/diagnostic" element={<Diagnostic />} />
+        <Route path="/excel-assistant" element={<ExcelAssistant />} />
       </Route>
       <Route path="*" element={<NotFound />} />
     </Routes>

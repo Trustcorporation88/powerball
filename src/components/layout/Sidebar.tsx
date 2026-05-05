@@ -17,6 +17,7 @@ import {
   Bell,
   MapPin,
   Bookmark,
+  Sparkles,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -37,6 +38,7 @@ const menuItems: MenuItem[] = [
   { key: "cost-center", icon: Building2, label: "Centro de Custo", path: "/resultado-centro-custo", isActive: (pathname) => pathname === "/resultado-centro-custo" },
   { key: "projects", icon: FolderOpen, label: "Projetos", path: "/projects", isActive: (pathname) => pathname === "/projects" },
   { key: "import", icon: FileSpreadsheet, label: "Importar", path: "/import", isActive: (pathname) => pathname === "/import" },
+  { key: "excel-assistant", icon: Sparkles, label: "Assistente Excel IA", path: "/excel-assistant", isActive: (pathname) => pathname === "/excel-assistant" },
   { key: "etl", icon: Wand2, label: "ETL Pipeline", path: "/etl", isActive: (pathname) => pathname === "/etl" },
   { key: "relationships", icon: GitBranch, label: "Relacionamentos", path: "/relationships", isActive: (pathname) => pathname === "/relationships" },
   { key: "dashboard", icon: BarChart3, label: "Dashboard Analítico", path: "/dashboard", isActive: (pathname, panel) => pathname === "/dashboard" && !panel },
