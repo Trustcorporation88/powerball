@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useApp } from "@/contexts/AppContext";
+import { useApp, type Project } from "@/contexts/AppContext";
 import { Plus, FolderOpen, MoreVertical, Trash2, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,7 +15,7 @@ export default function Projects() {
   const navigate = useNavigate();
   const { projects, setCurrentProject } = useApp();
 
-  const handleView = (project: any) => {
+  const handleView = (project: Project) => {
     setCurrentProject(project);
     navigate("/dashboard");
   };

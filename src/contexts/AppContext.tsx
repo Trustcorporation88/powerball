@@ -35,8 +35,8 @@ export interface ParsedFileData {
   sheets: string[];
   selectedSheet: string;
   headers: string[];
-  preview: any[];
-  allData: any[];
+  preview: Record<string, unknown>[];
+  allData: Record<string, unknown>[];
 }
 
 interface AppContextType {

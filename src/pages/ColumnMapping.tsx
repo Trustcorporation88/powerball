@@ -26,7 +26,7 @@ export default function ColumnMapping() {
 
   useEffect(() => {
     if (headers.length > 0 && allData.length > 0) {
-      const samplesByColumn: Record<string, any[]> = {};
+      const samplesByColumn: Record<string, unknown[]> = {};
       headers.forEach(h => {
         samplesByColumn[h] = allData.slice(0, 20).map(row => row[h]).filter(v => v !== undefined && v !== "" && v !== null);
       });
@@ -40,7 +40,7 @@ export default function ColumnMapping() {
       
       setMappings(initialMappings);
     }
-  }, [currentFile?.name, currentFile?.selectedSheet]);
+  }, [columnInfo, headers, allData]);
 
   const updateMapping = (index: number, field: string, value: string) => {
     const updated = [...mappings];

@@ -25,9 +25,8 @@ export function buildTransactionsFromSheet(
   const transactions: Transaction[] = [];
 
   sheet.data.forEach((row, index) => {
-    let rawValue = valueCol ? row[valueCol] : 0;
+    const rawValue = valueCol ? row[valueCol] : 0;
     let value = 0;
-
     if (typeof rawValue === "number") {
       value = rawValue;
     } else if (typeof rawValue === "string") {
@@ -76,7 +75,7 @@ export function buildTransactionsFromSheet(
   return transactions.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 
-function parseDate(rawDate: any): string {
+function parseDate(rawDate: unknown): string {
   if (!rawDate) return new Date().toISOString().split("T")[0];
   
   if (typeof rawDate === "number") {
@@ -92,13 +91,13 @@ function parseDate(rawDate: any): string {
   
   const str = String(rawDate).trim();
   
-  const ddmmyyyy = str.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})$/);
+  const ddmmyyyy = str.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
   if (ddmmyyyy) {
     const [, day, month, year] = ddmmyyyy;
     return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
   }
   
-  const yyyymmdd = str.match(/^(\d{4})[\/\-.](\d{1,2})[\/\-.](\d{1,2})$/);
+  const yyyymmdd = str.match(/^(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})$/);
   if (yyyymmdd) {
     const [, year, month, day] = yyyymmdd;
     return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;

@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useApp } from "@/contexts/AppContext";
+import { useApp, type Transaction } from "@/contexts/AppContext";
 import { ArrowLeft, Download, FileSpreadsheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +18,7 @@ export default function DetailView() {
   const navigate = useNavigate();
   const { transactions } = useApp();
 
-  const monthlyDetail = transactions.reduce((acc: any[], t) => {
+  const monthlyDetail = transactions.reduce((acc: Array<{ month: string; value: number }>, t: Transaction) => {
     const month = t.date.slice(0, 7);
     const existing = acc.find((a) => a.month === month);
     if (existing) {
@@ -27,7 +27,7 @@ export default function DetailView() {
       acc.push({ month, value: t.value });
     }
     return acc;
-  }, []).sort((a: any, b: any) => a.month.localeCompare(b.month));
+  }, []).sort((a: { month: string; value: number }, b: { month: string; value: number }) => a.month.localeCompare(b.month));
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">

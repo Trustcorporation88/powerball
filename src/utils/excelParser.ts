@@ -2,7 +2,7 @@ import * as XLSX from "xlsx";
 
 export interface ParsedSheet {
   name: string;
-  data: any[];
+  data: Record<string, unknown>[];
   headers: string[];
   rowCount: number;
 }
@@ -23,18 +23,18 @@ export async function parseExcelFile(file: File): Promise<ParsedExcel> {
         
         const sheets: ParsedSheet[] = workbook.SheetNames.map((sheetName) => {
           const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as any[];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: "" }) as unknown[][];
           
-          const headers = jsonData.length > 0 ? jsonData[0].map((h: any) => String(h).trim()) : [];
+          const headers = jsonData.length > 0 ? jsonData[0].map((h: unknown) => String(h).trim()) : [];
           const rows = jsonData.slice(1).filter((row) => 
-            row.some((cell: any) => cell !== "" && cell !== null && cell !== undefined)
+            row.some((cell: unknown) => cell !== "" && cell !== null && cell !== undefined)
           );
           
           const dataObjects = rows.map((row) => {
-            const obj: Record<string, any> = {};
+            const obj: Record<string, unknown> = {};
             headers.forEach((header: string, index: number) => {
               if (header) {
-                obj[header] = row[index];
+                obj[header] = (row as unknown[])[index];
               }
             });
             return obj;
@@ -62,7 +62,7 @@ export async function parseExcelFile(file: File): Promise<ParsedExcel> {
   });
 }
 
-export function detectColumnTypes(headers: string[], sampleData: any[]): Array<{ name: string; detected: string; sample: any; confidence: number }> {
+export function detectColumnTypes(headers: string[], sampleData: Record<string, unknown>[]): Array<{ name: string; detected: string; sample: unknown; confidence: number }> {
   return headers.map((header) => {
     const samples = sampleData.slice(0, 50).map((row) => row[header]).filter((v) => v !== undefined && v !== "" && v !== null);
     const firstValue = samples[0];
@@ -85,8 +85,8 @@ export function detectColumnTypes(headers: string[], sampleData: any[]): Array<{
       if (v instanceof Date) return true;
       if (typeof v === "string") {
         const str = String(v).trim();
-        if (/^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}$/.test(str)) return true;
-        if (/^\d{4}[\/\-.]\d{1,2}[\/\-.]\d{1,2}$/.test(str)) return true;
+        if (/^[0-9]{1,2}[/\-.][0-9]{1,2}[/\-.][0-9]{2,4}$/.test(str)) return true;
+        if (/^[0-9]{4}[/\-.][0-9]{1,2}[/\-.][0-9]{1,2}$/.test(str)) return true;
       }
       return false;
     });
@@ -108,7 +108,7 @@ export function detectColumnTypes(headers: string[], sampleData: any[]): Array<{
   });
 }
 
-export function inferFinancialRole(columnName: string, detectedType: string, samples: any[] = []): string {
+export function inferFinancialRole(columnName: string, detectedType: string, samples: unknown[] = []): string {
   const nameLower = columnName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
   
   // ===== DATA =====
@@ -216,7 +216,7 @@ export function inferFinancialRole(columnName: string, detectedType: string, sam
   return "Nenhum";
 }
 
-export function formatCellValue(value: any, type?: string): string {
+export function formatCellValue(value: unknown, type?: string): string {
   if (value === undefined || value === null || value === "") return "-";
   
   if (typeof value === "number") {
