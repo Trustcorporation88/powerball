@@ -41,6 +41,9 @@ export default function Login() {
           </div>
           <h1 className="text-2xl font-bold text-center text-slate-900 mb-2">DataFin</h1>
           <p className="text-center text-slate-500 mb-8">Análise financeira automática de planilhas Excel</p>
+          <p className="text-center text-xs text-slate-400 mb-6">
+            Demo: admin@datafin.com / admin123
+          </p>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>

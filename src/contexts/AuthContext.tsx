@@ -29,8 +29,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const login = useCallback((email: string, password: string) => {
-    if (password.length < 4) return false;
-    const mockUser = { id: "1", name: email.split("@")[0], email };
+    const normalizedEmail = email.trim().toLowerCase();
+    const isDemoAdmin =
+      normalizedEmail === "admin@datafin.com" && password === "admin123";
+
+    if (!isDemoAdmin && password.length < 4) return false;
+
+    const mockUser = {
+      id: "1",
+      name: isDemoAdmin ? "Admin" : email.split("@")[0],
+      email: normalizedEmail || email,
+    };
     setUser(mockUser);
     localStorage.setItem("user", JSON.stringify(mockUser));
     return true;
