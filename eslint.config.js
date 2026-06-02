@@ -26,4 +26,20 @@ export default tseslint.config(
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
+  {
+    files: [
+      "src/components/ui/badge.tsx",
+      "src/components/ui/button.tsx",
+      "src/components/ui/form.tsx",
+      "src/components/ui/navigation-menu.tsx",
+      "src/components/ui/sidebar.tsx",
+      "src/components/ui/toggle.tsx",
+      "src/contexts/AppContext.tsx",
+      "src/contexts/AuthContext.tsx",
+    ],
+    rules: {
+      // These files intentionally export helpers/hooks alongside components.
+      "react-refresh/only-export-components": "off",
+    },
+  },
 );

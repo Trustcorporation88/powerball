@@ -23,6 +23,21 @@ export function buildTransactionsFromSheet(
   const currencyCol = fieldMap["Moeda"];
 
   const transactions: Transaction[] = [];
+  const categoryFallbackColumns = Object.keys(sheet.data[0] ?? {}).filter((key) => {
+    const normalized = key
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]/g, "");
+
+    return (
+      normalized.includes("categoria") ||
+      normalized.includes("tipo") ||
+      normalized.includes("classe") ||
+      normalized.includes("grupo") ||
+      normalized.includes("natureza")
+    );
+  });
 
   sheet.data.forEach((row, index) => {
     const rawValue = valueCol ? row[valueCol] : 0;
@@ -30,22 +45,26 @@ export function buildTransactionsFromSheet(
     if (typeof rawValue === "number") {
       value = rawValue;
     } else if (typeof rawValue === "string") {
+      const isNegativeWithParenthesis = rawValue.includes("(") && rawValue.includes(")");
       const cleaned = rawValue
         .replace(/[R$\s]/g, "")
+        .replace(/[()]/g, "")
         .replace(/\./g, "")
         .replace(",", ".");
       value = parseFloat(cleaned) || 0;
+      if (isNegativeWithParenthesis) {
+        value = -Math.abs(value);
+      }
     }
 
     const date = dateCol ? parseDate(row[dateCol]) : new Date().toISOString().split("T")[0];
 
-    // Extrai categoria - se não mapeada, tenta achar uma coluna com texto curto
+    // Extrai categoria por mapeamento ou por colunas semanticamente prováveis.
     let category = catCol ? String(row[catCol] || "") : "";
     if (!category) {
-      // Tenta encontrar categoria em outras colunas de texto
-      for (const key of Object.keys(row)) {
+      for (const key of categoryFallbackColumns) {
         const val = String(row[key] || "");
-        if (val.length > 0 && val.length < 50 && !val.match(/^\d/)) {
+        if (val.length > 0) {
           category = val;
           break;
         }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
 import { ArrowLeft, ArrowRight, AlertTriangle, CheckCircle2, Settings2, Loader2 } from "lucide-react";
@@ -17,10 +17,10 @@ export default function ColumnMapping() {
   const { currentFile, setColumnMappings, setTransactions, updateProjectStatus, currentProject } = useApp();
   const [processing, setProcessing] = useState(false);
 
-  const allData = currentFile?.allData || [];
-  const headers = currentFile?.headers || [];
-  
-  const columnInfo = detectColumnTypes(headers, allData);
+  const allData = useMemo(() => currentFile?.allData ?? [], [currentFile]);
+  const headers = useMemo(() => currentFile?.headers ?? [], [currentFile]);
+
+  const columnInfo = useMemo(() => detectColumnTypes(headers, allData), [headers, allData]);
 
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
 
