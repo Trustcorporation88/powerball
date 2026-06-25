@@ -44,9 +44,14 @@ pnpm dev               # sobe em http://localhost:8080
 3. **Variáveis** (Settings → Variables do serviço da API):
    - `DATABASE_URL` = `${{ Postgres.DATABASE_URL }}` (referência ao banco)
    - `JWT_SECRET` = uma string longa e aleatória
-   - `CORS_ORIGIN` = a URL do frontend, ex.: `https://merry-parrot-scurry.vercel.app`
+   - `CORS_ORIGIN` = a(s) URL(s) do frontend separadas por vírgula, ex.: `https://fin.trustcorp.com.br,https://merry-parrot-scurry.vercel.app`
 4. **Gere um domínio** público (Settings → Networking → Generate Domain).
 5. No **Vercel**, defina `VITE_API_URL` com a URL pública do Railway e faça redeploy.
+
+> Domínio próprio do frontend (`fin.trustcorp.com.br`): adicione-o em
+> **Vercel → Project → Settings → Domains** e crie o registro DNS indicado
+> (normalmente um CNAME `fin` → `cname.vercel-dns.com`). Garanta que esse domínio
+> esteja listado em `CORS_ORIGIN` no serviço da API.
 
 O comando de start roda `prisma db push` automaticamente, sincronizando o schema
 com o banco a cada deploy. Healthcheck disponível em `GET /health`.
