@@ -1,4 +1,4 @@
-import { db } from "./db";
+import { getShare, saveShare } from "./db";
 import type { CategoryData, ComparisonData, CostCenterData, DailyData, KpiData, MonthlyData } from "@/hooks/useDashboardData";
 import type { Transaction } from "@/contexts/AppContext";
 
@@ -17,7 +17,7 @@ export interface SharedDashboardSnapshot {
 export async function createShareSnapshot(snapshot: SharedDashboardSnapshot): Promise<string> {
   const token = crypto.randomUUID().slice(0, 8);
 
-  await db.shares.put({
+  await saveShare({
     token,
     createdAt: snapshot.createdAt,
     projectName: snapshot.projectName,
@@ -28,7 +28,7 @@ export async function createShareSnapshot(snapshot: SharedDashboardSnapshot): Pr
 }
 
 export async function getShareSnapshot(token: string): Promise<SharedDashboardSnapshot | null> {
-  const snapshot = await db.shares.get(token);
+  const snapshot = await getShare(token);
   if (!snapshot) {
     return null;
   }

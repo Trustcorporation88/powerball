@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { authenticateUser, registerUser, ensureAdminUser, updateUserProfile, type AuthenticatedUser } from '@/services/auth';
 import { readStorage, removeStorage, writeStorage } from '@/services/storage';
+import { setToken } from '@/services/apiClient';
 
 const AUTH_STORAGE_KEY = 'datafin:user';
 
@@ -85,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null);
     removeStorage(AUTH_STORAGE_KEY);
+    setToken(null);
   };
 
   return (

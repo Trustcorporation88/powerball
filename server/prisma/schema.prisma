@@ -1,0 +1,123 @@
+// DataFin backend schema.
+// Mirrors the client-side Dexie models (src/services/db.ts) so the frontend
+// data layer can switch from browser IndexedDB to a centralized Postgres DB.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("user")
+  createdAt    DateTime @default(now())
+
+  projects Project[]
+}
+
+model Project {
+  id            String   @id
+  userId        String
+  name          String
+  segment       String   @default("")
+  status        String   @default("active")
+  createdAt     DateTime @default(now())
+  lastProcessed DateTime?
+
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  file         FileData?
+  mappings     ColumnMapping[]
+  transactions Transaction[]
+  layout       DashboardLayout?
+  dreRules     DRERule[]
+
+  @@index([userId])
+}
+
+model FileData {
+  id             String  @id @default(uuid())
+  projectId      String  @unique
+  name           String
+  sheets         Json
+  selectedSheet  String
+  selectedSheets Json?
+  importMode     String?
+  headers        Json
+  preview        Json
+  allData        Json
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ColumnMapping {
+  id            String @id @default(uuid())
+  projectId     String
+  originalName  String
+  detectedType  String
+  confirmedType String
+  financialRole String
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model Transaction {
+  id              String  @id
+  projectId       String
+  date            String
+  description     String
+  category        String
+  dreGroup        String?
+  dreOriginalGroup String?
+  subcategory     String
+  account         String
+  costCenter      String
+  unit            String
+  value           Float
+  currency        String
+  flowType        String
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model DashboardLayout {
+  id        String @id @default(uuid())
+  projectId String @unique
+  name      String
+  layout    Json
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model DRERule {
+  id        String   @id
+  projectId String
+  field     String
+  operator  String
+  value     String
+  dreGroup  String
+  priority  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model ShareSnapshot {
+  token        String   @id
+  createdAt    String
+  projectName  String
+  snapshotJson String
+}

@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import * as db from '@/services/db';
+import { useAuth } from '@/contexts/AuthContext';
 import { buildProjectStorageKey, readStorage, removeStorage, writeStorage } from '@/services/storage';
 import type { DREClassificationRule } from '@/services/dreRules';
 
@@ -126,10 +127,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [rlsRules, setRLSRulesState] = useState<RLSRule[]>([]);
   const [dreRules, setDRERulesState] = useState<DREClassificationRule[]>([]);
 
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+
   useEffect(() => {
     let cancelled = false;
 
     const bootstrap = async () => {
+      // Sem usuário autenticado não há nada para carregar (e, no modo remoto,
+      // a API exige token). Recarrega sempre que o usuário muda (login/logout).
+      if (!userId) {
+        if (!cancelled) {
+          setProjects([]);
+          setCurrentProjectState(null);
+          setCurrentFileState(null);
+          setColumnMappingsState([]);
+          setTransactionsState([]);
+          setLoading(false);
+        }
+        return;
+      }
+
+      setLoading(true);
       const loadedProjects = await db.getProjects();
 
       if (cancelled) {
@@ -145,7 +164,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [userId]);
 
   const addProject = useCallback(async (p: Project) => {
     await db.saveProject(p);

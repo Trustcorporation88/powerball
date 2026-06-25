@@ -1,222 +1,172 @@
-import Dexie, { type EntityTable } from 'dexie';
+/**
+ * Camada de dados unificada.
+ *
+ * - Sem `VITE_API_URL`: usa IndexedDB local (Dexie) — comportamento original.
+ * - Com `VITE_API_URL`: usa o backend (Railway) via API REST.
+ *
+ * As leituras falham de forma segura (retornam vazio) e as escritas registram
+ * erros sem derrubar a aplicação.
+ */
 
-export interface DBProject {
-  id: string;
-  name: string;
-  segment: string;
-  status: 'active' | 'processing' | 'error';
-  createdAt: string;
-  lastProcessed?: string;
+export * from "./dbTypes";
+
+import { isRemote } from "./apiClient";
+import * as local from "./dbLocal";
+import * as remote from "./dbRemote";
+import type {
+  DBColumnMapping,
+  DBDRERule,
+  DBDashboardLayout,
+  DBFileData,
+  DBProject,
+  DBShareSnapshot,
+  DBTransaction,
+  DBUser,
+} from "./dbTypes";
+
+const remoteMode = isRemote();
+
+async function safeRead<T>(fn: () => Promise<T>, fallback: T, label: string): Promise<T> {
+  try {
+    return await fn();
+  } catch (error) {
+    console.error(`[db] ${label} falhou`, error);
+    return fallback;
+  }
 }
 
-export interface DBFileData {
-  id?: number;
-  projectId: string;
-  name: string;
-  sheets: any[];
-  selectedSheet: string;
-  selectedSheets?: string[];
-  importMode?: 'single' | 'combine';
-  headers: string[];
-  preview: any[];
-  allData: any[];
-}
-
-export interface DBColumnMapping {
-  id?: number;
-  projectId: string;
-  originalName: string;
-  detectedType: string;
-  confirmedType: string;
-  financialRole: string;
-}
-
-export interface DBTransaction {
-  id?: string;
-  projectId: string;
-  date: string;
-  description: string;
-  category: string;
-  dreGroup?: string;
-  dreOriginalGroup?: string;
-  subcategory: string;
-  account: string;
-  costCenter: string;
-  unit: string;
-  value: number;
-  currency: string;
-  flowType: 'income' | 'expense';
-}
-
-export interface DBUser {
-  username: string;
-  passwordHash: string;
-  salt: string;
-  name: string;
-  email: string;
-  role: string;
-  createdAt: string;
-}
-
-export interface DBDashboardLayout {
-  id?: number;
-  projectId: string;
-  layout: any;
-  name: string;
-}
-
-export interface DBShareSnapshot {
-  token: string;
-  createdAt: string;
-  projectName: string;
-  snapshotJson: string;
-}
-
-export interface DBDRERule {
-  id: string;
-  projectId: string;
-  field: string;
-  operator: string;
-  value: string;
-  dreGroup: string;
-  priority: number;
-  createdAt: string;
-}
-
-const db = new Dexie('DataFinDB') as Dexie & {
-  projects: EntityTable<DBProject, 'id'>;
-  files: EntityTable<DBFileData, 'id'>;
-  mappings: EntityTable<DBColumnMapping, 'id'>;
-  transactions: EntityTable<DBTransaction, 'id'>;
-  users: EntityTable<DBUser, 'username'>;
-  layouts: EntityTable<DBDashboardLayout, 'id'>;
-  shares: EntityTable<DBShareSnapshot, 'token'>;
-  dreRules: EntityTable<DBDRERule, 'id'>;
-};
-
-db.version(1).stores({
-  projects: 'id, status, createdAt',
-  files: '++id, projectId',
-  mappings: '++id, projectId',
-  transactions: '++id, projectId, date, category, flowType',
-  users: 'username',
-  layouts: '++id, projectId',
-});
-
-db.version(2).stores({
-  projects: 'id, status, createdAt',
-  files: '++id, projectId',
-  mappings: '++id, projectId',
-  transactions: '++id, projectId, date, category, flowType',
-  users: 'username',
-  layouts: '++id, projectId',
-  shares: 'token, createdAt',
-});
-
-db.version(3).stores({
-  projects: 'id, status, createdAt',
-  files: '++id, projectId',
-  mappings: '++id, projectId',
-  transactions: '++id, projectId, date, category, flowType',
-  users: 'username',
-  layouts: '++id, projectId',
-  shares: 'token, createdAt',
-  dreRules: 'id, projectId, priority, dreGroup, field',
-});
-
-export { db };
-
-export async function saveProject(project: DBProject) {
-  return db.projects.put(project);
+async function safeWrite(fn: () => Promise<unknown>, label: string): Promise<void> {
+  try {
+    await fn();
+  } catch (error) {
+    console.error(`[db] ${label} falhou`, error);
+  }
 }
 
 export async function getProjects(): Promise<DBProject[]> {
-  return db.projects.orderBy('createdAt').reverse().toArray();
+  return safeRead(() => (remoteMode ? remote.getProjects() : local.getProjects()), [], "getProjects");
 }
 
 export async function getProject(id: string): Promise<DBProject | undefined> {
-  return db.projects.get(id);
+  return safeRead(
+    () => (remoteMode ? remote.getProject(id) : local.getProject(id)),
+    undefined,
+    "getProject",
+  );
 }
 
-export async function deleteProject(id: string) {
-  await db.projects.delete(id);
-  await db.files.where('projectId').equals(id).delete();
-  await db.mappings.where('projectId').equals(id).delete();
-  await db.transactions.where('projectId').equals(id).delete();
-  await db.dreRules.where('projectId').equals(id).delete();
+export async function saveProject(project: DBProject): Promise<void> {
+  return safeWrite(() => (remoteMode ? remote.saveProject(project) : local.saveProject(project)), "saveProject");
 }
 
-export async function saveFileData(data: DBFileData) {
-  await db.files.where('projectId').equals(data.projectId).delete();
-  return db.files.add(data);
+export async function deleteProject(id: string): Promise<void> {
+  return safeWrite(() => (remoteMode ? remote.deleteProject(id) : local.deleteProject(id)), "deleteProject");
+}
+
+export async function saveFileData(data: DBFileData): Promise<void> {
+  return safeWrite(() => (remoteMode ? remote.saveFileData(data) : local.saveFileData(data)), "saveFileData");
 }
 
 export async function getFileData(projectId: string): Promise<DBFileData | undefined> {
-  return db.files.where('projectId').equals(projectId).first();
+  return safeRead(
+    () => (remoteMode ? remote.getFileData(projectId) : local.getFileData(projectId)),
+    undefined,
+    "getFileData",
+  );
 }
 
 export async function saveMappings(
   projectId: string,
-  mappings: Omit<DBColumnMapping, 'id' | 'projectId'>[],
-) {
-  await db.mappings.where('projectId').equals(projectId).delete();
-  return db.mappings.bulkAdd(mappings.map(m => ({ ...m, projectId })));
+  mappings: Omit<DBColumnMapping, "id" | "projectId">[],
+): Promise<void> {
+  return safeWrite(
+    () => (remoteMode ? remote.saveMappings(projectId, mappings) : local.saveMappings(projectId, mappings)),
+    "saveMappings",
+  );
 }
 
 export async function getMappings(projectId: string): Promise<DBColumnMapping[]> {
-  return db.mappings.where('projectId').equals(projectId).toArray();
+  return safeRead(
+    () => (remoteMode ? remote.getMappings(projectId) : local.getMappings(projectId)),
+    [],
+    "getMappings",
+  );
 }
 
 export async function saveTransactions(
   projectId: string,
-  transactions: Omit<DBTransaction, 'projectId'>[],
-) {
-  await db.transactions.where('projectId').equals(projectId).delete();
-  return db.transactions.bulkAdd(
-    transactions.map((transaction, index) => {
-      const scopedId = transaction.id?.startsWith(`${projectId}::`)
-        ? transaction.id
-        : `${projectId}::${transaction.id ?? index}`;
-
-      return {
-        ...transaction,
-        id: scopedId,
-        projectId,
-      };
-    }),
+  transactions: Omit<DBTransaction, "projectId">[],
+): Promise<void> {
+  return safeWrite(
+    () =>
+      remoteMode
+        ? remote.saveTransactions(projectId, transactions)
+        : local.saveTransactions(projectId, transactions),
+    "saveTransactions",
   );
 }
 
 export async function getTransactions(projectId: string): Promise<DBTransaction[]> {
-  return db.transactions.where('projectId').equals(projectId).toArray();
+  return safeRead(
+    () => (remoteMode ? remote.getTransactions(projectId) : local.getTransactions(projectId)),
+    [],
+    "getTransactions",
+  );
 }
 
-export async function saveDashboardLayout(layout: DBDashboardLayout) {
-  await db.layouts.where('projectId').equals(layout.projectId).delete();
-  return db.layouts.add(layout);
+export async function saveDashboardLayout(layout: DBDashboardLayout): Promise<void> {
+  return safeWrite(
+    () => (remoteMode ? remote.saveDashboardLayout(layout) : local.saveDashboardLayout(layout)),
+    "saveDashboardLayout",
+  );
 }
 
-export async function getDashboardLayout(projectId: string): Promise<DBDashboardLayout | undefined> {
-  return db.layouts.where('projectId').equals(projectId).first();
+export async function getDashboardLayout(
+  projectId: string,
+): Promise<DBDashboardLayout | undefined> {
+  return safeRead(
+    () => (remoteMode ? remote.getDashboardLayout(projectId) : local.getDashboardLayout(projectId)),
+    undefined,
+    "getDashboardLayout",
+  );
 }
 
-export async function saveDRERules(projectId: string, rules: DBDRERule[]) {
-  await db.dreRules.where('projectId').equals(projectId).delete();
-  if (rules.length === 0) {
-    return;
-  }
-
-  return db.dreRules.bulkPut(rules.map((rule) => ({ ...rule, projectId })));
+export async function saveDRERules(projectId: string, rules: DBDRERule[]): Promise<void> {
+  return safeWrite(
+    () => (remoteMode ? remote.saveDRERules(projectId, rules) : local.saveDRERules(projectId, rules)),
+    "saveDRERules",
+  );
 }
 
 export async function getDRERules(projectId: string): Promise<DBDRERule[]> {
-  return db.dreRules.where('projectId').equals(projectId).sortBy('priority');
+  return safeRead(
+    () => (remoteMode ? remote.getDRERules(projectId) : local.getDRERules(projectId)),
+    [],
+    "getDRERules",
+  );
 }
 
-export async function saveUser(user: DBUser) {
-  return db.users.put(user);
+export async function getShare(token: string): Promise<DBShareSnapshot | undefined> {
+  return safeRead(
+    () => (remoteMode ? remote.getShare(token) : local.getShare(token)),
+    undefined,
+    "getShare",
+  );
 }
 
+export async function saveShare(snapshot: DBShareSnapshot): Promise<void> {
+  return safeWrite(() => (remoteMode ? remote.saveShare(snapshot) : local.saveShare(snapshot)), "saveShare");
+}
+
+// Usuários: usados apenas no modo local (no modo remoto a autenticação é no servidor).
 export async function getUser(username: string): Promise<DBUser | undefined> {
-  return db.users.get(username);
+  return local.getUser(username);
+}
+
+export async function saveUser(user: DBUser): Promise<unknown> {
+  return local.saveUser(user);
+}
+
+export async function deleteUser(username: string): Promise<unknown> {
+  return local.deleteUser(username);
 }
