@@ -1,25 +1,34 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useApp } from "@/contexts/AppContext";
-import { ArrowLeft, ArrowRight, AlertTriangle, CheckCircle2, Settings2, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, AlertTriangle, CheckCircle2, Settings2, Loader2, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { detectColumnTypes, inferFinancialRole, formatCellValue } from "@/utils/excelParser";
 import { buildTransactionsFromSheet } from "@/utils/transactionBuilder";
-import { ColumnMapping } from "@/contexts/AppContext";
+import type { ColumnMapping } from "@/contexts/AppContext";
 import { toast } from "sonner";
+import { validateTransactions } from "@/services/validation";
+import { ValidationSummary } from "@/components/ValidationSummary";
 
 const dataTypes = ["text", "number", "date", "currency", "percentage"];
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "O processamento falhou antes de concluir o mapeamento.";
+}
+
 export default function ColumnMapping() {
   const navigate = useNavigate();
-  const { currentFile, setColumnMappings, setTransactions, updateProjectStatus, currentProject } = useApp();
+  const { currentFile, setColumnMappings, setTransactions, updateProjectStatus, currentProject, dreRules } = useApp();
   const [processing, setProcessing] = useState(false);
 
-  const allData = useMemo(() => currentFile?.allData ?? [], [currentFile]);
-  const headers = useMemo(() => currentFile?.headers ?? [], [currentFile]);
-
+  const allData = useMemo(() => currentFile?.allData ?? [], [currentFile?.allData]);
+  const headers = useMemo(() => currentFile?.headers ?? [], [currentFile?.headers]);
   const columnInfo = useMemo(() => detectColumnTypes(headers, allData), [headers, allData]);
 
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
@@ -40,7 +49,7 @@ export default function ColumnMapping() {
       
       setMappings(initialMappings);
     }
-  }, [columnInfo, headers, allData]);
+  }, [allData, columnInfo, currentFile?.name, currentFile?.selectedSheet, headers]);
 
   const updateMapping = (index: number, field: string, value: string) => {
     const updated = [...mappings];
@@ -48,43 +57,96 @@ export default function ColumnMapping() {
     setMappings(updated);
   };
 
-  const handleProcess = () => {
+  // Preview stats: simula o processamento para mostrar ao usuario o impacto
+  const previewAnalysis = useMemo(() => {
+    if (mappings.length === 0 || !currentFile || allData.length === 0) return null;
+    
+    const sheetData = {
+      name: currentFile.selectedSheet || "Dados",
+      data: allData,
+      headers: headers,
+      rowCount: allData.length,
+    };
+    
+    try {
+      const { stats, transactions } = buildTransactionsFromSheet(sheetData, mappings, dreRules);
+      return {
+        stats,
+        report: validateTransactions(transactions, stats),
+        dreGroupsFound: [...new Set(transactions.map((transaction) => transaction.dreGroup).filter(Boolean))],
+      };
+    } catch (e) {
+      return null;
+    }
+  }, [mappings, currentFile, allData, headers, dreRules]);
+
+  const hasValueMapping = mappings.some((m) => m.financialRole === "Valor");
+  const hasDateMapping = mappings.some((m) => m.financialRole === "Data do lançamento");
+  const hasDreMapping = mappings.some((m) => m.financialRole === "Grupo DRE");
+  const mappedRoles = mappings.filter(m => m.financialRole !== "Nenhum");
+
+  const handleProcess = async () => {
     if (mappings.length === 0) {
       toast.error("Nenhuma coluna detectada. Verifique o arquivo.");
       return;
     }
 
-    setProcessing(true);
-    
-    setTimeout(() => {
-      setColumnMappings(mappings);
-      
-      if (currentFile && allData.length > 0) {
-        const sheetData = {
-          name: currentFile.selectedSheet || "Dados",
-          data: allData,
-          headers: headers,
-          rowCount: allData.length,
-        };
-        const builtTransactions = buildTransactionsFromSheet(sheetData, mappings);
-        setTransactions(builtTransactions);
-        
-        if (currentProject) {
-          updateProjectStatus(currentProject.id, "active");
-        }
-        
-        toast.success(`${builtTransactions.length} transações processadas! Dashboard gerado.`);
-        navigate("/dashboard");
-      } else {
-        toast.error("Dados do arquivo não encontrados.");
-      }
-      
-      setProcessing(false);
-    }, 1500);
-  };
+    if (!hasValueMapping) {
+      toast.error("Mapeie pelo menos uma coluna como 'Valor' para processar os dados financeiros.");
+      return;
+    }
 
-  const hasValueMapping = mappings.some((m) => m.financialRole === "Valor");
-  const mappedRoles = mappings.filter(m => m.financialRole !== "Nenhum");
+    if (!currentFile || allData.length === 0) {
+      toast.error("Dados do arquivo não encontrados.");
+      return;
+    }
+
+    if (!currentProject) {
+      toast.error("Projeto atual não encontrado. Volte para Projetos e abra o projeto novamente.");
+      return;
+    }
+
+    setProcessing(true);
+
+    try {
+      await setColumnMappings(mappings);
+
+      const sheetData = {
+        name: currentFile.selectedSheet || "Dados",
+        data: allData,
+        headers,
+        rowCount: allData.length,
+      };
+
+      const { transactions: builtTransactions, stats } = buildTransactionsFromSheet(sheetData, mappings, dreRules);
+      const validationReport = validateTransactions(builtTransactions, stats);
+
+      if (builtTransactions.length === 0) {
+        toast.error("Nenhuma transação válida foi gerada. Verifique o mapeamento de colunas.");
+        return;
+      }
+
+      if (!validationReport.approved) {
+        toast.error("A validação local bloqueou a entrega. Corrija os erros antes de continuar.");
+        return;
+      }
+
+      await setTransactions(builtTransactions);
+      await updateProjectStatus(currentProject.id, "active");
+
+      if (stats.invalidValues > 0) {
+        toast.warning(`${stats.invalidValues} registros com valores não numéricos foram tratados como zero.`);
+      }
+
+      toast.success(`${builtTransactions.length} transações processadas! Total: ${stats.totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`);
+      navigate("/dashboard");
+    } catch (error) {
+      console.error("Erro ao processar mapeamento:", error);
+      toast.error(getErrorMessage(error));
+    } finally {
+      setProcessing(false);
+    }
+  };
 
   if (headers.length === 0) {
     return (
@@ -173,6 +235,7 @@ export default function ColumnMapping() {
                               <SelectItem value="Centro de custo" className="text-xs">Centro de custo</SelectItem>
                               <SelectItem value="Conta" className="text-xs">Conta</SelectItem>
                               <SelectItem value="Unidade" className="text-xs">Unidade</SelectItem>
+                              <SelectItem value="Grupo DRE" className="text-xs">Grupo DRE</SelectItem>
                               <SelectItem value="Moeda" className="text-xs">Moeda</SelectItem>
                             </SelectContent>
                           </Select>
@@ -190,6 +253,73 @@ export default function ColumnMapping() {
         </div>
 
         <div className="space-y-4">
+          {/* Preview de Impacto */}
+          <Card className="border-emerald-200 bg-emerald-50/50">
+            <CardContent className="p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <BarChart3 className="w-5 h-5 text-emerald-600" />
+                <h2 className="font-semibold text-emerald-900">Preview do Processamento</h2>
+              </div>
+              
+              {previewAnalysis ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                      <p className="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold">Registros Válidos</p>
+                      <p className="text-xl font-bold text-emerald-800">{previewAnalysis.stats.processedRows}</p>
+                      <p className="text-[10px] text-emerald-500">de {previewAnalysis.stats.totalRows} lidos</p>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                      <p className="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold">Valor Total</p>
+                      <p className="text-xl font-bold text-emerald-800">
+                        {previewAnalysis.stats.totalValue.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      </p>
+                      <p className="text-[10px] text-emerald-500">soma dos absolutos</p>
+                    </div>
+                  </div>
+                  
+                  {previewAnalysis.stats.dateRange.min && (
+                    <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                      <p className="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold">Período Detectado</p>
+                      <p className="text-sm font-medium text-emerald-800">
+                        {previewAnalysis.stats.dateRange.min} → {previewAnalysis.stats.dateRange.max}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {previewAnalysis.stats.categoriesFound.length > 0 && (
+                    <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                      <p className="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold">Categorias</p>
+                      <p className="text-sm text-emerald-800">{previewAnalysis.stats.categoriesFound.slice(0, 5).join(", ")}
+                        {previewAnalysis.stats.categoriesFound.length > 5 && ` +${previewAnalysis.stats.categoriesFound.length - 5}`}
+                      </p>
+                    </div>
+                  )}
+
+                  {previewAnalysis.dreGroupsFound.length > 0 && (
+                    <div className="bg-white rounded-lg p-3 border border-emerald-100">
+                      <p className="text-[10px] uppercase tracking-wide text-emerald-600 font-semibold">Estrutura DRE</p>
+                      <p className="text-sm text-emerald-800">{previewAnalysis.dreGroupsFound.join(", ")}</p>
+                    </div>
+                  )}
+                  
+                  {previewAnalysis.stats.invalidValues > 0 && (
+                    <div className="flex items-start gap-2 p-2 bg-amber-50 rounded border border-amber-100">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <p className="text-xs text-amber-700">
+                        {previewAnalysis.stats.invalidValues} registros com valores inválidos serão tratados como zero
+                      </p>
+                    </div>
+                  )}
+
+                  <ValidationSummary report={previewAnalysis.report} title="Pré-validação determinística" />
+                </div>
+              ) : (
+                <p className="text-sm text-emerald-700">Ajuste o mapeamento para ver o preview</p>
+              )}
+            </CardContent>
+          </Card>
+
           <Card className="border-slate-200">
             <CardContent className="p-5">
               <div className="flex items-center gap-2 mb-4">
@@ -217,6 +347,10 @@ export default function ColumnMapping() {
                   <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full mt-1.5 shrink-0" />
                   Categorias vazias = "Não classificado"
                 </li>
+                <li className="flex items-start gap-2">
+                  <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full mt-1.5 shrink-0" />
+                  Grupo DRE pode vir da planilha ou ser inferido automaticamente
+                </li>
               </ul>
             </CardContent>
           </Card>
@@ -229,7 +363,35 @@ export default function ColumnMapping() {
                   <h2 className="font-semibold text-amber-800">Atenção</h2>
                 </div>
                 <p className="text-sm text-amber-700">
-                  Nenhuma coluna foi mapeada como <strong>Valor</strong>. O dashboard não conseguirá calcular KPIs financeiros.
+                  Nenhuma coluna foi mapeada como <strong>Valor</strong>. O processamento não pode continuar sem dados financeiros.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {!hasDateMapping && hasValueMapping && (
+            <Card className="border-blue-200 bg-blue-50">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="w-5 h-5 text-blue-600" />
+                  <h2 className="font-semibold text-blue-800">Dica</h2>
+                </div>
+                <p className="text-sm text-blue-700">
+                  Mapeie uma coluna como <strong>Data do lançamento</strong> para análises temporais mais precisas.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {!hasDreMapping && hasValueMapping && (
+            <Card className="border-violet-200 bg-violet-50">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <AlertTriangle className="w-5 h-5 text-violet-600" />
+                  <h2 className="font-semibold text-violet-800">Classificação DRE</h2>
+                </div>
+                <p className="text-sm text-violet-700">
+                  Se a planilha já possuir a estrutura contábil, mapeie uma coluna como <strong>Grupo DRE</strong>. Caso contrário, o sistema vai inferir a linha DRE pela categoria e descrição.
                 </p>
               </CardContent>
             </Card>
@@ -258,7 +420,7 @@ export default function ColumnMapping() {
         <Button
           onClick={handleProcess}
           className="bg-emerald-600 hover:bg-emerald-700"
-          disabled={processing || mappings.length === 0}
+          disabled={processing || !hasValueMapping}
         >
           {processing ? (
             <>

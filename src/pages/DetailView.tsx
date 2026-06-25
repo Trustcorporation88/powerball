@@ -1,8 +1,12 @@
-import { useNavigate } from "react-router-dom";
-import { useApp, type Transaction } from "@/contexts/AppContext";
-import { ArrowLeft, Download, FileSpreadsheet } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useApp } from "@/contexts/AppContext";
+import { ArrowLeft, Download, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import ExportButton from "@/components/dashboard/ExportButton";
+import { TransactionsTable } from "@/components/dashboard/TransactionsTable";
 import {
   LineChart,
   Line,
@@ -11,23 +15,89 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
+  Area,
+  AreaChart,
 } from "recharts";
-import { toast } from "sonner";
+import { motion } from "framer-motion";
+import { useAuth } from "@/contexts/AuthContext";
+import { validateTransactions } from "@/services/validation";
+import { ValidationSummary } from "@/components/ValidationSummary";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+interface MonthlyDetailPoint {
+  month: string;
+  value: number;
+  income: number;
+  expense: number;
+}
 
 export default function DetailView() {
   const navigate = useNavigate();
-  const { transactions } = useApp();
+  const [searchParams] = useSearchParams();
+  const { getRLSFilteredData } = useApp();
+  const { user } = useAuth();
 
-  const monthlyDetail = transactions.reduce((acc: Array<{ month: string; value: number }>, t: Transaction) => {
+  const drillCategory = searchParams.get('category');
+  const drillCostCenter = searchParams.get('costCenter');
+  const drillPeriod = searchParams.get('period');
+  const [selectedPeriod, setSelectedPeriod] = useState(drillPeriod || "all");
+
+  const visibleTransactions = useMemo(
+    () => getRLSFilteredData(user?.role ?? "user"),
+    [getRLSFilteredData, user?.role],
+  );
+  const validationReport = useMemo(
+    () => validateTransactions(visibleTransactions),
+    [visibleTransactions],
+  );
+  const periodOptions = useMemo(
+    () => Array.from(new Set(visibleTransactions.map((transaction) => transaction.date.slice(0, 7)))).sort(),
+    [visibleTransactions],
+  );
+
+  useEffect(() => {
+    if (drillPeriod) {
+      setSelectedPeriod(drillPeriod);
+      return;
+    }
+
+    if (selectedPeriod !== "all" && !periodOptions.includes(selectedPeriod)) {
+      setSelectedPeriod("all");
+    }
+  }, [drillPeriod, periodOptions, selectedPeriod]);
+
+  const filteredTransactions = useMemo(() => {
+    return visibleTransactions.filter(t => {
+      if (drillCategory && t.category !== drillCategory) return false;
+      if (drillCostCenter && t.costCenter !== drillCostCenter) return false;
+      if (selectedPeriod !== "all" && !t.date.startsWith(selectedPeriod)) return false;
+      return true;
+    });
+  }, [visibleTransactions, drillCategory, drillCostCenter, selectedPeriod]);
+
+  const monthlyDetail = filteredTransactions.reduce<MonthlyDetailPoint[]>((acc, t) => {
     const month = t.date.slice(0, 7);
-    const existing = acc.find((a) => a.month === month);
+    const existing = acc.find((entry) => entry.month === month);
     if (existing) {
-      existing.value += t.value;
+      existing.value += Math.abs(t.value);
+      existing.income += t.flowType === "income" ? t.value : 0;
+      existing.expense += t.flowType === "expense" ? Math.abs(t.value) : 0;
     } else {
-      acc.push({ month, value: t.value });
+      acc.push({
+        month,
+        value: Math.abs(t.value),
+        income: t.flowType === "income" ? t.value : 0,
+        expense: t.flowType === "expense" ? Math.abs(t.value) : 0,
+      });
     }
     return acc;
-  }, []).sort((a: { month: string; value: number }, b: { month: string; value: number }) => a.month.localeCompare(b.month));
+  }, []).sort((a, b) => a.month.localeCompare(b.month));
+
+  const categories = [...new Set(filteredTransactions.map((t) => t.category))];
+  const costCenters = [...new Set(filteredTransactions.map((t) => t.costCenter))];
+
+  const totalIncome = filteredTransactions.filter(t => t.flowType === "income").reduce((s, t) => s + t.value, 0);
+  const totalExpense = filteredTransactions.filter(t => t.flowType === "expense").reduce((s, t) => s + Math.abs(t.value), 0);
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
@@ -40,99 +110,150 @@ export default function DetailView() {
             <ArrowLeft className="w-4 h-4" />
             Voltar ao Dashboard
           </button>
-          <h1 className="text-2xl font-bold text-slate-900">Detalhe Analítico</h1>
-          <p className="text-slate-500 mt-1">Visão detalhada dos lançamentos</p>
+          <h1 className="text-2xl font-bold text-slate-900">Visão Auditável</h1>
+          <p className="text-slate-500 mt-1">
+            Rastreio detalhado dos lançamentos e evidência do processamento
+            {(drillCategory || drillCostCenter) && (
+              <span className="ml-2 inline-flex items-center gap-1">
+                <Filter className="h-3 w-3" />
+                {drillCategory && <Badge variant="secondary" className="text-xs">{drillCategory}</Badge>}
+                {drillCostCenter && <Badge variant="secondary" className="text-xs">{drillCostCenter}</Badge>}
+              </span>
+            )}
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => toast.info("Exportação em desenvolvimento")}>
-            <FileSpreadsheet className="w-4 h-4 mr-2" />
-            Excel
-          </Button>
-          <Button variant="outline" onClick={() => toast.info("Exportação em desenvolvimento")}>
-            <Download className="w-4 h-4 mr-2" />
-            PDF
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Card className="border-slate-200 lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-lg">Série Temporal</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={monthlyDetail}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `R${(v / 1000).toFixed(0)}k`} />
-                <Tooltip formatter={(v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} />
-                <Line type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} dot={{ r: 4 }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-
-        <Card className="border-slate-200">
-          <CardHeader>
-            <CardTitle className="text-lg">Resumo</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 bg-emerald-50 rounded-lg border border-emerald-100">
-              <p className="text-sm text-emerald-600 font-medium">Total de Lançamentos</p>
-              <p className="text-2xl font-bold text-emerald-800">{transactions.length}</p>
-            </div>
-            <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
-              <p className="text-sm text-blue-600 font-medium">Período</p>
-              <p className="text-lg font-bold text-blue-800">Jan - Mar 2024</p>
-            </div>
-            <div className="p-4 bg-violet-50 rounded-lg border border-violet-100">
-              <p className="text-sm text-violet-600 font-medium">Categorias</p>
-              <p className="text-lg font-bold text-violet-800">{new Set(transactions.map(t => t.category)).size}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="border-slate-200">
-        <CardHeader>
-          <CardTitle className="text-lg">Tabela de Lançamentos</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-slate-700">Data</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-700">Descrição</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-700">Categoria</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-700">Subcategoria</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-700">Centro de Custo</th>
-                  <th className="px-4 py-3 text-left font-medium text-slate-700">Conta</th>
-                  <th className="px-4 py-3 text-right font-medium text-slate-700">Valor</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((t) => (
-                  <tr key={t.id} className="border-b last:border-0 hover:bg-slate-50">
-                    <td className="px-4 py-2.5 text-slate-600">{t.date}</td>
-                    <td className="px-4 py-2.5 text-slate-900 font-medium">{t.description}</td>
-                    <td className="px-4 py-2.5">
-                      <span className="px-2 py-1 bg-slate-100 rounded text-xs text-slate-600">{t.category}</span>
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-500 text-xs">{t.subcategory}</td>
-                    <td className="px-4 py-2.5 text-slate-600">{t.costCenter}</td>
-                    <td className="px-4 py-2.5 text-slate-600">{t.account}</td>
-                    <td className={`px-4 py-2.5 text-right font-medium ${t.value >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                      {t.value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                    </td>
-                  </tr>
+        <div className="flex items-center gap-2">
+          <div className="w-48">
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger>
+                <SelectValue placeholder="Período" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os períodos</SelectItem>
+                {periodOptions.map((period) => (
+                  <SelectItem key={period} value={period}>
+                    {period}
+                  </SelectItem>
                 ))}
-              </tbody>
-            </table>
+              </SelectContent>
+            </Select>
           </div>
-        </CardContent>
-      </Card>
+          <ExportButton data={filteredTransactions} />
+        </div>
+      </div>
+
+      <ValidationSummary report={validationReport} title="Validação da visão auditável" />
+
+      {!validationReport.approved && (
+        <Card className="border-rose-200 bg-rose-50">
+          <CardContent className="p-5 text-sm text-rose-700">
+            A visualização detalhada foi bloqueada porque a validação local encontrou inconsistências críticas nos dados.
+          </CardContent>
+        </Card>
+      )}
+
+      {validationReport.approved && (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card className="border-slate-200 lg:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-lg">Série Temporal Auditável</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <AreaChart data={monthlyDetail}>
+                    <defs>
+                      <linearGradient id="colorIncome" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                      </linearGradient>
+                      <linearGradient id="colorExpense" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} />
+                    <Tooltip formatter={(v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} />
+                    <Area type="monotone" dataKey="income" name="Receita" stroke="#10b981" fillOpacity={1} fill="url(#colorIncome)" strokeWidth={2} />
+                    <Area type="monotone" dataKey="expense" name="Despesa" stroke="#ef4444" fillOpacity={1} fill="url(#colorExpense)" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            <Card className="border-slate-200">
+              <CardHeader>
+                <CardTitle className="text-lg">Resumo Auditável</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="p-4 bg-emerald-50 rounded-lg border border-emerald-100"
+                >
+                  <p className="text-sm text-emerald-600 font-medium">Receita Total</p>
+                  <p className="text-2xl font-bold text-emerald-800">
+                    {totalIncome.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                  </p>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="p-4 bg-rose-50 rounded-lg border border-rose-100"
+                >
+                  <p className="text-sm text-rose-600 font-medium">Despesa Total</p>
+                  <p className="text-2xl font-bold text-rose-800">
+                    {totalExpense.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                  </p>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="p-4 bg-emerald-50 rounded-lg border border-emerald-100"
+                >
+                  <p className="text-sm text-emerald-600 font-medium">Total de Lançamentos</p>
+                  <p className="text-xl font-bold text-emerald-800">{filteredTransactions.length}</p>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="p-4 bg-blue-50 rounded-lg border border-blue-100"
+                >
+                  <p className="text-sm text-blue-600 font-medium">Categorias</p>
+                  <p className="text-lg font-bold text-blue-800">{categories.length}</p>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }}
+                  className="p-4 bg-violet-50 rounded-lg border border-violet-100"
+                >
+                  <p className="text-sm text-violet-600 font-medium">Centros de Custo</p>
+                  <p className="text-lg font-bold text-violet-800">{costCenters.length}</p>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="p-4 bg-amber-50 rounded-lg border border-amber-100"
+                >
+                  <p className="text-sm text-amber-600 font-medium">Saldo</p>
+                  <p className="text-xl font-bold text-amber-800">
+                    {(totalIncome - totalExpense).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                  </p>
+                </motion.div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <TransactionsTable transactions={filteredTransactions} />
+        </>
+      )}
     </div>
   );
 }

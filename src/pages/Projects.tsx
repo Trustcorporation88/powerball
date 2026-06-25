@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { useApp, type Project } from "@/contexts/AppContext";
-import { Plus, FolderOpen, MoreVertical, Trash2, Eye } from "lucide-react";
+import { useApp } from "@/contexts/AppContext";
+import { Plus, FolderOpen, MoreVertical, Trash2, Eye, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -10,14 +10,77 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { parseExcelFile } from "@/utils/excelParser";
 
 export default function Projects() {
   const navigate = useNavigate();
-  const { projects, setCurrentProject } = useApp();
+  const { projects, setCurrentProject, removeProject, addProject, setCurrentFile } = useApp();
 
-  const handleView = (project: Project) => {
-    setCurrentProject(project);
+  const handleView = async (project: { id: string; name: string; segment: string; status: "active" | "processing" | "error"; createdAt: string; lastProcessed?: string }) => {
+    await setCurrentProject(project);
     navigate("/dashboard");
+  };
+
+  const handleDelete = async (projectId: string) => {
+    if (!window.confirm("Deseja realmente excluir este projeto?")) {
+      return;
+    }
+
+    await removeProject(projectId);
+    toast.success("Projeto removido com sucesso");
+  };
+
+  const handleLoadDemo = async () => {
+    try {
+      const loadingToast = toast.loading('Carregando projeto demo...');
+      
+      // Buscar planilha demo
+      const response = await fetch('/dados_referencia.xlsx');
+      const blob = await response.blob();
+      const file = new File([blob], 'dados_referencia.xlsx', {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+
+      // Parse do arquivo
+      const parsedData = await parseExcelFile(file);
+      const firstSheet = parsedData.sheets[0];
+
+      if (!firstSheet) {
+        toast.dismiss(loadingToast);
+        toast.error('Planilha demo não contém abas válidas');
+        return;
+      }
+
+      // Criar projeto demo
+      const demoProject = {
+        id: `demo2-${Date.now()}`,
+        name: 'Projeto Demo2 - Dados Referência',
+        segment: 'Demonstração',
+        status: 'active' as const,
+        createdAt: new Date().toISOString(),
+        lastProcessed: new Date().toISOString(),
+      };
+
+      await addProject(demoProject);
+      await setCurrentProject(demoProject);
+      await setCurrentFile({
+        name: parsedData.fileName,
+        sheets: parsedData.sheets,
+        selectedSheet: firstSheet.name,
+        selectedSheets: [firstSheet.name],
+        importMode: 'single',
+        headers: firstSheet.headers,
+        preview: firstSheet.data.slice(0, 20),
+        allData: firstSheet.data,
+      });
+
+      toast.dismiss(loadingToast);
+      toast.success('Projeto demo criado com sucesso!');
+      navigate('/mapping');
+    } catch (error) {
+      toast.error('Erro ao carregar projeto demo');
+      console.error(error);
+    }
   };
 
   return (
@@ -51,7 +114,7 @@ export default function Projects() {
                     <DropdownMenuItem onClick={() => handleView(project)}>
                       <Eye className="w-4 h-4 mr-2" /> Ver dashboard
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => toast.info("Em desenvolvimento")} className="text-rose-600">
+                    <DropdownMenuItem onClick={() => handleDelete(project.id)} className="text-rose-600">
                       <Trash2 className="w-4 h-4 mr-2" /> Excluir
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -81,6 +144,15 @@ export default function Projects() {
             </CardContent>
           </Card>
         ))}
+
+        <button
+          onClick={handleLoadDemo}
+          className="border-2 border-emerald-300 bg-emerald-50 rounded-xl p-5 flex flex-col items-center justify-center gap-3 text-emerald-600 hover:border-emerald-500 hover:bg-emerald-100 transition-colors min-h-[220px]"
+        >
+          <Sparkles className="w-8 h-8" />
+          <span className="font-medium">Carregar Projeto Demo</span>
+          <span className="text-xs text-emerald-500">Teste todos os serviços</span>
+        </button>
 
         <button
           onClick={() => navigate("/projects/new")}

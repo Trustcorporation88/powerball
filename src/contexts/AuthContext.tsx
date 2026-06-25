@@ -1,72 +1,101 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { authenticateUser, registerUser, ensureAdminUser, updateUserProfile, type AuthenticatedUser } from '@/services/auth';
+import { readStorage, removeStorage, writeStorage } from '@/services/storage';
+import { setToken } from '@/services/apiClient';
 
-interface User {
-  id: string;
-  name: string;
-  email: string;
-}
+const AUTH_STORAGE_KEY = 'datafin:user';
 
 interface AuthContextType {
-  user: User | null;
-  login: (email: string, password: string) => boolean;
-  register: (name: string, email: string, password: string) => boolean;
+  user: AuthenticatedUser | null;
+  loading: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string; user?: AuthenticatedUser }>;
+  register: (name: string, email: string, password: string) => Promise<{ success: boolean; message?: string; user?: AuthenticatedUser }>;
+  updateProfile: (profile: Pick<AuthenticatedUser, 'name' | 'email'>) => Promise<{ success: boolean; message?: string; user?: AuthenticatedUser }>;
   logout: () => void;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    const stored = localStorage.getItem("user");
-    if (!stored) return null;
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<AuthenticatedUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
-    try {
-      return JSON.parse(stored);
-    } catch {
-      localStorage.removeItem("user");
-      return null;
-    }
-  });
+  useEffect(() => {
+    let cancelled = false;
 
-  const login = useCallback((email: string, password: string) => {
-    const normalizedEmail = email.trim().toLowerCase();
-    const isDemoAdmin =
-      normalizedEmail === "admin@datafin.com" && password === "admin123";
+    const bootstrap = async () => {
+      await ensureAdminUser();
 
-    if (!isDemoAdmin && password.length < 4) return false;
-
-    const mockUser = {
-      id: "1",
-      name: isDemoAdmin ? "Admin" : email.split("@")[0],
-      email: normalizedEmail || email,
+      if (!cancelled) {
+        setUser(readStorage<AuthenticatedUser | null>(AUTH_STORAGE_KEY, null));
+        setLoading(false);
+      }
     };
-    setUser(mockUser);
-    localStorage.setItem("user", JSON.stringify(mockUser));
-    return true;
+
+    void bootstrap();
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === AUTH_STORAGE_KEY) {
+        setUser(readStorage<AuthenticatedUser | null>(AUTH_STORAGE_KEY, null));
+      }
+    };
+
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener('storage', handleStorage);
+    };
   }, []);
 
-  const register = useCallback((name: string, email: string, password: string) => {
-    if (password.length < 4) return false;
-    const mockUser = { id: "1", name, email };
-    setUser(mockUser);
-    localStorage.setItem("user", JSON.stringify(mockUser));
-    return true;
-  }, []);
+  const login = async (email: string, password: string) => {
+    const result = await authenticateUser(email, password);
+    if (result.success && result.user) {
+      setUser(result.user);
+      writeStorage(AUTH_STORAGE_KEY, result.user);
+    }
+    return result;
+  };
 
-  const logout = useCallback(() => {
+  const register = async (name: string, email: string, password: string) => {
+    const result = await registerUser(name, email, password);
+    if (result.success) {
+      const loginResult = await authenticateUser(email, password);
+      if (loginResult.success && loginResult.user) {
+        setUser(loginResult.user);
+        writeStorage(AUTH_STORAGE_KEY, loginResult.user);
+      }
+    }
+    return result;
+  };
+
+  const updateProfileHandler = useCallback(async (profile: Pick<AuthenticatedUser, 'name' | 'email'>) => {
+    if (!user) {
+      return { success: false, message: 'Usuário não autenticado' };
+    }
+
+    const result = await updateUserProfile(user.email, profile);
+    if (result.success && result.user) {
+      setUser(result.user);
+      writeStorage(AUTH_STORAGE_KEY, result.user);
+    }
+
+    return result;
+  }, [user]);
+
+  const logout = () => {
     setUser(null);
-    localStorage.removeItem("user");
-  }, []);
+    removeStorage(AUTH_STORAGE_KEY);
+    setToken(null);
+  };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, updateProfile: updateProfileHandler, logout }}>
       {children}
     </AuthContext.Provider>
   );
-};
+}
 
-export const useAuth = () => {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
-};
+export function useAuth() {
+  return useContext(AuthContext);
+}

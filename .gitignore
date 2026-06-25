@@ -11,6 +11,12 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
+
+# TypeScript incremental build cache
+*.tsbuildinfo
 
 # Editor directories and files
 .vscode/*
@@ -23,3 +29,4 @@ dist-ssr
 *.sln
 *.sw?
 .dyad/
+.zed/

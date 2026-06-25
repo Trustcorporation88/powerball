@@ -3,22 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>DataFin - Análise Financeira de Planilhas</title>
+    <title>Trust Corp Financeiro</title>
   </head>
 
   <body>
     <div id="root"></div>
-    <script>
-      // Remove legacy PWA/service worker from older deployments on this domain.
-      if ("serviceWorker" in navigator) {
-        navigator.serviceWorker.getRegistrations().then((registrations) => {
-          registrations.forEach((registration) => registration.unregister());
-        });
-      }
-      if ("caches" in window) {
-        caches.keys().then((keys) => Promise.all(keys.map((key) => caches.delete(key))));
-      }
-    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
