@@ -5,6 +5,7 @@
   "type": "module",
   "description": "Backend API (Fastify + Prisma + PostgreSQL) for the DataFin / Análise Planilha app, deployable on Railway.",
   "main": "dist/index.js",
+  "packageManager": "pnpm@9.15.9",
   "engines": {
     "node": ">=20"
   },
