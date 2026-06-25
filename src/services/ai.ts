@@ -1,6 +1,6 @@
-const DEEPSEEK_API = 'https://api.deepseek.com/chat/completions';
-const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY;
-const USE_AI = Boolean(DEEPSEEK_API_KEY);
+import { DEEPSEEK_API_URL, getDeepSeekApiKey, isAIEnabled } from './aiConfig';
+
+const DEEPSEEK_API = DEEPSEEK_API_URL;
 
 interface NLPResult {
   type: 'kpi' | 'bar' | 'line' | 'pie' | 'table' | 'area' | 'error';
@@ -26,10 +26,12 @@ export async function queryNLP(
     dateRange: string;
   }
 ): Promise<NLPResult> {
-  if (!USE_AI) {
+  if (!isAIEnabled()) {
     console.info('DeepSeek desativada — usando fallback local');
     return keywordFallback(question);
   }
+
+  const apiKey = getDeepSeekApiKey();
 
   try {
     const prompt = `Você é um assistente financeiro especializado em análise de DRE e relatórios gerenciais.
@@ -58,7 +60,7 @@ Se a pergunta não puder ser respondida com os dados disponíveis, retorne type:
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+        'Authorization': `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: 'deepseek-chat',

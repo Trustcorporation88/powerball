@@ -11,9 +11,9 @@ import {
   OperationType,
 } from '@/types/excelAssistant';
 
-const DEEPSEEK_API = 'https://api.deepseek.com/chat/completions';
-const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY;
-const USE_AI = Boolean(DEEPSEEK_API_KEY);
+import { DEEPSEEK_API_URL, getDeepSeekApiKey, isAIEnabled } from './aiConfig';
+
+const DEEPSEEK_API = DEEPSEEK_API_URL;
 
 /**
  * Converte arquivo Excel em estrutura ExcelWorkbook
@@ -80,7 +80,7 @@ export async function processCommand(
   command: string,
   sheet: ExcelSheet
 ): Promise<AssistantResponse> {
-  if (!USE_AI) {
+  if (!isAIEnabled()) {
     return fallbackProcessor(command, sheet);
   }
 
@@ -178,7 +178,7 @@ async function callDeepSeek(prompt: string): Promise<DeepSeekExcelResponse | nul
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${DEEPSEEK_API_KEY}`,
+        Authorization: `Bearer ${getDeepSeekApiKey()}`,
       },
       body: JSON.stringify({
         model: 'deepseek-chat',
@@ -429,10 +429,10 @@ function executeCalculate(
   switch (config.operation) {
     case 'percentage':
     case 'add':
-    case 'multiply':
+    case 'multiply': {
       const newColumnName = config.newColumn || `${config.column}_modificado`;
       const newHeaders = [...sheet.headers, newColumnName];
-      
+
       const newData = sheet.data.map((row) => {
         const originalValue = parseFloat(row[colIdx]) || 0;
         let newValue: number;
@@ -455,9 +455,10 @@ function executeCalculate(
         columnCount: newHeaders.length,
       };
       break;
+    }
 
     case 'sum':
-    case 'average':
+    case 'average': {
       const values = sheet.data.map((row) => parseFloat(row[colIdx]) || 0);
       const result =
         config.operation === 'sum'
@@ -471,6 +472,7 @@ function executeCalculate(
         data: { result, operation: config.operation },
         timestamp: Date.now(),
       };
+    }
   }
 
   return {

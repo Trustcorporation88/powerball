@@ -43,6 +43,13 @@ export default function Projects() {
 
       // Parse do arquivo
       const parsedData = await parseExcelFile(file);
+      const firstSheet = parsedData.sheets[0];
+
+      if (!firstSheet) {
+        toast.dismiss(loadingToast);
+        toast.error('Planilha demo não contém abas válidas');
+        return;
+      }
 
       // Criar projeto demo
       const demoProject = {
@@ -56,7 +63,16 @@ export default function Projects() {
 
       await addProject(demoProject);
       await setCurrentProject(demoProject);
-      await setCurrentFile(parsedData);
+      await setCurrentFile({
+        name: parsedData.fileName,
+        sheets: parsedData.sheets,
+        selectedSheet: firstSheet.name,
+        selectedSheets: [firstSheet.name],
+        importMode: 'single',
+        headers: firstSheet.headers,
+        preview: firstSheet.data.slice(0, 20),
+        allData: firstSheet.data,
+      });
 
       toast.dismiss(loadingToast);
       toast.success('Projeto demo criado com sucesso!');

@@ -6,8 +6,9 @@
 import type { Transaction } from '@/contexts/AppContext';
 import type { DREReport } from './dre';
 
-const DEEPSEEK_API = 'https://api.deepseek.com/chat/completions';
-const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY;
+import { DEEPSEEK_API_URL, getDeepSeekApiKey, isAIEnabled } from './aiConfig';
+
+const DEEPSEEK_API = DEEPSEEK_API_URL;
 
 export interface AuditIssue {
   severity: 'critical' | 'warning' | 'info';
@@ -29,11 +30,15 @@ export interface AuditReport {
   checksPassed: number;
 }
 
+function getGroupAmount(dreReport: DREReport, group: string): number {
+  return dreReport.groupTotals.find((entry) => entry.group === group)?.amount ?? 0;
+}
+
 /**
  * Audita cálculos do DRE usando DeepSeek
  */
 export async function auditDRECalculations(dreReport: DREReport): Promise<AuditReport> {
-  if (!DEEPSEEK_API_KEY) {
+  if (!isAIEnabled()) {
     return offlineAudit(dreReport);
   }
 
@@ -43,11 +48,11 @@ export async function auditDRECalculations(dreReport: DREReport): Promise<AuditR
 DADOS DO DRE PARA AUDITORIA:
 ${JSON.stringify({
   receitaBruta: dreReport.summary.receitaBruta,
-  deducoes: dreReport.summary.deducoes,
+  deducoes: getGroupAmount(dreReport, 'Deduções'),
   receitaLiquida: dreReport.summary.receitaLiquida,
-  custosMercadoriasVendidas: dreReport.summary.custosMercadoriasVendidas,
+  custosMercadoriasVendidas: getGroupAmount(dreReport, 'Custos'),
   lucroBruto: dreReport.summary.lucroBruto,
-  despesasOperacionais: dreReport.summary.despesasOperacionais,
+  despesasOperacionais: getGroupAmount(dreReport, 'Despesas Operacionais'),
   ebitda: dreReport.summary.ebitda,
   resultadoLiquido: dreReport.summary.resultadoLiquido,
 }, null, 2)}
@@ -89,7 +94,7 @@ RESPONDA EM JSON:
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+        'Authorization': `Bearer ${getDeepSeekApiKey()}`,
       },
       body: JSON.stringify({
         model: 'deepseek-chat',
@@ -138,7 +143,7 @@ RESPONDA EM JSON:
 export async function auditTransactionClassifications(
   transactions: Transaction[]
 ): Promise<AuditReport> {
-  if (!DEEPSEEK_API_KEY || transactions.length === 0) {
+  if (!isAIEnabled() || transactions.length === 0) {
     return {
       engine: 'offline',
       confidence: 100,
@@ -200,7 +205,7 @@ RESPONDA EM JSON:
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+        'Authorization': `Bearer ${getDeepSeekApiKey()}`,
       },
       body: JSON.stringify({
         model: 'deepseek-chat',
@@ -267,7 +272,7 @@ function offlineAudit(dreReport: DREReport): AuditReport {
 
   // Check 1: Receita Líquida
   checksPerformed++;
-  const expectedReceitaLiquida = dreReport.summary.receitaBruta - Math.abs(dreReport.summary.deducoes);
+  const expectedReceitaLiquida = dreReport.summary.receitaBruta - Math.abs(getGroupAmount(dreReport, 'Deduções'));
   const diffRL = Math.abs(dreReport.summary.receitaLiquida - expectedReceitaLiquida);
   if (diffRL > 0.01) {
     issues.push({
@@ -284,7 +289,7 @@ function offlineAudit(dreReport: DREReport): AuditReport {
 
   // Check 2: Lucro Bruto
   checksPerformed++;
-  const expectedLucroBruto = dreReport.summary.receitaLiquida - Math.abs(dreReport.summary.custosMercadoriasVendidas);
+  const expectedLucroBruto = dreReport.summary.receitaLiquida - Math.abs(getGroupAmount(dreReport, 'Custos'));
   const diffLB = Math.abs(dreReport.summary.lucroBruto - expectedLucroBruto);
   if (diffLB > 0.01) {
     issues.push({
@@ -301,7 +306,7 @@ function offlineAudit(dreReport: DREReport): AuditReport {
 
   // Check 3: EBITDA
   checksPerformed++;
-  const expectedEBITDA = dreReport.summary.lucroBruto - Math.abs(dreReport.summary.despesasOperacionais);
+  const expectedEBITDA = dreReport.summary.lucroBruto - Math.abs(getGroupAmount(dreReport, 'Despesas Operacionais'));
   const diffEBITDA = Math.abs(dreReport.summary.ebitda - expectedEBITDA);
   if (diffEBITDA > 0.01) {
     issues.push({
@@ -369,7 +374,7 @@ export async function auditImportData(
   headers: string[],
   data: Record<string, unknown>[]
 ): Promise<AuditReport> {
-  if (!DEEPSEEK_API_KEY) {
+  if (!isAIEnabled()) {
     return offlineAuditImport(headers, data);
   }
 
@@ -413,7 +418,7 @@ RESPONDA EM JSON:
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+        'Authorization': `Bearer ${getDeepSeekApiKey()}`,
       },
       body: JSON.stringify({
         model: 'deepseek-chat',
@@ -461,7 +466,7 @@ RESPONDA EM JSON:
 export async function auditCashFlow(
   monthlyData: Array<{ month: string; income: number; expense: number; balance: number }>
 ): Promise<AuditReport> {
-  if (!DEEPSEEK_API_KEY) {
+  if (!isAIEnabled()) {
     return offlineAuditCashFlow(monthlyData);
   }
 
@@ -501,7 +506,7 @@ RESPONDA EM JSON:
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+        'Authorization': `Bearer ${getDeepSeekApiKey()}`,
       },
       body: JSON.stringify({
         model: 'deepseek-chat',
@@ -549,7 +554,7 @@ RESPONDA EM JSON:
 export async function auditCostCenterDistribution(
   costCenters: Array<{ name: string; income: number; expense: number; percentage: number }>
 ): Promise<AuditReport> {
-  if (!DEEPSEEK_API_KEY) {
+  if (!isAIEnabled()) {
     return offlineAuditCostCenter(costCenters);
   }
 
@@ -580,7 +585,7 @@ RESPONDA EM JSON:
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+        'Authorization': `Bearer ${getDeepSeekApiKey()}`,
       },
       body: JSON.stringify({
         model: 'deepseek-chat',
@@ -634,7 +639,7 @@ export async function auditDashboardConsolidation(
     transactionCount?: number;
   }
 ): Promise<AuditReport> {
-  if (!DEEPSEEK_API_KEY) {
+  if (!isAIEnabled()) {
     return offlineAuditDashboard(summary);
   }
 
@@ -664,7 +669,7 @@ RESPONDA EM JSON:
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
+        'Authorization': `Bearer ${getDeepSeekApiKey()}`,
       },
       body: JSON.stringify({
         model: 'deepseek-chat',

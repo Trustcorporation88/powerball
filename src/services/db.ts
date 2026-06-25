@@ -155,7 +155,10 @@ export async function getFileData(projectId: string): Promise<DBFileData | undef
   return db.files.where('projectId').equals(projectId).first();
 }
 
-export async function saveMappings(projectId: string, mappings: DBColumnMapping[]) {
+export async function saveMappings(
+  projectId: string,
+  mappings: Omit<DBColumnMapping, 'id' | 'projectId'>[],
+) {
   await db.mappings.where('projectId').equals(projectId).delete();
   return db.mappings.bulkAdd(mappings.map(m => ({ ...m, projectId })));
 }
@@ -164,7 +167,10 @@ export async function getMappings(projectId: string): Promise<DBColumnMapping[]>
   return db.mappings.where('projectId').equals(projectId).toArray();
 }
 
-export async function saveTransactions(projectId: string, transactions: DBTransaction[]) {
+export async function saveTransactions(
+  projectId: string,
+  transactions: Omit<DBTransaction, 'projectId'>[],
+) {
   await db.transactions.where('projectId').equals(projectId).delete();
   return db.transactions.bulkAdd(
     transactions.map((transaction, index) => {

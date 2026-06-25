@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sparkles, Send, X, Lightbulb, MessageSquare, History, Shield, Zap, CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { EXTERNAL_AI_DISABLED_REASON, queryNLP } from '@/services/ai';
+import { queryNLP } from '@/services/ai';
+import { isAIEnabled } from '@/services/aiConfig';
 import type { Transaction } from '@/contexts/AppContext';
 import type { KpiData } from '@/hooks/useDashboardData';
 
@@ -25,7 +26,7 @@ export default function NaturalLanguageQuery({ transactions, kpis, onFilterChang
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState<{ q: string; r: Awaited<ReturnType<typeof queryNLP>> }[]>([]);
   
-  const hasApiKey = Boolean(import.meta.env.VITE_DEEPSEEK_API_KEY);
+  const hasApiKey = isAIEnabled();
 
   const categories = useMemo(() => [...new Set(transactions.map((t) => t.category))], [transactions]);
   const costCenters = useMemo(() => [...new Set(transactions.map((t) => t.costCenter))], [transactions]);

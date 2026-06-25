@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { useState } from "react";
+import { getDeepSeekApiKey } from "@/services/aiConfig";
 
 export default function DiagnosticPage() {
   const [testResults, setTestResults] = useState<any>(null);
@@ -11,8 +12,8 @@ export default function DiagnosticPage() {
     setTesting(true);
     const results: any = {};
 
-    // 1. Check DeepSeek API Key
-    const deepseekKey = import.meta.env.VITE_DEEPSEEK_API_KEY;
+    // 1. Check DeepSeek API Key (runtime ou variável de ambiente)
+    const deepseekKey = getDeepSeekApiKey();
     results.deepseekKey = {
       exists: Boolean(deepseekKey),
       value: deepseekKey ? `${deepseekKey.slice(0, 10)}...` : "❌ NÃO CONFIGURADA",
@@ -201,15 +202,20 @@ export default function DiagnosticPage() {
 
       <Card className="bg-blue-50 border-blue-200">
         <CardContent className="p-5">
-          <p className="text-sm text-blue-900 font-semibold mb-2">💡 Como adicionar API Key no Vercel:</p>
+          <p className="text-sm text-blue-900 font-semibold mb-2">💡 Como ativar a IA (DeepSeek):</p>
+          <p className="text-sm text-blue-800 mb-2">
+            <strong>Opção 1 — direto no app (recomendado):</strong> vá em{" "}
+            <strong>Configurações → Integração de IA</strong>, cole sua chave DeepSeek e salve.
+            A IA passa a funcionar imediatamente, sem precisar de novo deploy.
+          </p>
+          <p className="text-sm text-blue-900 font-semibold mb-1">Opção 2 — variável de ambiente no Vercel:</p>
           <ol className="text-sm text-blue-800 space-y-1 list-decimal list-inside">
-            <li>Acesse <a href="https://vercel.com/trustcorporation88/analise-planilha/settings/environment-variables" target="_blank" className="underline">Vercel → Settings → Environment Variables</a></li>
+            <li>Acesse <strong>Vercel → Settings → Environment Variables</strong></li>
             <li>Clique em <strong>"Add New"</strong></li>
             <li>Nome: <code className="bg-white px-1 rounded">VITE_DEEPSEEK_API_KEY</code></li>
-            <li>Value: <code className="bg-white px-1 rounded">sk-a66b4f6e9ca8472aa288745860242f3b</code></li>
+            <li>Value: sua chave (formato <code className="bg-white px-1 rounded">sk-...</code>)</li>
             <li>Environment: <strong>Production, Preview, Development</strong> (todas)</li>
-            <li>Clique <strong>"Save"</strong></li>
-            <li>Redeploy o projeto</li>
+            <li>Clique <strong>"Save"</strong> e faça o redeploy do projeto</li>
           </ol>
         </CardContent>
       </Card>

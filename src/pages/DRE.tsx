@@ -20,6 +20,7 @@ import { AdvancedMetricsDialog } from "@/components/dre/AdvancedMetricsDialog";
 import { BenchmarkDialog } from "@/components/BenchmarkDialog";
 import { AuditReportDisplay } from "@/components/AuditReportDisplay";
 import { performFullAudit, type AuditReport } from "@/services/audit";
+import { isAIEnabled } from "@/services/aiConfig";
 import { buildDREReport } from "@/services/dre";
 import { mergeValidationReports, validateDRETransactions, validateTransactions } from "@/services/validation";
 import { generateMockTransactions } from "@/data/mockData";
@@ -283,7 +284,7 @@ export default function DRE() {
   const currentPeriodLabel = selectedPeriodOption?.label ?? "Consolidado geral";
   const comparisonPeriodLabel = comparisonPeriodOption?.label ?? null;
   const baseForPercentage = Math.abs(dreReport.summary.receitaLiquida) || Math.abs(dreReport.summary.receitaBruta) || 1;
-  const aiAuditEnabled = Boolean(import.meta.env.VITE_DEEPSEEK_API_KEY);
+  const aiAuditEnabled = isAIEnabled();
   const auditKey = useMemo(
     () =>
       JSON.stringify({

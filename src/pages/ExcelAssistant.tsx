@@ -199,19 +199,7 @@ export default function ExcelAssistant() {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            {chart.type === 'bar' && (
-              <BarChart data={response.data}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey={chart.xColumn} />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                {chart.yColumns.map((col, idx) => (
-                  <Bar key={col} dataKey={col} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
-                ))}
-              </BarChart>
-            )}
-            {chart.type === 'line' && (
+            {chart.type === 'line' ? (
               <LineChart data={response.data}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey={chart.xColumn} />
@@ -228,8 +216,7 @@ export default function ExcelAssistant() {
                   />
                 ))}
               </LineChart>
-            )}
-            {chart.type === 'pie' && (
+            ) : chart.type === 'pie' ? (
               <PieChart>
                 <Pie
                   data={response.data}
@@ -247,6 +234,17 @@ export default function ExcelAssistant() {
                 <Tooltip />
                 <Legend />
               </PieChart>
+            ) : (
+              <BarChart data={response.data}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey={chart.xColumn} />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                {chart.yColumns.map((col, idx) => (
+                  <Bar key={col} dataKey={col} fill={CHART_COLORS[idx % CHART_COLORS.length]} />
+                ))}
+              </BarChart>
             )}
           </ResponsiveContainer>
         </CardContent>

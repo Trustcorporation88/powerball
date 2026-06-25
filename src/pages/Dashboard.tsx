@@ -80,7 +80,7 @@ export default function Dashboard() {
   const [crossFilterCategory, setCrossFilterCategory] = useState<string | null>(drillCategory);
   const [crossFilterCostCenter, setCrossFilterCostCenter] = useState<string | null>(drillCostCenter);
   const [drillDownCategory, setDrillDownCategory] = useState<string | null>(null);
-  const template = 'default';
+  const [template, setTemplate] = useState<'default' | 'executive' | 'categories'>('default');
   const [showShare, setShowShare] = useState(false);
   const [showWhatIf, setShowWhatIf] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
@@ -146,9 +146,9 @@ export default function Dashboard() {
     setAuditLoading(true);
     try {
       const summary = {
-        totalIncome: kpis.totalIncome || 0,
-        totalExpense: kpis.totalExpense || 0,
-        netResult: (kpis.totalIncome || 0) - (kpis.totalExpense || 0),
+        totalIncome: kpis.income || 0,
+        totalExpense: kpis.expense || 0,
+        netResult: kpis.balance ?? ((kpis.income || 0) - (kpis.expense || 0)),
         projectCount: currentProject ? 1 : 0,
         transactionCount: visibleTransactions.length,
       };
@@ -411,7 +411,16 @@ export default function Dashboard() {
            }}>
             <Database className="h-4 w-4 mr-1" /> Dados Demo
           </Button>
-          <ProFeatureButton label="Templates" />
+          <Select value={template} onValueChange={(v) => setTemplate(v as typeof template)}>
+            <SelectTrigger className="w-36 h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default" className="text-xs">Painel Padrão</SelectItem>
+              <SelectItem value="executive" className="text-xs">Resumo Executivo</SelectItem>
+              <SelectItem value="categories" className="text-xs">Por Categoria</SelectItem>
+            </SelectContent>
+          </Select>
           <ProFeatureButton label="Colunas" />
           <Button variant="outline" size="sm" onClick={() => setShowWhatIf(true)}>
             <Sliders className="h-4 w-4 mr-1" /> Simular
