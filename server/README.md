@@ -37,6 +37,7 @@ pnpm dev               # sobe em http://localhost:8080
 
 ## Deploy no Railway
 
+### Opção A: PostgreSQL do próprio Railway
 1. **Crie um banco**: no seu projeto do Railway, *New → Database → PostgreSQL*.
 2. **Crie o serviço da API**: *New → GitHub Repo* apontando para este repositório.
    - Em **Settings → Root Directory**, coloque `server`.
@@ -46,7 +47,16 @@ pnpm dev               # sobe em http://localhost:8080
    - `JWT_SECRET` = uma string longa e aleatória
    - `CORS_ORIGIN` = a(s) URL(s) do frontend separadas por vírgula, ex.: `https://fin.trustcorp.com.br,https://merry-parrot-scurry.vercel.app`
 4. **Gere um domínio** público (Settings → Networking → Generate Domain).
-5. No **Vercel**, defina `VITE_API_URL` com a URL pública do Railway e faça redeploy.
+
+### Opção B: PostgreSQL hospedado no Supabase
+Você também pode usar o banco gerenciado do **Supabase** conectado à API no **Railway**:
+1. No Supabase, crie um projeto e copie a connection string em **Project Settings → Database → Connection string → URI** (modo `Transaction` na porta 6543 ou `Session` na porta 5432).
+2. No Railway, defina `DATABASE_URL` com a URL do Supabase (ex.: `postgresql://postgres.[ref]:[senha]@aws-0-[regiao].pooler.supabase.com:6543/postgres?pgbouncer=true`).
+3. O comando de start executa `prisma db push` automaticamente na inicialização, criando todas as tabelas no Supabase sem necessidade de configuração manual adicional.
+
+---
+
+5. No **Vercel** (ou host do frontend), defina `VITE_API_URL` com a URL pública gerada no Railway (ex.: `https://api-datafin.up.railway.app`) e faça redeploy.
 
 > Domínio próprio do frontend (`fin.trustcorp.com.br`): adicione-o em
 > **Vercel → Project → Settings → Domains** e crie o registro DNS indicado

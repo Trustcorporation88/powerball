@@ -18,7 +18,15 @@
       "destination": "/index.html"
     },
     {
-      "source": "/",
+      "source": "/loterias/:path*",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/loterias-publico",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/((?!api/.*).*)",
       "destination": "/index.html"
     }
   ]
