@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   LotteryType,
@@ -61,6 +62,7 @@ import {
 } from 'lucide-react';
 
 export default function LotteryPalpites() {
+  const navigate = useNavigate();
   const [selectedLottery, setSelectedLottery] = useState<LotteryType>('lotofacil');
   const [activeTab, setActiveTab] = useState<'gerador' | 'fechamentos' | 'estatisticas' | 'carteira'>('gerador');
 
@@ -299,6 +301,17 @@ export default function LotteryPalpites() {
             title="Atualizar dados da Caixa"
           >
             <RefreshCw className={`h-4 w-4 ${loadingDraw ? 'animate-spin' : ''}`} />
+          </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/login')}
+            className="text-xs text-muted-foreground ml-2 border border-slate-200 dark:border-slate-800 hover:bg-slate-100"
+            title="Acessar painel financeiro"
+          >
+            Entrar / Admin
           </Button>
         </div>
       </div>

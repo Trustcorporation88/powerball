@@ -33,13 +33,19 @@ const queryClient = new QueryClient();
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
-  return user ? <>{children}</> : <Navigate to="/" />;
+  return user ? <>{children}</> : <Navigate to="/login" />;
 }
 
 const AppRoutes = () => (
   <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Carregando...</div>}>
     <Routes>
-      <Route path="/" element={<Login />} />
+      {/* Rota Principal: Palpites de Loterias Caixa */}
+      <Route path="/" element={<LotteryPalpites />} />
+      <Route path="/loterias" element={<LotteryPalpites />} />
+      <Route path="/loterias-publico" element={<LotteryPalpites />} />
+
+      {/* Autenticação & Painel Financeiro */}
+      <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/shared/:token" element={<SharedDashboard />} />
       <Route
@@ -64,10 +70,8 @@ const AppRoutes = () => (
         <Route path="/settings" element={<Settings />} />
         <Route path="/diagnostic" element={<Diagnostic />} />
         <Route path="/excel-assistant" element={<ExcelAssistant />} />
-        <Route path="/loterias" element={<LotteryPalpites />} />
       </Route>
-      <Route path="/loterias-publico" element={<LotteryPalpites />} />
-      <Route path="*" element={<NotFound />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   </Suspense>
 );
