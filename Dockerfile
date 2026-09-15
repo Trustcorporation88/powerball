@@ -1,3 +1,4 @@
+# Frontend SPA (Vite) — Railway must use THIS file at repo root, not server/Dockerfile.
 FROM node:20-bookworm-slim AS build
 
 WORKDIR /app
