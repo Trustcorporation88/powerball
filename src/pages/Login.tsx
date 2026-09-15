@@ -75,6 +75,14 @@ export default function Login() {
           <p className="text-sm text-muted-foreground">
             Não tem conta? <Link to="/register" className="text-emerald-600 hover:underline">Cadastre-se</Link>
           </p>
+          <div className="pt-2 border-t border-slate-200 dark:border-slate-800 w-full">
+            <Link
+              to="/loterias-publico"
+              className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
+            >
+              🍀 Acessar Gerador de Loterias Caixa (Acesso Direto)
+            </Link>
+          </div>
           {import.meta.env.DEV && (
             <p className="text-xs text-muted-foreground">
               Admin local: admin@datafin.com / admin123
