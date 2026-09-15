@@ -18,6 +18,7 @@ import {
   MapPin,
   Bookmark,
   Sparkles,
+  Clover,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,7 @@ const menuItems: MenuItem[] = [
   { key: "projects", icon: FolderOpen, label: "Projetos", path: "/projects", isActive: (pathname) => pathname === "/projects" },
   { key: "import", icon: FileSpreadsheet, label: "Importar", path: "/import", isActive: (pathname) => pathname === "/import" },
   { key: "excel-assistant", icon: Sparkles, label: "Assistente Excel IA", path: "/excel-assistant", isActive: (pathname) => pathname === "/excel-assistant" },
+  { key: "loterias", icon: Clover, label: "Loterias Inteligentes", path: "/loterias", isActive: (pathname) => pathname === "/loterias" },
   { key: "etl", icon: Wand2, label: "ETL Pipeline", path: "/etl", isActive: (pathname) => pathname === "/etl" },
   { key: "relationships", icon: GitBranch, label: "Relacionamentos", path: "/relationships", isActive: (pathname) => pathname === "/relationships" },
   { key: "dashboard", icon: BarChart3, label: "Dashboard Analítico", path: "/dashboard", isActive: (pathname, panel) => pathname === "/dashboard" && !panel },

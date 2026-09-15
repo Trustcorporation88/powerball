@@ -26,6 +26,7 @@ const Relationships = lazy(() => import("./pages/Relationships"));
 const SharedDashboard = lazy(() => import("./pages/SharedDashboard"));
 const Diagnostic = lazy(() => import("./pages/Diagnostic"));
 const ExcelAssistant = lazy(() => import("./pages/ExcelAssistant"));
+const LotteryPalpites = lazy(() => import("./pages/LotteryPalpites"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -63,7 +64,9 @@ const AppRoutes = () => (
         <Route path="/settings" element={<Settings />} />
         <Route path="/diagnostic" element={<Diagnostic />} />
         <Route path="/excel-assistant" element={<ExcelAssistant />} />
+        <Route path="/loterias" element={<LotteryPalpites />} />
       </Route>
+      <Route path="/loterias-publico" element={<LotteryPalpites />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   </Suspense>

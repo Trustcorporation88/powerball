@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useApp } from '@/contexts/AppContext';
-import { FolderOpen, PlusCircle, CheckCircle2, Activity, Clock, TrendingUp, FileText, BarChart3, FileSpreadsheet, Wallet, Building2 } from 'lucide-react';
+import { FolderOpen, PlusCircle, CheckCircle2, Activity, Clock, TrendingUp, FileText, BarChart3, FileSpreadsheet, Wallet, Building2, Clover } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function Home() {
@@ -79,6 +79,15 @@ export default function Home() {
             badge: 'Auditoria',
             icon: FolderOpen,
             style: 'border-fuchsia-200 bg-fuchsia-50',
+          },
+          {
+            title: 'Loterias Caixa Inteligentes',
+            description: 'Palpites para Mega-Sena e Lotofácil com inteligência estatística, fechamentos e conferidor oficial.',
+            route: '/loterias',
+            action: 'Abrir Palpites',
+            badge: 'Novo',
+            icon: Clover,
+            style: 'border-emerald-300 bg-gradient-to-br from-emerald-50 to-purple-50',
           },
           {
             title: 'Importação e Mapeamento',
