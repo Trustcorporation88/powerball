@@ -1,5 +1,5 @@
 import { FechamentoPlan, GeneratedGame, LotteryStats, LotteryType } from '@/types/lottery';
-import { LOTTERY_CONFIGS } from '@/constants/lotteryConstants';
+import { officialBetPrice, savingsPercent } from '@/constants/lotteryConstants';
 import { analyzeGame, computeGameScore } from './lotteryGenerator';
 
 // Matrizes combinatórias otimizadas (Wheeling systems / Covering designs)
@@ -16,9 +16,9 @@ export const FECHAMENTOS_CATALOG: FechamentoPlan[] = [
     guaranteedHit: 14,
     conditionHit: 15,
     ticketsCount: 24,
-    totalCost: 24 * 3.0, // R$ 72,00
-    comparisonCostFull: 2448.0, // Aposta de 18 números direta na Caixa = R$ 2.448,00
-    savingsPercent: 97.0,
+    totalCost: 24 * officialBetPrice('lotofacil', 15),
+    comparisonCostFull: officialBetPrice('lotofacil', 18),
+    savingsPercent: savingsPercent(officialBetPrice('lotofacil', 18), 24 * officialBetPrice('lotofacil', 15)),
     matrices: [
       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 15, 16, 17],
@@ -56,9 +56,9 @@ export const FECHAMENTOS_CATALOG: FechamentoPlan[] = [
     guaranteedHit: 13,
     conditionHit: 15,
     ticketsCount: 8,
-    totalCost: 8 * 3.0, // R$ 24,00
-    comparisonCostFull: 46512.0, // 20 dezenas na Caixa custa R$ 46.512,00!
-    savingsPercent: 99.9,
+    totalCost: 8 * officialBetPrice('lotofacil', 15),
+    comparisonCostFull: officialBetPrice('lotofacil', 20),
+    savingsPercent: savingsPercent(officialBetPrice('lotofacil', 20), 8 * officialBetPrice('lotofacil', 15)),
     matrices: [
       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14],
       [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18, 19],
@@ -80,8 +80,8 @@ export const FECHAMENTOS_CATALOG: FechamentoPlan[] = [
     guaranteedHit: 15,
     conditionHit: 15,
     ticketsCount: 16,
-    totalCost: 16 * 3.0, // R$ 48,00
-    comparisonCostFull: 48.0,
+    totalCost: 16 * officialBetPrice('lotofacil', 15),
+    comparisonCostFull: officialBetPrice('lotofacil', 16),
     savingsPercent: 0,
     matrices: Array.from({ length: 16 }, (_, excludeIndex) =>
       Array.from({ length: 16 }, (_, idx) => idx).filter((idx) => idx !== excludeIndex)
@@ -99,9 +99,9 @@ export const FECHAMENTOS_CATALOG: FechamentoPlan[] = [
     guaranteedHit: 4,
     conditionHit: 4,
     ticketsCount: 14,
-    totalCost: 14 * 5.0, // R$ 70,00
-    comparisonCostFull: 1050.0, // 10 números na Caixa = R$ 1.050,00
-    savingsPercent: 93.3,
+    totalCost: 14 * officialBetPrice('megasena', 6),
+    comparisonCostFull: officialBetPrice('megasena', 10),
+    savingsPercent: savingsPercent(officialBetPrice('megasena', 10), 14 * officialBetPrice('megasena', 6)),
     matrices: [
       [0, 1, 2, 3, 4, 5],
       [0, 1, 2, 6, 7, 8],
@@ -129,9 +129,9 @@ export const FECHAMENTOS_CATALOG: FechamentoPlan[] = [
     guaranteedHit: 5,
     conditionHit: 5,
     ticketsCount: 12,
-    totalCost: 12 * 5.0, // R$ 60,00
-    comparisonCostFull: 140.0, // 8 dezenas na Caixa = R$ 140,00
-    savingsPercent: 57.1,
+    totalCost: 12 * officialBetPrice('megasena', 6),
+    comparisonCostFull: officialBetPrice('megasena', 8),
+    savingsPercent: savingsPercent(officialBetPrice('megasena', 8), 12 * officialBetPrice('megasena', 6)),
     matrices: [
       [0, 1, 2, 3, 4, 5],
       [0, 1, 2, 3, 4, 6],
@@ -157,9 +157,9 @@ export const FECHAMENTOS_CATALOG: FechamentoPlan[] = [
     guaranteedHit: 4,
     conditionHit: 4,
     ticketsCount: 22,
-    totalCost: 22 * 5.0, // R$ 110,00
-    comparisonCostFull: 4620.0, // 12 dezenas na Caixa = R$ 4.620,00!
-    savingsPercent: 97.6,
+    totalCost: 22 * officialBetPrice('megasena', 6),
+    comparisonCostFull: officialBetPrice('megasena', 12),
+    savingsPercent: savingsPercent(officialBetPrice('megasena', 12), 22 * officialBetPrice('megasena', 6)),
     matrices: [
       [0, 1, 2, 3, 4, 5],
       [0, 1, 2, 6, 7, 8],
@@ -205,7 +205,7 @@ export function executeFechamento(
 
   const sortedSelected = [...selectedNumbers].sort((a, b) => a - b);
   const matrices = plan.matrices || [];
-  const costPerTicket = LOTTERY_CONFIGS[plan.lottery].priceTable[plan.numbersPerTicket] || 3.0;
+  const costPerTicket = officialBetPrice(plan.lottery, plan.numbersPerTicket);
 
   return matrices.map((matrixIndices, index) => {
     const ticketNumbers = matrixIndices

@@ -6,7 +6,7 @@ import {
   LotteryStats,
   LotteryType,
 } from '@/types/lottery';
-import { LOTTERY_CONFIGS } from '@/constants/lotteryConstants';
+import { LOTTERY_CONFIGS, officialBetPrice } from '@/constants/lotteryConstants';
 
 // Analisador X-Ray de bilhetes e cálculo do Score de Qualidade (0 a 100)
 export function analyzeGame(
@@ -391,7 +391,7 @@ export function generateLotteryGames(
       continue;
     }
 
-    const cost = config.priceTable[numbersCount] || config.priceTable[config.minSelection];
+    const cost = officialBetPrice(lottery, numbersCount);
 
     games.push({
       id: `game_${Date.now()}_${games.length + 1}`,
