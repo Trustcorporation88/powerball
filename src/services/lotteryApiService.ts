@@ -1,9 +1,35 @@
 import { LotteryDraw, LotteryType } from '@/types/lottery';
 import { INITIAL_DRAWS } from './lotteryHistoricalData';
 
-// Cache em memória e localStorage para persistência e performance máxima
+/**
+ * Serviço de API para obter resultados de loterias da Caixa.
+ * 
+ * FONTES DE DADOS (em ordem de prioridade):
+ * 1. API oficial da Caixa: https://servicebus2.caixa.gov.br/portaldeloterias/api/
+ * 2. Cache local (localStorage) para acesso offline
+ * 3. Dados históricos pré-carregados (fallback)
+ * 
+ * ESTRATÉGIA DE CACHE:
+ * - Resultados são salvos no localStorage após cada fetch bem-sucedido
+ * - O cache é atualizado apenas quando um novo concurso é detectado
+ * - Evita duplicatas pelo número do concurso
+ * - Ordenado do mais recente para o mais antigo
+ */
+
+// Prefixo das chaves de cache no localStorage
 const STORAGE_KEY_PREFIX = 'caixa_lottery_draws_';
 
+/**
+ * Busca o sorteio mais recente da loteria especificada.
+ * 
+ * Fluxo:
+ * 1. Tenta a API oficial da Caixa (timeout de 3.5s para não travar a UX)
+ * 2. Se falhar, usa cache local
+ * 3. Se não houver cache, usa dados pré-carregados
+ * 
+ * @param lottery - Tipo da loteria ('lotofacil' ou 'megasena')
+ * @returns Dados do sorteio mais recente
+ */
 export async function fetchLatestCaixaDraw(lottery: LotteryType): Promise<LotteryDraw> {
   const localCache = getCachedDraws(lottery);
 
@@ -50,17 +76,25 @@ export async function fetchLatestCaixaDraw(lottery: LotteryType): Promise<Lotter
     }
   } catch {
     // Falha silenciosa no fetch oficial -> prossegue para fallbacks
+    // Isso pode ocorrer por: timeout, rede offline, API indisponível
   }
 
-  // Fallback 1: se já tivermos no cache local atualizado
+  // Fallback 1: cache local atualizado
   if (localCache && localCache.length > 0) {
     return localCache[0];
   }
 
-  // Fallback 2: dados mock pré-carregados de alta qualidade
+  // Fallback 2: dados históricos pré-carregados
   return INITIAL_DRAWS[lottery][0];
 }
 
+/**
+ * Retorna todos os sorteios disponíveis para uma loteria.
+ * Usa cache local ou dados pré-carregados.
+ * 
+ * @param lottery - Tipo da loteria
+ * @returns Array de sorteios ordenados do mais recente ao mais antigo
+ */
 export function getAllDraws(lottery: LotteryType): LotteryDraw[] {
   const cached = getCachedDraws(lottery);
   if (cached && cached.length > 0) {
@@ -69,6 +103,12 @@ export function getAllDraws(lottery: LotteryType): LotteryDraw[] {
   return INITIAL_DRAWS[lottery];
 }
 
+/**
+ * Recupera sorteios do cache local (localStorage).
+ * 
+ * @param lottery - Tipo da loteria
+ * @returns Array de sorteios ou null se não houver cache
+ */
 export function getCachedDraws(lottery: LotteryType): LotteryDraw[] | null {
   try {
     const raw = localStorage.getItem(`${STORAGE_KEY_PREFIX}${lottery}`);
@@ -79,11 +119,18 @@ export function getCachedDraws(lottery: LotteryType): LotteryDraw[] | null {
       }
     }
   } catch {
-    // fallback
+    // localStorage indisponível ou dados corrompidos
   }
   return null;
 }
 
+/**
+ * Salva um novo sorteio no cache local.
+ * Evita duplicatas e mantém ordenação por concurso (decrescente).
+ * 
+ * @param lottery - Tipo da loteria
+ * @param newDraw - Dados do novo sorteio
+ */
 export function saveDrawToCache(lottery: LotteryType, newDraw: LotteryDraw) {
   try {
     const current = getCachedDraws(lottery) || INITIAL_DRAWS[lottery];
