@@ -13,13 +13,14 @@ export const LOTTERY_CONFIGS: Record<LotteryType, LotteryConfig> = {
     minSelection: 15,
     maxSelection: 20,
     drawDays: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
+    // Tabela oficial Caixa (vigente desde o concurso 3439 — jul/2025).
     priceTable: {
-      15: 3.00,
-      16: 48.00,
-      17: 408.00,
-      18: 2448.00,
-      19: 11628.00,
-      20: 46512.00,
+      15: 3.50,
+      16: 56.00,
+      17: 476.00,
+      18: 2856.00,
+      19: 13566.00,
+      20: 54264.00,
     },
     colsGrid: 5,
     // No volante 5x5: 1 a 25.
@@ -43,17 +44,18 @@ export const LOTTERY_CONFIGS: Record<LotteryType, LotteryConfig> = {
     minSelection: 6,
     maxSelection: 15,
     drawDays: ['Terça', 'Quinta', 'Sábado'],
+    // Tabela oficial Caixa (vigente desde o concurso 2887 — jul/2025).
     priceTable: {
-      6: 5.00,
-      7: 35.00,
-      8: 140.00,
-      9: 420.00,
-      10: 1050.00,
-      11: 2310.00,
-      12: 4620.00,
-      13: 8580.00,
-      14: 15015.00,
-      15: 25025.00,
+      6: 6.00,
+      7: 42.00,
+      8: 168.00,
+      9: 504.00,
+      10: 1260.00,
+      11: 2772.00,
+      12: 5544.00,
+      13: 10296.00,
+      14: 18018.00,
+      15: 30030.00,
     },
     colsGrid: 10,
     primeNumbers: [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59],
@@ -61,3 +63,13 @@ export const LOTTERY_CONFIGS: Record<LotteryType, LotteryConfig> = {
     idealEvenRange: [2, 4], // 2 a 4 pares (distribuição normal centrada em 3)
   },
 };
+
+export function officialBetPrice(lottery: LotteryType, numbersCount: number): number {
+  const config = LOTTERY_CONFIGS[lottery];
+  return config.priceTable[numbersCount] ?? config.priceTable[config.minSelection];
+}
+
+export function savingsPercent(fullCost: number, reducedCost: number): number {
+  if (fullCost <= 0) return 0;
+  return Math.round(((fullCost - reducedCost) / fullCost) * 1000) / 10;
+}
