@@ -4,15 +4,13 @@ import jwt from "@fastify/jwt";
 import { env, parseCorsOrigin } from "./env.js";
 import { authRoutes } from "./routes/auth.js";
 import { lotteryRoutes } from "./routes/lottery.js";
-import { projectRoutes } from "./routes/projects.js";
-import { shareRoutes } from "./routes/shares.js";
 import { termsRoutes } from "./routes/terms.js";
 import { prisma } from "./prisma.js";
 
 async function main(): Promise<void> {
   const app = Fastify({
     logger: true,
-    bodyLimit: 25 * 1024 * 1024, // 25MB — planilhas grandes em allData/preview
+    bodyLimit: 2 * 1024 * 1024,
   });
 
   await app.register(cors, {
@@ -26,8 +24,6 @@ async function main(): Promise<void> {
 
   await app.register(authRoutes);
   await app.register(lotteryRoutes);
-  await app.register(projectRoutes);
-  await app.register(shareRoutes);
   await app.register(termsRoutes);
 
   const close = async () => {

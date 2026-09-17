@@ -1,6 +1,4 @@
-// DataFin backend schema.
-// Mirrors the client-side Dexie models (src/services/db.ts) so the frontend
-// data layer can switch from browser IndexedDB to a centralized Postgres DB.
+# Powerball — schema da API (login, termo, carteira de palpites).
 
 generator client {
   provider      = "prisma-client-js"

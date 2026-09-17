@@ -1,9 +1,22 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
-import { authenticateUser, registerUser, ensureAdminUser, updateUserProfile, type AuthenticatedUser } from '@/services/auth';
+import { authenticateUser, registerUser, updateUserProfile, type AuthenticatedUser } from '@/services/auth';
 import { readStorage, removeStorage, writeStorage } from '@/services/storage';
 import { setToken } from '@/services/apiClient';
 
-const AUTH_STORAGE_KEY = 'datafin:user';
+const AUTH_STORAGE_KEY = 'powerball:user';
+const LEGACY_AUTH_STORAGE_KEY = 'datafin:user';
+
+function lerUsuarioSalvo(): AuthenticatedUser | null {
+  const atual = readStorage<AuthenticatedUser | null>(AUTH_STORAGE_KEY, null);
+  if (atual) return atual;
+  const legado = readStorage<AuthenticatedUser | null>(LEGACY_AUTH_STORAGE_KEY, null);
+  if (legado) {
+    writeStorage(AUTH_STORAGE_KEY, legado);
+    removeStorage(LEGACY_AUTH_STORAGE_KEY);
+    return legado;
+  }
+  return null;
+}
 
 interface AuthContextType {
   user: AuthenticatedUser | null;
@@ -24,10 +37,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     const bootstrap = async () => {
-      await ensureAdminUser();
-
       if (!cancelled) {
-        setUser(readStorage<AuthenticatedUser | null>(AUTH_STORAGE_KEY, null));
+        setUser(lerUsuarioSalvo());
         setLoading(false);
       }
     };

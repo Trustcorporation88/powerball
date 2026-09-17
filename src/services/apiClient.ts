@@ -8,7 +8,8 @@
 const RAW_API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 export const API_URL = RAW_API_URL.replace(/\/+$/, "");
 
-const TOKEN_KEY = "datafin:token";
+const TOKEN_KEY = "powerball:token";
+const LEGACY_TOKEN_KEY = "datafin:token";
 
 export function isRemote(): boolean {
   return API_URL.length > 0;
@@ -16,7 +17,15 @@ export function isRemote(): boolean {
 
 export function getToken(): string {
   try {
-    return window.localStorage.getItem(TOKEN_KEY) ?? "";
+    const atual = window.localStorage.getItem(TOKEN_KEY);
+    if (atual) return atual;
+    const legado = window.localStorage.getItem(LEGACY_TOKEN_KEY);
+    if (legado) {
+      window.localStorage.setItem(TOKEN_KEY, legado);
+      window.localStorage.removeItem(LEGACY_TOKEN_KEY);
+      return legado;
+    }
+    return "";
   } catch {
     return "";
   }
