@@ -47,6 +47,15 @@ export function saveGame(game: GeneratedGame, notes?: string): UserSavedGame {
   return userGame;
 }
 
+/** Substitui a carteira inteira. Usado pela sincronização com a nuvem. */
+export function replaceSavedGames(games: UserSavedGame[]): void {
+  try {
+    localStorage.setItem(SAVED_GAMES_KEY, JSON.stringify(games));
+  } catch {
+    // quota
+  }
+}
+
 export function removeSavedGame(gameId: string) {
   const current = getSavedGames();
   const filtered = current.filter((g) => g.id !== gameId);

@@ -20,7 +20,8 @@ model User {
   role         String   @default("user")
   createdAt    DateTime @default(now())
 
-  projects Project[]
+  projects     Project[]
+  lotteryGames LotteryWalletGame[]
 }
 
 model Project {
@@ -120,4 +121,57 @@ model ShareSnapshot {
   createdAt    String
   projectName  String
   snapshotJson String
+}
+
+/// Cache dos concursos da Caixa.
+/// A API oficial responde 403 para requisições vindas de datacenter e não
+/// expõe CORS, então o servidor busca, normaliza e guarda o resultado aqui —
+/// o navegador do visitante consulta este cache em vez da Caixa.
+model LotteryDrawCache {
+  id         String   @id @default(uuid())
+  lottery    String
+  concurso   Int
+  data       String
+  /// Dezenas do sorteio principal.
+  dezenas    Json
+  /// 2º sorteio da Dupla Sena.
+  dezenas2   Json?
+  /// Mês da Sorte (Dia de Sorte).
+  mesSorte   String?
+  /// Trevos da Sorte (+Milionária).
+  trevos     Json?
+  acumulou   Boolean  @default(false)
+  premiacoes Json?
+  payload    Json?
+  updatedAt  DateTime @updatedAt
+
+  @@unique([lottery, concurso])
+  @@index([lottery, concurso])
+}
+
+/// Carteira de bilhetes sincronizada entre dispositivos.
+model LotteryWalletGame {
+  id            String   @id
+  userId        String
+  lottery       String
+  numbers       Json
+  extra         Json?
+  strategy      String
+  strategyLabel String
+  cost          Float
+  score         Int
+  scoreLabel    String
+  analysis      Json?
+  isBet         Boolean  @default(false)
+  notes         String?
+  folder        String?
+  bolaoId       String?
+  checkResult   Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, lottery])
 }

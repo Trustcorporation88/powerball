@@ -3,6 +3,7 @@ import cors from "@fastify/cors";
 import jwt from "@fastify/jwt";
 import { env, parseCorsOrigin } from "./env.js";
 import { authRoutes } from "./routes/auth.js";
+import { lotteryRoutes } from "./routes/lottery.js";
 import { projectRoutes } from "./routes/projects.js";
 import { shareRoutes } from "./routes/shares.js";
 import { prisma } from "./prisma.js";
@@ -23,6 +24,7 @@ async function main(): Promise<void> {
   app.get("/health", async () => ({ status: "ok", time: new Date().toISOString() }));
 
   await app.register(authRoutes);
+  await app.register(lotteryRoutes);
   await app.register(projectRoutes);
   await app.register(shareRoutes);
 
