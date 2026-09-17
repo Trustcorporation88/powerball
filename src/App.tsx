@@ -27,6 +27,7 @@ const SharedDashboard = lazy(() => import("./pages/SharedDashboard"));
 const Diagnostic = lazy(() => import("./pages/Diagnostic"));
 const ExcelAssistant = lazy(() => import("./pages/ExcelAssistant"));
 const LotteryPalpites = lazy(() => import("./pages/LotteryPalpites"));
+const LotteryResultado = lazy(() => import("./pages/LotteryResultado"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -43,6 +44,10 @@ const AppRoutes = () => (
       <Route path="/" element={<LotteryPalpites />} />
       <Route path="/loterias" element={<LotteryPalpites />} />
       <Route path="/loterias-publico" element={<LotteryPalpites />} />
+
+      {/* Resultados públicos por concurso — indexáveis no Google */}
+      <Route path="/resultado/:lottery" element={<LotteryResultado />} />
+      <Route path="/resultado/:lottery/:concurso" element={<LotteryResultado />} />
 
       {/* Autenticação & Painel Financeiro */}
       <Route path="/login" element={<Login />} />

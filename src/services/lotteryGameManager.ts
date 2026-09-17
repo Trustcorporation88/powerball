@@ -1,21 +1,14 @@
-import { GeneratedGame, LotteryDraw, LotteryType, UserSavedGame } from '@/types/lottery';
-
-/**
- * Gerenciador de jogos salvos pelo usuário.
- * 
- * Funcionalidades:
- * - Salvar/remover jogos gerados
- * - Marcar jogos como apostados
- * - Conferir jogos contra sorteios
- * - Exportar jogos para WhatsApp e CSV
- */
+import {
+  GeneratedGame,
+  LotteryDraw,
+  LotteryExtraSelection,
+  LotteryType,
+  UserSavedGame,
+} from '@/types/lottery';
+import { LOTTERY_CONFIGS } from '@/constants/lotteryConstants';
 
 const SAVED_GAMES_KEY = 'caixa_lottery_saved_games';
 
-/**
- * Recupera todos os jogos salvos pelo usuário do localStorage.
- * @returns Array de jogos salvos
- */
 export function getSavedGames(): UserSavedGame[] {
   try {
     const raw = localStorage.getItem(SAVED_GAMES_KEY);
@@ -23,18 +16,11 @@ export function getSavedGames(): UserSavedGame[] {
       return JSON.parse(raw);
     }
   } catch {
-    // fallback para array vazio
+    // fallback
   }
   return [];
 }
 
-/**
- * Salva ou atualiza um jogo na lista de jogos salvos.
- * 
- * @param game - Jogo gerado a ser salvo
- * @param notes - Notas opcionais do usuário
- * @returns O jogo salvo com notas
- */
 export function saveGame(game: GeneratedGame, notes?: string): UserSavedGame {
   const current = getSavedGames();
   const existingIdx = current.findIndex((g) => g.id === game.id);
@@ -55,31 +41,29 @@ export function saveGame(game: GeneratedGame, notes?: string): UserSavedGame {
   try {
     localStorage.setItem(SAVED_GAMES_KEY, JSON.stringify(updated));
   } catch {
-    // quota excedida - ignorar silenciosamente
+    // quota
   }
 
   return userGame;
 }
 
-/**
- * Remove um jogo da lista de salvos.
- * @param gameId - ID único do jogo
- */
+/** Substitui a carteira inteira. Usado pela sincronização com a nuvem. */
+export function replaceSavedGames(games: UserSavedGame[]): void {
+  try {
+    localStorage.setItem(SAVED_GAMES_KEY, JSON.stringify(games));
+  } catch {
+    // quota
+  }
+}
+
 export function removeSavedGame(gameId: string) {
   const current = getSavedGames();
   const filtered = current.filter((g) => g.id !== gameId);
   try {
     localStorage.setItem(SAVED_GAMES_KEY, JSON.stringify(filtered));
-  } catch {
-    // ignorar erros de storage
-  }
+  } catch {}
 }
 
-/**
- * Alterna o status de "apostado" de um jogo.
- * @param gameId - ID único do jogo
- * @returns Novo status de isBet
- */
 export function toggleBetStatus(gameId: string): boolean {
   const current = getSavedGames();
   const idx = current.findIndex((g) => g.id === gameId);
@@ -87,72 +71,85 @@ export function toggleBetStatus(gameId: string): boolean {
     current[idx].isBet = !current[idx].isBet;
     try {
       localStorage.setItem(SAVED_GAMES_KEY, JSON.stringify(current));
-    } catch {
-      // ignorar erros de storage
-    }
+    } catch {}
     return !!current[idx].isBet;
   }
   return false;
 }
 
-/**
- * Confere um jogo contra um sorteio realizado.
- * 
- * IMPORTANTE: Esta função apenas verifica acertos.
- * Ela NÃO valida se o bilhete foi realmente apostado na Caixa.
- * 
- * @param gameNumbers - Números do jogo a conferir
- * @param draw - Dados do sorteio realizado
- * @returns Resultado da conferência
- */
-export function checkTicketAgainstDraw(
-  gameNumbers: number[],
-  draw: LotteryDraw
-): {
+export interface TicketCheckResult {
   hits: number;
   hitNumbers: number[];
   isWinner: boolean;
   prizeLabel?: string;
-} {
-  const hitNumbers = gameNumbers.filter((n) => draw.dezenas.includes(n));
-  const hits = hitNumbers.length;
-  let isWinner = false;
-  let prizeLabel: string | undefined;
-
-  // Regras de premiação conforme regulamento da Caixa
-  if (draw.loteria === 'lotofacil') {
-    // Lotofácil: premia de 11 a 15 acertos
-    if (hits >= 11) {
-      isWinner = true;
-      prizeLabel = `${hits} acertos! Premiado`;
-    }
-  } else if (draw.loteria === 'megasena') {
-    // Mega-Sena: premia quadra, quina e sena
-    if (hits === 6) {
-      isWinner = true;
-      prizeLabel = 'SENA! (6 acertos)';
-    } else if (hits === 5) {
-      isWinner = true;
-      prizeLabel = 'QUINA! (5 acertos)';
-    } else if (hits === 4) {
-      isWinner = true;
-      prizeLabel = 'QUADRA! (4 acertos)';
-    }
-  }
-
-  return { hits, hitNumbers, isWinner, prizeLabel };
+  /** Acertos no 2º sorteio da Dupla Sena. */
+  secondDrawHits?: number;
+  /** Acertou o Mês da Sorte / os trevos exigidos pela faixa. */
+  extraHit?: boolean;
 }
 
 /**
- * Formata jogos para compartilhamento via WhatsApp.
- * 
- * @param games - Array de jogos a formatar
- * @param title - Título opcional para a mensagem
- * @returns Texto formatado pronto para colar no WhatsApp
+ * Conferidor automático, guiado pelas faixas oficiais de cada modalidade.
+ *
+ * Na Dupla Sena o bilhete concorre nos dois sorteios e vale o melhor deles.
+ * Na +Milionária a faixa depende também do número de trevos acertados, e no
+ * Dia de Sorte o Mês da Sorte só muda a faixa máxima.
  */
+export function checkTicketAgainstDraw(
+  gameNumbers: number[],
+  draw: LotteryDraw,
+  extra?: LotteryExtraSelection,
+): TicketCheckResult {
+  const config = LOTTERY_CONFIGS[draw.loteria];
+
+  const hitNumbers = gameNumbers.filter((n) => draw.dezenas.includes(n));
+  let hits = hitNumbers.length;
+  let secondDrawHits: number | undefined;
+
+  if (config.hasSecondDraw && draw.dezenasSegundoSorteio?.length) {
+    secondDrawHits = gameNumbers.filter((n) => draw.dezenasSegundoSorteio!.includes(n)).length;
+    hits = Math.max(hits, secondDrawHits);
+  }
+
+  const trevosAcertados = extra?.trevos?.filter((t) => draw.trevos?.includes(t)).length ?? 0;
+  const mesAcertado = Boolean(extra?.mesSorte && draw.mesSorte && extra.mesSorte === draw.mesSorte);
+  const extraHit = config.extraField
+    ? config.extraField.key === 'trevos'
+      ? trevosAcertados > 0
+      : mesAcertado
+    : undefined;
+
+  // A primeira faixa compatível é a de maior valor, já que prizeTiers vem
+  // ordenada da melhor para a pior.
+  const tier = config.prizeTiers.find((faixa) => {
+    if (hits < faixa.hits) return false;
+    if (faixa.trevos === undefined) return true;
+    return trevosAcertados >= faixa.trevos;
+  });
+
+  return {
+    hits,
+    hitNumbers,
+    isWinner: Boolean(tier),
+    prizeLabel: tier ? `${tier.label} — premiado!` : undefined,
+    secondDrawHits,
+    extraHit,
+  };
+}
+
+/** Descreve o campo extra do bilhete para exportações e listagens. */
+export function describeExtra(game: GeneratedGame): string {
+  if (game.extra?.mesSorte) return `Mês da Sorte: ${game.extra.mesSorte}`;
+  if (game.extra?.trevos?.length) return `Trevos: ${game.extra.trevos.join(' e ')}`;
+  return '';
+}
+
+// Exportador em formato texto para envio fácil no WhatsApp
 export function formatGamesForWhatsApp(games: GeneratedGame[], title?: string): string {
   const lines: string[] = [];
-  lines.push(`🍀 *PALPITES INTELIGENTES - LOTERIAS CAIXA*`);
+  const modalidade = games[0] ? LOTTERY_CONFIGS[games[0].lottery].name : 'Loterias Caixa';
+
+  lines.push(`🍀 *PALPITES INTELIGENTES — ${modalidade.toUpperCase()}*`);
   if (title) lines.push(`📌 *${title}*`);
   lines.push(`📅 Data: ${new Date().toLocaleDateString('pt-BR')}`);
   lines.push(`----------------------------------`);
@@ -163,8 +160,9 @@ export function formatGamesForWhatsApp(games: GeneratedGame[], title?: string): 
     const formattedNums = game.numbers
       .map((n) => String(n).padStart(2, '0'))
       .join(' - ');
+    const extra = describeExtra(game);
     lines.push(
-      `Jogo ${idx + 1} (${game.score} pts): ${formattedNums} [R$ ${game.cost.toFixed(2)}]`
+      `Jogo ${idx + 1} (${game.score} pts): ${formattedNums} [R$ ${game.cost.toFixed(2)}]${extra ? `\n   ${extra}` : ''}`
     );
   });
 
@@ -178,48 +176,25 @@ export function formatGamesForWhatsApp(games: GeneratedGame[], title?: string): 
   return lines.join('\n');
 }
 
-/**
- * Exporta jogos para formato CSV (compatível com Excel/Google Sheets).
- * 
- * @param games - Array de jogos a exportar
- * @param filename - Nome do arquivo (sem extensão)
- */
-export function exportGamesToCSV(games: GeneratedGame[], filename: string = 'palpites_loteria'): void {
-  // Cabeçalho do CSV
-  const headers = [
-    'Jogo',
-    'Loteria',
-    'Estratégia',
-    'Números',
-    'Quantidade',
-    'Score',
-    'Custo (R$)',
-    'Data Geração',
-  ];
+// Exportador CSV para abrir direto no Excel / Google Sheets
+export function exportGamesToCSV(games: GeneratedGame[], filename: string = 'apostas.csv') {
+  const rows: string[] = [];
+  rows.push('ID;Loteria;Estrategia;Score;Dezenas;Extra;Custo;CriadoEm');
 
-  // Linhas de dados
-  const rows = games.map((game, idx) => [
-    idx + 1,
-    game.lottery,
-    game.strategy,
-    game.numbers.map((n) => String(n).padStart(2, '0')).join(' - '),
-    game.numbers.length,
-    game.score,
-    game.cost.toFixed(2).replace('.', ','),
-    new Date(game.createdAt).toLocaleDateString('pt-BR'),
-  ]);
+  games.forEach((g) => {
+    const nums = g.numbers.map((n) => String(n).padStart(2, '0')).join(' ');
+    rows.push(
+      `"${g.id}";"${LOTTERY_CONFIGS[g.lottery].name}";"${g.strategyLabel}";"${g.score}";"${nums}";"${describeExtra(g)}";"${g.cost.toFixed(2).replace('.', ',')}";"${g.createdAt}"`
+    );
+  });
 
-  // Monta o CSV com BOM para UTF-8
-  const csvContent =
-    '\uFEFF' +
-    [headers.join(';'), ...rows.map((row) => row.join(';'))].join('\n');
-
-  // Cria e dispara o download
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+  // Blob em vez de data URI: carteiras grandes estouram o limite de tamanho da
+  // URL em alguns navegadores. O BOM mantém os acentos corretos no Excel.
+  const blob = new Blob(['\uFEFF' + rows.join('\n')], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `${filename}_${new Date().toISOString().slice(0, 10)}.csv`;
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
