@@ -9,6 +9,7 @@ import {
   GeneratorStrategy,
   FechamentoPlan,
   LotteryExtraSelection,
+  LotteryTab,
   UserSavedGame,
 } from '@/types/lottery';
 import { LOTTERY_CONFIGS, LOTTERY_ORDER } from '@/constants/lotteryConstants';
@@ -40,6 +41,8 @@ import { BolaoPanel } from '@/components/lottery/BolaoPanel';
 import { ResponsibleGamingCard } from '@/components/lottery/ResponsibleGamingCard';
 import { ExtraFieldPicker } from '@/components/lottery/ExtraFieldPicker';
 import { InstallAppCard } from '@/components/lottery/InstallAppCard';
+import { ComoUsarPanel } from '@/components/lottery/ComoUsarPanel';
+import { ehPrimeiraVisita, marcarVisita } from '@/lib/primeiraVisita';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -69,14 +72,15 @@ import {
   Calendar,
   FlaskConical,
   Users,
+  LifeBuoy,
 } from 'lucide-react';
 
 export default function LotteryPalpites() {
   const navigate = useNavigate();
   const [selectedLottery, setSelectedLottery] = useState<LotteryType>('lotofacil');
-  const [activeTab, setActiveTab] = useState<
-    'gerador' | 'fechamentos' | 'estatisticas' | 'backtest' | 'bolao' | 'carteira'
-  >('gerador');
+  const [activeTab, setActiveTab] = useState<LotteryTab>(() =>
+    ehPrimeiraVisita() ? 'como-usar' : 'gerador',
+  );
 
   // Dados e Concursos
   const [loadingDraw, setLoadingDraw] = useState(false);
@@ -128,6 +132,7 @@ export default function LotteryPalpites() {
   // Recarrega jogos salvos
   useEffect(() => {
     setSavedGames(getSavedGames());
+    marcarVisita();
 
     // Quem ativou os avisos é notificado dos concursos que saíram enquanto o
     // app estava fechado.
@@ -422,8 +427,16 @@ export default function LotteryPalpites() {
       <InstallAppCard />
 
       {/* Navegação por Abas Principais */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
-        <TabsList className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 w-full h-auto p-1 bg-slate-100 dark:bg-slate-900">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as LotteryTab)}
+        className="space-y-4"
+      >
+        <TabsList className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 w-full h-auto p-1 bg-slate-100 dark:bg-slate-900">
+          <TabsTrigger value="como-usar" className="py-2.5 font-semibold text-xs md:text-sm">
+            <LifeBuoy className="h-4 w-4 mr-1.5 text-rose-600" />
+            Como Usar
+          </TabsTrigger>
           <TabsTrigger value="gerador" className="py-2.5 font-semibold text-xs md:text-sm">
             <Sparkles className="h-4 w-4 mr-1.5 text-purple-600" />
             Gerador
@@ -449,6 +462,13 @@ export default function LotteryPalpites() {
             Carteira ({savedGames.length})
           </TabsTrigger>
         </TabsList>
+
+        {/* ============================================================== */}
+        {/* ABA 0: GUIA DE USO                                             */}
+        {/* ============================================================== */}
+        <TabsContent value="como-usar">
+          <ComoUsarPanel lottery={selectedLottery} onIrPara={setActiveTab} />
+        </TabsContent>
 
         {/* ============================================================== */}
         {/* ABA 1: GERADOR INTELIGENTE MULTIESTRATÉGIA                     */}
