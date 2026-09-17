@@ -1,7 +1,7 @@
 {
-  "name": "Loterias Inteligentes — Palpites Caixa",
-  "short_name": "Loterias",
-  "description": "Palpites, fechamentos com garantia verificada e resultados oficiais das Loterias Caixa.",
+  "name": "Loterias Caixa • Powerball — Palpites Inteligentes",
+  "short_name": "Powerball",
+  "description": "Palpites, fechamentos com garantia verificada e resultados das Loterias Caixa. Site independente, sem vínculo com a Caixa Econômica Federal, que não garante prêmio.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
