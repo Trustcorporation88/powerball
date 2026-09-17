@@ -22,6 +22,7 @@ model User {
 
   projects     Project[]
   lotteryGames LotteryWalletGame[]
+  termAcceptances LotteryTermAcceptance[]
 }
 
 model Project {
@@ -147,6 +148,24 @@ model LotteryDrawCache {
 
   @@unique([lottery, concurso])
   @@index([lottery, concurso])
+}
+
+/// Registro do aceite do termo de uso e isenção de responsabilidade.
+/// Guarda a versão exata do texto aceito: sem isso não dá para provar a que o
+/// usuário concordou quando o texto mudar. Um registro por versão, preservando
+/// o histórico de aceites anteriores.
+model LotteryTermAcceptance {
+  id         String   @id @default(uuid())
+  userId     String
+  version    String
+  acceptedAt DateTime @default(now())
+  ip         String?
+  userAgent  String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, version])
+  @@index([userId])
 }
 
 /// Carteira de bilhetes sincronizada entre dispositivos.

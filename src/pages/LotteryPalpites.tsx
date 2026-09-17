@@ -43,6 +43,8 @@ import { ExtraFieldPicker } from '@/components/lottery/ExtraFieldPicker';
 import { InstallAppCard } from '@/components/lottery/InstallAppCard';
 import { ComoUsarPanel } from '@/components/lottery/ComoUsarPanel';
 import { ehPrimeiraVisita, marcarVisita } from '@/lib/primeiraVisita';
+import { useAuth } from '@/contexts/AuthContext';
+import { AVISO_CURTO, TERMOS_VERSAO } from '@/constants/termosDeUso';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -73,10 +75,12 @@ import {
   FlaskConical,
   Users,
   LifeBuoy,
+  LogOut,
 } from 'lucide-react';
 
 export default function LotteryPalpites() {
   const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const [selectedLottery, setSelectedLottery] = useState<LotteryType>('lotofacil');
   const [activeTab, setActiveTab] = useState<LotteryTab>(() =>
     ehPrimeiraVisita() ? 'como-usar' : 'gerador',
@@ -288,11 +292,18 @@ export default function LotteryPalpites() {
       {/* Top Banner & Seletor de Loteria Oficial */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-              Loterias Caixa • Palpites Inteligentes
-            </h1>
-            <Badge className="bg-emerald-600 text-white font-bold">Oficial Brasil</Badge>
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight uppercase">
+            Loterias Caixa • Powerball
+          </h1>
+          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+            <p className="text-lg md:text-xl font-bold text-purple-700 dark:text-purple-400">
+              Palpites Inteligentes
+            </p>
+            {/* Nada de selo "oficial": o site não tem vínculo com a Caixa e o
+                termo de uso diz isso em letras grandes. */}
+            <Badge variant="outline" className="text-[11px] font-semibold text-muted-foreground">
+              Site independente
+            </Badge>
           </div>
           <p className="text-sm text-muted-foreground mt-1">
             Motor combinatório, estatísticas oficiais, inteligência analítica e fechamentos matemáticos.
@@ -334,16 +345,32 @@ export default function LotteryPalpites() {
             <RefreshCw className={`h-4 w-4 ${loadingDraw ? 'animate-spin' : ''}`} />
           </Button>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/login')}
-            className="text-xs text-muted-foreground ml-2 border border-slate-200 dark:border-slate-800 hover:bg-slate-100"
-            title="Acessar painel financeiro"
-          >
-            Entrar / Admin
-          </Button>
+          {user && (
+            <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-slate-200 dark:border-slate-800">
+              <span className="text-xs font-semibold text-muted-foreground hidden sm:inline">
+                {user.name.split(' ')[0]}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/home')}
+                className="text-xs text-muted-foreground"
+                title="Acessar painel financeiro"
+              >
+                Painel
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={logout}
+                title="Sair da conta"
+              >
+                <LogOut className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1281,6 +1308,20 @@ export default function LotteryPalpites() {
           )}
         </DialogContent>
       </Dialog>
+
+      <footer className="pt-4 mt-2 border-t border-slate-200 dark:border-slate-800 space-y-1.5">
+        <p className="text-[11px] leading-relaxed text-muted-foreground">{AVISO_CURTO}</p>
+        <p className="text-[11px] text-muted-foreground">
+          <button
+            type="button"
+            onClick={() => navigate('/termos')}
+            className="font-semibold underline hover:text-foreground"
+          >
+            Termo de Uso e Isenção de Responsabilidade
+          </button>
+          {user && ` — versão ${TERMOS_VERSAO}, aceita por ${user.email}.`}
+        </p>
+      </footer>
     </motion.div>
   );
 }

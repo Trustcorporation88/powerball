@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { AppProvider } from "./contexts/AppContext";
 import { AppLayout } from "./components/layout/AppLayout";
+import { LotteryGate } from "./components/lottery/LotteryGate";
 
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
@@ -28,6 +29,7 @@ const Diagnostic = lazy(() => import("./pages/Diagnostic"));
 const ExcelAssistant = lazy(() => import("./pages/ExcelAssistant"));
 const LotteryPalpites = lazy(() => import("./pages/LotteryPalpites"));
 const LotteryResultado = lazy(() => import("./pages/LotteryResultado"));
+const Termos = lazy(() => import("./pages/Termos"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -40,14 +42,36 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 const AppRoutes = () => (
   <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-sm text-muted-foreground">Carregando...</div>}>
     <Routes>
-      {/* Rota Principal: Palpites de Loterias Caixa */}
-      <Route path="/" element={<LotteryPalpites />} />
-      <Route path="/loterias" element={<LotteryPalpites />} />
-      <Route path="/loterias-publico" element={<LotteryPalpites />} />
+      {/* Rota Principal: Palpites de Loterias Caixa (login + aceite do termo) */}
+      <Route
+        path="/"
+        element={
+          <LotteryGate>
+            <LotteryPalpites />
+          </LotteryGate>
+        }
+      />
+      <Route
+        path="/loterias"
+        element={
+          <LotteryGate>
+            <LotteryPalpites />
+          </LotteryGate>
+        }
+      />
+      <Route
+        path="/loterias-publico"
+        element={
+          <LotteryGate>
+            <LotteryPalpites />
+          </LotteryGate>
+        }
+      />
 
       {/* Resultados públicos por concurso — indexáveis no Google */}
       <Route path="/resultado/:lottery" element={<LotteryResultado />} />
       <Route path="/resultado/:lottery/:concurso" element={<LotteryResultado />} />
+      <Route path="/termos" element={<Termos />} />
 
       {/* Autenticação & Painel Financeiro */}
       <Route path="/login" element={<Login />} />

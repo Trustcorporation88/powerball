@@ -6,6 +6,7 @@ import { LotteryDraw, LotteryType } from '@/types/lottery';
 import { LOTTERY_CONFIGS, LOTTERY_ORDER, lotteryFromSlug } from '@/constants/lotteryConstants';
 import { getDrawByConcurso, getLotteryHistory } from '@/services/lotteryApiService';
 import { applyPageSeo } from '@/lib/seo';
+import { AVISO_CURTO } from '@/constants/termosDeUso';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -305,6 +306,18 @@ export default function LotteryResultado() {
             </p>
           </CardContent>
         </Card>
+
+        <footer className="border-t border-slate-200 dark:border-slate-800 pt-4 space-y-1.5">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">{AVISO_CURTO}</p>
+          <p className="text-[11px] text-muted-foreground">
+            Resultado divulgado apenas a título informativo. O resultado oficial é o publicado pela
+            Caixa Econômica Federal.{' '}
+            <Link to="/termos" className="font-semibold underline hover:text-foreground">
+              Termo de Uso
+            </Link>
+            .
+          </p>
+        </footer>
       </div>
     </div>
   );

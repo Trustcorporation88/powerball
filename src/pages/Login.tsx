@@ -77,10 +77,10 @@ export default function Login() {
           </p>
           <div className="pt-2 border-t border-slate-200 dark:border-slate-800 w-full">
             <Link
-              to="/loterias-publico"
+              to="/"
               className="inline-flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
             >
-              🍀 Acessar Gerador de Loterias Caixa (Acesso Direto)
+              🍀 Ir para o Powerball — Palpites das Loterias Caixa
             </Link>
           </div>
           {import.meta.env.DEV && (

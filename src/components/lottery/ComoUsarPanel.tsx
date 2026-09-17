@@ -377,6 +377,18 @@ export const ComoUsarPanel: React.FC<ComoUsarPanelProps> = ({ lottery, onIrPara 
               </AccordionContent>
             </AccordionItem>
 
+            <AccordionItem value="login">
+              <AccordionTrigger className="text-sm text-left">
+                Por que preciso de conta para entrar?
+              </AccordionTrigger>
+              <AccordionContent className="text-sm text-muted-foreground leading-relaxed">
+                Porque o aceite do termo de uso fica registrado na sua conta, com data, hora e a
+                versão do texto que você leu. É o que garante que ninguém use a ferramenta sem estar
+                ciente de que ela não prevê resultados nem garante prêmio. A conta também é o que
+                permite a carteira acompanhar você entre o celular e o computador.
+              </AccordionContent>
+            </AccordionItem>
+
             <AccordionItem value="dados">
               <AccordionTrigger className="text-sm text-left">
                 De onde vêm os resultados?
