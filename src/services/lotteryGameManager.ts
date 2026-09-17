@@ -61,7 +61,9 @@ export function removeSavedGame(gameId: string) {
   const filtered = current.filter((g) => g.id !== gameId);
   try {
     localStorage.setItem(SAVED_GAMES_KEY, JSON.stringify(filtered));
-  } catch {}
+  } catch {
+    // Storage cheio ou bloqueado: a remoção vale só nesta sessão.
+  }
 }
 
 export function toggleBetStatus(gameId: string): boolean {
@@ -71,7 +73,9 @@ export function toggleBetStatus(gameId: string): boolean {
     current[idx].isBet = !current[idx].isBet;
     try {
       localStorage.setItem(SAVED_GAMES_KEY, JSON.stringify(current));
-    } catch {}
+    } catch {
+      // Storage cheio ou bloqueado: a marcação vale só nesta sessão.
+    }
     return !!current[idx].isBet;
   }
   return false;
