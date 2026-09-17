@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clover, Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PowerballLogo } from '@/components/lottery/PowerballLogo';
 
 /**
  * Porta de entrada do site de palpites.
@@ -81,20 +82,20 @@ export const LotteryLogin: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-100 via-purple-50 to-slate-100 dark:from-slate-950 dark:via-purple-950/30 dark:to-slate-950 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-powerball-navy via-powerball-navy-dark to-powerball-navy p-4">
       <div className="w-full max-w-md space-y-4">
         <div className="text-center space-y-2">
-          <div className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 shadow-lg">
-            <Clover className="h-7 w-7 text-white" />
-          </div>
-          <h1 className="text-2xl font-extrabold tracking-tight">Loterias Caixa • Powerball</h1>
-          <p className="text-sm font-semibold text-muted-foreground">Palpites Inteligentes</p>
+          <PowerballLogo altura={132} className="mx-auto" />
+          <h1 className="text-xl font-extrabold tracking-tight uppercase text-white">
+            Loterias Caixa • Powerball
+          </h1>
+          <p className="text-sm font-semibold text-powerball-gold">Palpites Inteligentes</p>
         </div>
 
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
-              <Lock className="h-4 w-4 text-purple-600" />
+              <Lock className="h-4 w-4 text-powerball-navy" />
               Acesso restrito
             </CardTitle>
             <CardDescription>
@@ -131,7 +132,7 @@ export const LotteryLogin: React.FC = () => {
 
                   <Button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90"
+                    className="w-full bg-gradient-to-r from-powerball-navy to-powerball-navy-light hover:opacity-90"
                     disabled={enviando}
                   >
                     {enviando ? 'Entrando...' : 'Entrar'}
@@ -187,7 +188,7 @@ export const LotteryLogin: React.FC = () => {
 
                   <Button
                     type="submit"
-                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90"
+                    className="w-full bg-gradient-to-r from-powerball-navy to-powerball-navy-light hover:opacity-90"
                     disabled={enviando}
                   >
                     {enviando ? 'Criando conta...' : 'Criar conta'}
@@ -203,9 +204,9 @@ export const LotteryLogin: React.FC = () => {
           </CardContent>
         </Card>
 
-        <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-slate-900/50 p-3">
-          <p className="text-[11px] leading-relaxed text-muted-foreground flex gap-2">
-            <ShieldCheck className="h-4 w-4 shrink-0 text-slate-400 mt-0.5" />
+        <div className="rounded-lg border border-white/15 bg-white/5 p-3">
+          <p className="text-[11px] leading-relaxed text-slate-300 flex gap-2">
+            <ShieldCheck className="h-4 w-4 shrink-0 text-powerball-gold mt-0.5" />
             <span>{AVISO_CURTO}</span>
           </p>
         </div>

@@ -40,7 +40,7 @@ export default function Termos() {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
-              <FileText className="h-5 w-5 text-purple-600" />
+              <FileText className="h-5 w-5 text-powerball-navy" />
               Termo de Uso e Isenção de Responsabilidade
             </CardTitle>
             <CardDescription>

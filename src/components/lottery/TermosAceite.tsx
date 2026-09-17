@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { PowerballLogo } from '@/components/lottery/PowerballLogo';
 
 interface TermosAceiteProps {
   nomeUsuario: string;
@@ -62,10 +63,12 @@ export const TermosAceite: React.FC<TermosAceiteProps> = ({
   return (
     <div className="min-h-screen bg-slate-100 dark:bg-slate-950 p-4 md:p-8">
       <div className="max-w-3xl mx-auto space-y-4">
+        <PowerballLogo altura={84} className="mx-auto" />
+
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-lg flex items-center gap-2">
-              <FileText className="h-5 w-5 text-purple-600" />
+              <FileText className="h-5 w-5 text-powerball-navy" />
               Termo de Uso e Isenção de Responsabilidade
             </CardTitle>
             <CardDescription>
@@ -130,7 +133,7 @@ export const TermosAceite: React.FC<TermosAceiteProps> = ({
               <Button
                 onClick={confirmar}
                 disabled={!todosMarcados || enviando}
-                className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90"
+                className="flex-1 bg-gradient-to-r from-powerball-navy to-powerball-navy-light hover:opacity-90"
               >
                 {enviando ? 'Registrando...' : 'Li, estou ciente e concordo'}
               </Button>
