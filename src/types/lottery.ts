@@ -1,9 +1,38 @@
-export type LotteryType = 'megasena' | 'lotofacil';
+export type LotteryType =
+  | 'megasena'
+  | 'lotofacil'
+  | 'quina'
+  | 'duplasena'
+  | 'diadesorte'
+  | 'maismilionaria';
+
+/**
+ * Campo extra exigido por algumas modalidades além das dezenas principais:
+ * o Mês da Sorte (Dia de Sorte) e os Trevos da Sorte (+Milionária).
+ */
+export interface LotteryExtraField {
+  key: 'mesSorte' | 'trevos';
+  label: string;
+  /** Rótulos exibidos no volante. Para trevos são os números 1..6. */
+  options: string[];
+  minSelection: number;
+  maxSelection: number;
+}
+
+export interface LotteryPrizeTier {
+  /** Acertos entre as dezenas principais. */
+  hits: number;
+  label: string;
+  /** Acertos de trevo exigidos na faixa (+Milionária). */
+  trevos?: number;
+}
 
 export interface LotteryConfig {
   type: LotteryType;
   name: string;
   fullName: string;
+  /** Slug usado nas rotas públicas de resultado (SEO). */
+  slug: string;
   color: string;
   accentColor: string;
   badgeBg: string;
@@ -12,6 +41,8 @@ export interface LotteryConfig {
   minSelection: number; // 6 para Mega, 15 para Lotofácil
   maxSelection: number; // 15 para Mega, 20 para Lotofácil
   drawDays: string[];
+  /** Preço oficial da aposta mínima, base do cálculo combinatório. */
+  basePrice: number;
   priceTable: Record<number, number>; // dezenas -> preço oficial em R$
   colsGrid: number; // 10 para Mega (6x10), 5 para Lotofácil (5x5)
   frameNumbers?: number[]; // Moldura (Lotofácil)
@@ -19,6 +50,13 @@ export interface LotteryConfig {
   primeNumbers: number[];
   idealSumRange: [number, number];
   idealEvenRange: [number, number];
+  /** Faixas de premiação oficiais, da maior para a menor. */
+  prizeTiers: LotteryPrizeTier[];
+  /** Chance de 1 em N de acertar a faixa principal com a aposta mínima. */
+  mainPrizeOdds: number;
+  /** Dupla Sena sorteia duas vezes por concurso, valendo o melhor resultado. */
+  hasSecondDraw?: boolean;
+  extraField?: LotteryExtraField;
 }
 
 export interface LotteryDraw {
@@ -28,6 +66,12 @@ export interface LotteryDraw {
   local?: string;
   dezenas: number[];
   dezenasOrdemSorteio?: number[];
+  /** 2º sorteio da Dupla Sena. */
+  dezenasSegundoSorteio?: number[];
+  /** Mês da Sorte (Dia de Sorte). */
+  mesSorte?: string;
+  /** Trevos da Sorte (+Milionária). */
+  trevos?: number[];
   acumulou: boolean;
   valorAcumuladoProximoConcurso?: number;
   dataProximoConcurso?: string;
@@ -51,6 +95,8 @@ export interface LotteryStats {
   mediaImpares: number;
   mediaSoma: number;
   repeticoesDoAnteriorMedia?: number;
+  /** Frequência do campo extra (Mês da Sorte / Trevos). */
+  extraFrequencias?: Record<string, number>;
 }
 
 export type GeneratorStrategy =
@@ -76,12 +122,21 @@ export interface GenerationFilters {
   maxSum?: number;
   framePreference?: 'balanced' | 'strict' | 'any'; // para Lotofácil
   maxConsecutive?: number;
+  /** Mês da Sorte / Trevos fixados pelo usuário; se ausente, o gerador escolhe. */
+  extraSelection?: LotteryExtraSelection;
+}
+
+/** Escolhas extras do volante (Mês da Sorte / Trevos da Sorte). */
+export interface LotteryExtraSelection {
+  mesSorte?: string;
+  trevos?: number[];
 }
 
 export interface GeneratedGame {
   id: string;
   lottery: LotteryType;
   numbers: number[];
+  extra?: LotteryExtraSelection;
   strategy: GeneratorStrategy;
   strategyLabel: string;
   createdAt: string;
@@ -135,11 +190,135 @@ export interface FechamentoPlan {
 export interface UserSavedGame extends GeneratedGame {
   folder?: string;
   notes?: string;
+  /** Vínculo com um bolão, quando o jogo faz parte de uma cota coletiva. */
+  bolaoId?: string;
   checkResult?: {
     drawNumber: number;
     hits: number;
     hitNumbers: number[];
     isWinner: boolean;
     prizeLabel?: string;
+    /** Melhor resultado no 2º sorteio da Dupla Sena. */
+    secondDrawHits?: number;
+    extraHit?: boolean;
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * Backtesting — prova real das estratégias contra o histórico
+ * ------------------------------------------------------------------ */
+
+export interface BacktestTierResult {
+  label: string;
+  hits: number;
+  /** Quantos bilhetes simulados bateram exatamente nessa faixa. */
+  count: number;
+}
+
+export interface BacktestStrategyResult {
+  strategy: GeneratorStrategy;
+  strategyLabel: string;
+  /** Concursos efetivamente simulados. */
+  concursosTestados: number;
+  ticketsSimulados: number;
+  mediaAcertos: number;
+  melhorAcerto: number;
+  tiers: BacktestTierResult[];
+  custoTotal: number;
+  retornoEstimado: number;
+  /** Diferença de acertos médios contra o baseline aleatório. */
+  vantagemSobreAleatorio: number;
+}
+
+export interface BacktestReport {
+  lottery: LotteryType;
+  numbersCount: number;
+  janelaConcursos: number;
+  ticketsPorConcurso: number;
+  baselineAleatorio: number;
+  /** Acertos médios esperados pela matemática pura, sem viés de amostra. */
+  esperancaTeorica: number;
+  resultados: BacktestStrategyResult[];
+  geradoEm: string;
+}
+
+/* ------------------------------------------------------------------ *
+ * Bolão — cotas, rateio e conferência coletiva
+ * ------------------------------------------------------------------ */
+
+export interface BolaoParticipant {
+  id: string;
+  nome: string;
+  /** Quantas cotas a pessoa comprou. */
+  cotas: number;
+  pago: boolean;
+  telefone?: string;
+}
+
+export interface Bolao {
+  id: string;
+  nome: string;
+  lottery: LotteryType;
+  concursoAlvo?: number;
+  createdAt: string;
+  /** Bilhetes que compõem o bolão. */
+  games: GeneratedGame[];
+  participantes: BolaoParticipant[];
+  /** Taxa de administração em % sobre o prêmio (0 = sem taxa). */
+  taxaAdministracao: number;
+  encerrado?: boolean;
+}
+
+export interface BolaoRateio {
+  custoTotal: number;
+  totalCotas: number;
+  valorPorCota: number;
+  arrecadado: number;
+  pendente: number;
+  participantes: Array<{
+    participante: BolaoParticipant;
+    valorDevido: number;
+    percentual: number;
+  }>;
+}
+
+export interface BolaoConferencia {
+  concurso: number;
+  premioBruto: number;
+  taxaAdministracao: number;
+  premioLiquido: number;
+  bilhetesPremiados: Array<{
+    game: GeneratedGame;
+    hits: number;
+    hitNumbers: number[];
+    prizeLabel?: string;
+  }>;
+  distribuicao: Array<{
+    participante: BolaoParticipant;
+    cotas: number;
+    valorReceber: number;
+  }>;
+}
+
+/* ------------------------------------------------------------------ *
+ * Jogo responsável
+ * ------------------------------------------------------------------ */
+
+export interface ResponsibleGamingSettings {
+  /** Teto de gasto mensal em R$. 0 desativa o controle. */
+  limiteMensal: number;
+  alertarEm: number; // % do limite que dispara o aviso
+  mostrarProbabilidades: boolean;
+  atualizadoEm: string;
+}
+
+export interface SpendingSummary {
+  mesReferencia: string;
+  totalApostado: number;
+  limiteMensal: number;
+  percentualUsado: number;
+  restante: number;
+  excedido: boolean;
+  emAlerta: boolean;
+  jogosApostados: number;
 }

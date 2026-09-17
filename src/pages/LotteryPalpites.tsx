@@ -11,7 +11,7 @@ import {
   UserSavedGame,
 } from '@/types/lottery';
 import { LOTTERY_CONFIGS } from '@/constants/lotteryConstants';
-import { fetchLatestCaixaDraw, getAllDraws } from '@/services/lotteryApiService';
+import { getLotteryHistory } from '@/services/lotteryApiService';
 import { calculateLotteryStats } from '@/services/lotteryHistoricalData';
 import { generateLotteryGames } from '@/services/lotteryGenerator';
 import {
@@ -69,6 +69,7 @@ export default function LotteryPalpites() {
   // Dados e Concursos
   const [loadingDraw, setLoadingDraw] = useState(false);
   const [latestDraw, setLatestDraw] = useState<LotteryDraw | null>(null);
+  const [draws, setDraws] = useState<LotteryDraw[]>([]);
   const [stats, setStats] = useState<LotteryStats | null>(null);
 
   // Gerador State
@@ -117,11 +118,10 @@ export default function LotteryPalpites() {
   const loadLotteryData = async (lottery: LotteryType) => {
     setLoadingDraw(true);
     try {
-      const draw = await fetchLatestCaixaDraw(lottery);
-      setLatestDraw(draw);
-      const all = getAllDraws(lottery);
-      const computedStats = calculateLotteryStats(lottery, all);
-      setStats(computedStats);
+      const history = await getLotteryHistory(lottery);
+      setDraws(history.draws);
+      setLatestDraw(history.draws[0] ?? null);
+      setStats(calculateLotteryStats(lottery, history.draws));
     } catch {
       toast.error('Erro ao conectar com dados da Caixa');
     } finally {

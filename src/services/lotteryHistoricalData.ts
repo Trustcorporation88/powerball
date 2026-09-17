@@ -1,190 +1,34 @@
 import { LotteryDraw, LotteryStats, LotteryType } from '@/types/lottery';
 import { LOTTERY_CONFIGS } from '@/constants/lotteryConstants';
 
-// Dados representativos dos sorteios mais recentes de alta fidelidade
-// para que o sistema funcione instantaneamente offline ou com fallback garantido
-export const INITIAL_DRAWS: Record<LotteryType, LotteryDraw[]> = {
-  lotofacil: [
-    {
-      loteria: 'lotofacil',
-      concurso: 3150,
-      data: '10/09/2026',
-      dezenas: [1, 3, 4, 6, 8, 9, 10, 11, 14, 15, 17, 18, 20, 22, 25],
-      acumulou: false,
-      estimativaProximoPremio: 1700000,
-      premiacoes: [
-        { descricao: '15 acertos', faixa: 1, ganhadores: 2, valorPremio: 894520.12 },
-        { descricao: '14 acertos', faixa: 2, ganhadores: 341, valorPremio: 1560.84 },
-        { descricao: '13 acertos', faixa: 3, ganhadores: 11200, valorPremio: 30.00 },
-        { descricao: '12 acertos', faixa: 4, ganhadores: 142000, valorPremio: 12.00 },
-        { descricao: '11 acertos', faixa: 5, ganhadores: 780000, valorPremio: 6.00 },
-      ],
-    },
-    {
-      loteria: 'lotofacil',
-      concurso: 3149,
-      data: '09/09/2026',
-      dezenas: [2, 3, 5, 6, 7, 10, 12, 13, 14, 16, 18, 20, 21, 23, 24],
-      acumulou: false,
-      estimativaProximoPremio: 1700000,
-    },
-    {
-      loteria: 'lotofacil',
-      concurso: 3148,
-      data: '08/09/2026',
-      dezenas: [1, 2, 4, 7, 8, 9, 11, 13, 15, 17, 19, 21, 22, 24, 25],
-      acumulou: true,
-      estimativaProximoPremio: 4500000,
-    },
-    {
-      loteria: 'lotofacil',
-      concurso: 3147,
-      data: '07/09/2026',
-      dezenas: [3, 4, 5, 8, 10, 11, 12, 14, 15, 16, 18, 20, 22, 23, 25],
-      acumulou: false,
-    },
-    {
-      loteria: 'lotofacil',
-      concurso: 3146,
-      data: '05/09/2026',
-      dezenas: [1, 2, 5, 6, 9, 10, 13, 14, 15, 17, 19, 20, 21, 23, 24],
-      acumulou: false,
-    },
-    {
-      loteria: 'lotofacil',
-      concurso: 3145,
-      data: '04/09/2026',
-      dezenas: [2, 3, 4, 6, 7, 8, 11, 12, 14, 16, 17, 18, 22, 24, 25],
-      acumulou: false,
-    },
-    {
-      loteria: 'lotofacil',
-      concurso: 3144,
-      data: '03/09/2026',
-      dezenas: [1, 4, 5, 6, 8, 9, 10, 13, 15, 18, 19, 20, 21, 23, 25],
-      acumulou: true,
-    },
-    {
-      loteria: 'lotofacil',
-      concurso: 3143,
-      data: '02/09/2026',
-      dezenas: [1, 3, 5, 7, 8, 10, 11, 12, 14, 16, 17, 20, 22, 23, 25],
-      acumulou: false,
-    },
-    {
-      loteria: 'lotofacil',
-      concurso: 3142,
-      data: '01/09/2026',
-      dezenas: [2, 3, 6, 7, 9, 10, 11, 13, 15, 18, 19, 21, 22, 24, 25],
-      acumulou: false,
-    },
-    {
-      loteria: 'lotofacil',
-      concurso: 3141,
-      data: '31/08/2026',
-      dezenas: [1, 2, 4, 5, 7, 8, 11, 13, 14, 16, 18, 20, 21, 23, 24],
-      acumulou: false,
-    },
-    {
-      loteria: 'lotofacil',
-      concurso: 3140,
-      data: '29/08/2026',
-      dezenas: [1, 3, 4, 6, 8, 9, 10, 12, 13, 15, 17, 19, 20, 22, 25],
-      acumulou: false,
-    },
-    {
-      loteria: 'lotofacil',
-      concurso: 3139,
-      data: '28/08/2026',
-      dezenas: [2, 4, 5, 7, 8, 10, 11, 14, 15, 16, 18, 19, 21, 23, 25],
-      acumulou: true,
-    },
-  ],
-  megasena: [
-    {
-      loteria: 'megasena',
-      concurso: 2850,
-      data: '12/09/2026',
-      dezenas: [4, 12, 18, 31, 42, 54],
-      acumulou: true,
-      estimativaProximoPremio: 68000000,
-      premiacoes: [
-        { descricao: '6 acertos', faixa: 1, ganhadores: 0, valorPremio: 0 },
-        { descricao: '5 acertos', faixa: 2, ganhadores: 88, valorPremio: 45210.80 },
-        { descricao: '4 acertos', faixa: 3, ganhadores: 6420, valorPremio: 890.35 },
-      ],
-    },
-    {
-      loteria: 'megasena',
-      concurso: 2849,
-      data: '10/09/2026',
-      dezenas: [7, 14, 23, 38, 45, 53],
-      acumulou: false,
-      estimativaProximoPremio: 35000000,
-      premiacoes: [
-        { descricao: '6 acertos', faixa: 1, ganhadores: 1, valorPremio: 54120300.50 },
-      ],
-    },
-    {
-      loteria: 'megasena',
-      concurso: 2848,
-      data: '08/09/2026',
-      dezenas: [10, 13, 20, 32, 41, 56],
-      acumulou: true,
-      estimativaProximoPremio: 48000000,
-    },
-    {
-      loteria: 'megasena',
-      concurso: 2847,
-      data: '05/09/2026',
-      dezenas: [5, 17, 24, 33, 46, 58],
-      acumulou: true,
-      estimativaProximoPremio: 38000000,
-    },
-    {
-      loteria: 'megasena',
-      concurso: 2846,
-      data: '03/09/2026',
-      dezenas: [8, 15, 27, 36, 44, 59],
-      acumulou: false,
-    },
-    {
-      loteria: 'megasena',
-      concurso: 2845,
-      data: '01/09/2026',
-      dezenas: [2, 19, 26, 35, 43, 60],
-      acumulou: true,
-    },
-    {
-      loteria: 'megasena',
-      concurso: 2844,
-      data: '29/08/2026',
-      dezenas: [11, 21, 30, 37, 49, 52],
-      acumulou: true,
-    },
-    {
-      loteria: 'megasena',
-      concurso: 2843,
-      data: '27/08/2026',
-      dezenas: [3, 16, 25, 34, 48, 55],
-      acumulou: false,
-    },
-    {
-      loteria: 'megasena',
-      concurso: 2842,
-      data: '25/08/2026',
-      dezenas: [6, 18, 28, 39, 47, 51],
-      acumulou: true,
-    },
-    {
-      loteria: 'megasena',
-      concurso: 2841,
-      data: '22/08/2026',
-      dezenas: [9, 22, 29, 40, 50, 57],
-      acumulou: true,
-    },
-  ],
-};
+/**
+ * Motor estatístico das loterias.
+ *
+ * Os concursos vêm de `lotteryApiService`, que combina a base embarcada
+ * (~5.000 sorteios reais) com as fontes ao vivo. Aqui só transformamos essa
+ * série em frequências, atrasos, afinidades e médias de paridade/soma.
+ */
+
+/**
+ * Expande um concurso nas "observações" que ele produz.
+ *
+ * Na Dupla Sena cada concurso tem dois sorteios e o mesmo bilhete concorre nos
+ * dois, então ambos contam como observações independentes para frequência e
+ * atraso — ignorar o segundo sorteio descartaria metade dos dados.
+ */
+function toObservations(lottery: LotteryType, draws: LotteryDraw[]): number[][] {
+  const hasSecondDraw = LOTTERY_CONFIGS[lottery].hasSecondDraw;
+  const observations: number[][] = [];
+
+  for (const draw of draws) {
+    if (draw.dezenas.length > 0) observations.push(draw.dezenas);
+    if (hasSecondDraw && draw.dezenasSegundoSorteio?.length) {
+      observations.push(draw.dezenasSegundoSorteio);
+    }
+  }
+
+  return observations;
+}
 
 // Cálculo do motor estatístico com pesos de frequência, atrasos e pares
 export function calculateLotteryStats(lottery: LotteryType, draws: LotteryDraw[]): LotteryStats {
@@ -201,19 +45,24 @@ export function calculateLotteryStats(lottery: LotteryType, draws: LotteryDraw[]
 
   // Ordena concursos do mais recente para o mais antigo
   const sortedDraws = [...draws].sort((a, b) => b.concurso - a.concurso);
+  const observations = toObservations(lottery, sortedDraws);
 
-  // Calcula atrasos (distância desde o último sorteio em que a dezena apareceu)
-  for (let n = 1; n <= config.totalNumbers; n++) {
-    let delay = 0;
-    let found = false;
-    for (const draw of sortedDraws) {
-      if (draw.dezenas.includes(n)) {
-        found = true;
-        break;
+  // Atraso: quantas observações se passaram desde a última aparição da dezena.
+  // Uma varredura única evita o custo quadrático de buscar dezena por dezena.
+  const pendentes = new Set<number>();
+  for (let n = 1; n <= config.totalNumbers; n++) pendentes.add(n);
+
+  for (let index = 0; index < observations.length && pendentes.size > 0; index++) {
+    for (const numero of observations[index]) {
+      if (pendentes.delete(numero)) {
+        atrasos[numero] = index;
       }
-      delay++;
     }
-    atrasos[n] = found ? delay : sortedDraws.length;
+  }
+
+  // Dezenas que nunca saíram na janela analisada recebem o atraso máximo.
+  for (const numero of pendentes) {
+    atrasos[numero] = observations.length;
   }
 
   let totalEven = 0;
@@ -221,19 +70,14 @@ export function calculateLotteryStats(lottery: LotteryType, draws: LotteryDraw[]
   let totalRepeats = 0;
   let repeatComparisons = 0;
 
-  // Frequência e pares
-  sortedDraws.forEach((draw, idx) => {
-    const nums = [...draw.dezenas].sort((a, b) => a - b);
-    const evenCount = nums.filter((n) => n % 2 === 0).length;
-    const sum = nums.reduce((acc, curr) => acc + curr, 0);
-    totalEven += evenCount;
-    totalSum += sum;
+  observations.forEach((nums, idx) => {
+    totalEven += nums.filter((n) => n % 2 === 0).length;
+    totalSum += nums.reduce((acc, curr) => acc + curr, 0);
 
-    // Repetições do anterior
-    if (idx < sortedDraws.length - 1) {
-      const prevDraw = sortedDraws[idx + 1];
-      const repeats = nums.filter((n) => prevDraw.dezenas.includes(n)).length;
-      totalRepeats += repeats;
+    // Repetições em relação à observação anterior
+    if (idx < observations.length - 1) {
+      const anterior = observations[idx + 1];
+      totalRepeats += nums.filter((n) => anterior.includes(n)).length;
       repeatComparisons++;
     }
 
@@ -242,13 +86,33 @@ export function calculateLotteryStats(lottery: LotteryType, draws: LotteryDraw[]
     });
 
     // Pares co-ocorrentes
-    for (let i = 0; i < nums.length; i++) {
-      for (let j = i + 1; j < nums.length; j++) {
-        const pairKey = `${nums[i]}-${nums[j]}`;
+    const ordenadas = [...nums].sort((a, b) => a - b);
+    for (let i = 0; i < ordenadas.length; i++) {
+      for (let j = i + 1; j < ordenadas.length; j++) {
+        const pairKey = `${ordenadas[i]}-${ordenadas[j]}`;
         pairsCount[pairKey] = (pairsCount[pairKey] || 0) + 1;
       }
     }
   });
+
+  // Frequência do campo extra (Mês da Sorte / Trevos da Sorte)
+  const extraFrequencias: Record<string, number> = {};
+  const extraField = config.extraField;
+  if (extraField) {
+    for (const option of extraField.options) extraFrequencias[option] = 0;
+
+    for (const draw of sortedDraws) {
+      if (extraField.key === 'mesSorte' && draw.mesSorte) {
+        const chave = draw.mesSorte.trim();
+        if (chave in extraFrequencias) extraFrequencias[chave] += 1;
+      } else if (extraField.key === 'trevos' && draw.trevos?.length) {
+        for (const trevo of draw.trevos) {
+          const chave = String(trevo);
+          if (chave in extraFrequencias) extraFrequencias[chave] += 1;
+        }
+      }
+    }
+  }
 
   const parsedPairs: Array<{ pair: [number, number]; count: number }> = Object.entries(pairsCount)
     .map(([key, count]) => {
@@ -258,12 +122,13 @@ export function calculateLotteryStats(lottery: LotteryType, draws: LotteryDraw[]
     .sort((a, b) => b.count - a.count)
     .slice(0, 20);
 
-  const totalD = sortedDraws.length || 1;
-  const mediaPares = Math.round((totalEven / totalD) * 10) / 10;
-  const numbersPerTicket = sortedDraws[0]?.dezenas.length || config.minSelection;
+  const totalObs = observations.length || 1;
+  const mediaPares = Math.round((totalEven / totalObs) * 10) / 10;
+  const numbersPerTicket = observations[0]?.length || config.minSelection;
   const mediaImpares = Math.round((numbersPerTicket - mediaPares) * 10) / 10;
-  const mediaSoma = Math.round(totalSum / totalD);
-  const repeticoesDoAnteriorMedia = repeatComparisons > 0 ? Math.round((totalRepeats / repeatComparisons) * 10) / 10 : undefined;
+  const mediaSoma = Math.round(totalSum / totalObs);
+  const repeticoesDoAnteriorMedia =
+    repeatComparisons > 0 ? Math.round((totalRepeats / repeatComparisons) * 10) / 10 : undefined;
 
   return {
     totalConcursos: sortedDraws.length,
@@ -281,5 +146,6 @@ export function calculateLotteryStats(lottery: LotteryType, draws: LotteryDraw[]
     mediaImpares,
     mediaSoma,
     repeticoesDoAnteriorMedia,
+    extraFrequencias: extraField ? extraFrequencias : undefined,
   };
 }

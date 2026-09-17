@@ -3,10 +3,52 @@ import {
   GeneratedGame,
   GenerationFilters,
   GeneratorStrategy,
+  LotteryExtraSelection,
   LotteryStats,
   LotteryType,
 } from '@/types/lottery';
 import { LOTTERY_CONFIGS, officialBetPrice } from '@/constants/lotteryConstants';
+
+/**
+ * As faixas ideais de paridade e soma em `LOTTERY_CONFIGS` valem para a aposta
+ * mínima. Quem marca mais dezenas precisa da faixa proporcionalmente maior —
+ * caso contrário um bilhete de 18 dezenas da Lotofácil seria sempre punido por
+ * ter mais pares do que um de 15.
+ */
+function scaledRanges(lottery: LotteryType, numbersCount: number) {
+  const config = LOTTERY_CONFIGS[lottery];
+  const factor = numbersCount / config.minSelection;
+
+  const [minEvenBase, maxEvenBase] = config.idealEvenRange;
+  const [minSumBase, maxSumBase] = config.idealSumRange;
+
+  return {
+    evenRange: [Math.round(minEvenBase * factor), Math.round(maxEvenBase * factor)] as [
+      number,
+      number,
+    ],
+    sumRange: [Math.round(minSumBase * factor), Math.round(maxSumBase * factor)] as [number, number],
+  };
+}
+
+/** Linhas do volante, usadas para medir espalhamento em qualquer modalidade. */
+function rowCount(lottery: LotteryType): number {
+  const config = LOTTERY_CONFIGS[lottery];
+  return Math.ceil(config.totalNumbers / config.colsGrid);
+}
+
+/**
+ * Tamanho de sequência consecutiva ainda considerado natural.
+ * Quanto mais denso o volante (dezenas marcadas / universo), mais comum é
+ * encontrar números seguidos: na Lotofácil marca-se 60% do volante, na Quina 6%.
+ */
+function maxNaturalRun(lottery: LotteryType, numbersCount: number): number {
+  const config = LOTTERY_CONFIGS[lottery];
+  const density = numbersCount / config.totalNumbers;
+  if (density >= 0.5) return 4;
+  if (density >= 0.2) return 3;
+  return 2;
+}
 
 // Analisador X-Ray de bilhetes e cálculo do Score de Qualidade (0 a 100)
 export function analyzeGame(
@@ -19,6 +61,7 @@ export function analyzeGame(
   const evenCount = sorted.filter((n) => n % 2 === 0).length;
   const oddCount = sorted.length - evenCount;
   const sum = sorted.reduce((a, b) => a + b, 0);
+  const { evenRange, sumRange } = scaledRanges(lottery, sorted.length);
 
   // Primos
   const primeCount = sorted.filter((n) => config.primeNumbers.includes(n)).length;
@@ -41,7 +84,7 @@ export function analyzeGame(
   // Moldura e Miolo (Lotofácil)
   let frameHits: number | undefined;
   let centerHits: number | undefined;
-  if (lottery === 'lotofacil' && config.frameNumbers && config.centerNumbers) {
+  if (config.frameNumbers && config.centerNumbers) {
     frameHits = sorted.filter((n) => config.frameNumbers?.includes(n)).length;
     centerHits = sorted.filter((n) => config.centerNumbers?.includes(n)).length;
   }
@@ -55,9 +98,12 @@ export function analyzeGame(
   }
 
   // Avaliação da Soma
-  const [minSumIdeal, maxSumIdeal] = config.idealSumRange;
+  const [minSumIdeal, maxSumIdeal] = sumRange;
+  // A tolerância acompanha a escala do volante: 25 pontos valem muito na
+  // Lotofácil (soma ~200) e quase nada na Quina (soma ~202 com dezenas até 80).
+  const sumTolerance = Math.max(20, Math.round((maxSumIdeal - minSumIdeal) * 0.35));
   let sumStatus: 'ideal' | 'moderada' | 'extrema' = 'ideal';
-  if (sum < minSumIdeal - 25 || sum > maxSumIdeal + 25) {
+  if (sum < minSumIdeal - sumTolerance || sum > maxSumIdeal + sumTolerance) {
     sumStatus = 'extrema';
   } else if (sum < minSumIdeal || sum > maxSumIdeal) {
     sumStatus = 'moderada';
@@ -66,7 +112,7 @@ export function analyzeGame(
   // PONTUAÇÃO (SCORE 0 - 100)
   // 1. Paridade (Max 25 pts)
   let parityScore = 25;
-  const [minEven, maxEven] = config.idealEvenRange;
+  const [minEven, maxEven] = evenRange;
   if (evenCount >= minEven && evenCount <= maxEven) {
     parityScore = 25;
   } else if (Math.abs(evenCount - minEven) === 1 || Math.abs(evenCount - maxEven) === 1) {
@@ -83,43 +129,44 @@ export function analyzeGame(
   else if (sumStatus === 'moderada') sumScore = 15;
   else sumScore = 5;
 
-  // 3. Distribuição / Espalhamento por faixas (Max 20 pts)
-  let spreadScore = 20;
-  if (lottery === 'megasena') {
-    // Mega-Sena: 6 dezenas espalhadas em 6 dezenas (1-10, 11-20, ..., 51-60)
-    const bins = new Set(sorted.map((n) => Math.floor((n - 1) / 10)));
-    if (bins.size >= 5) spreadScore = 20;
-    else if (bins.size === 4) spreadScore = 16;
-    else if (bins.size === 3) spreadScore = 10;
-    else spreadScore = 4;
-  } else {
-    // Lotofácil: espalhamento nas 5 linhas do volante
-    const rows = new Set(sorted.map((n) => Math.floor((n - 1) / 5)));
-    if (rows.size === 5) spreadScore = 20;
-    else spreadScore = 12;
-  }
+  // 3. Distribuição / Espalhamento pelas linhas do volante (Max 20 pts)
+  // Sorteios reais quase nunca se concentram em poucas linhas, então medimos
+  // quantas linhas o bilhete cobre em relação ao máximo possível.
+  const totalRows = rowCount(lottery);
+  const rowsCovered = new Set(sorted.map((n) => Math.floor((n - 1) / config.colsGrid))).size;
+  const spreadRatio = rowsCovered / Math.min(sorted.length, totalRows);
+
+  let spreadScore: number;
+  if (spreadRatio >= 0.99) spreadScore = 20;
+  else if (spreadRatio >= 0.8) spreadScore = 16;
+  else if (spreadRatio >= 0.6) spreadScore = 11;
+  else if (spreadRatio >= 0.4) spreadScore = 6;
+  else spreadScore = 3;
 
   // 4. Penalidade por sequências longas (Max 15 pts)
+  const runLimit = maxNaturalRun(lottery, sorted.length);
   let consecutiveScore = 15;
-  if (maxConsecutiveRun <= (lottery === 'megasena' ? 2 : 4)) {
+  if (maxConsecutiveRun <= runLimit) {
     consecutiveScore = 15;
-  } else if (maxConsecutiveRun === (lottery === 'megasena' ? 3 : 5)) {
+  } else if (maxConsecutiveRun === runLimit + 1) {
     consecutiveScore = 8;
   } else {
     consecutiveScore = 0; // Excesso de números seguidos
   }
 
-  // 5. Moldura ou Frequência (Max 15 pts)
+  // 5. Moldura (Lotofácil) ou densidade de primos (demais modalidades) (Max 15 pts)
   let frameOrFreqScore = 15;
-  if (lottery === 'lotofacil' && frameHits !== undefined) {
-    // Ideal: 9 ou 10 na moldura (5 ou 6 no miolo)
-    if (frameHits === 10 || frameHits === 9) frameOrFreqScore = 15;
-    else if (frameHits === 8 || frameHits === 11) frameOrFreqScore = 10;
+  if (frameHits !== undefined && config.frameNumbers) {
+    // O alvo acompanha a proporção da moldura no volante: com 15 dezenas na
+    // Lotofácil dá 9 ou 10 na moldura, exatamente o padrão histórico.
+    const esperado = (sorted.length * config.frameNumbers.length) / config.totalNumbers;
+    const distancia = Math.abs(frameHits - esperado);
+    if (distancia <= 0.75) frameOrFreqScore = 15;
+    else if (distancia <= 1.75) frameOrFreqScore = 10;
     else frameOrFreqScore = 4;
   } else {
-    // Mega-Sena: presença de números primos
-    if (primeCount >= 1 && primeCount <= 3) frameOrFreqScore = 15;
-    else frameOrFreqScore = 8;
+    const esperadoPrimos = (sorted.length * config.primeNumbers.length) / config.totalNumbers;
+    frameOrFreqScore = Math.abs(primeCount - esperadoPrimos) <= 1.5 ? 15 : 8;
   }
 
   const recommendations: string[] = [];
@@ -133,14 +180,14 @@ export function analyzeGame(
       `Soma total (${sum}) muito fora da faixa estatística ideal (${minSumIdeal} a ${maxSumIdeal}).`
     );
   }
-  if (maxConsecutiveRun > (lottery === 'megasena' ? 2 : 4)) {
+  if (maxConsecutiveRun > runLimit) {
     recommendations.push(
       `Sequência longa de números consecutivos (${maxConsecutiveRun} seguidos). Sorteios com longas sequências são raros.`
     );
   }
-  if (lottery === 'lotofacil' && frameHits !== undefined && (frameHits < 8 || frameHits > 11)) {
+  if (frameHits !== undefined && config.frameNumbers && frameOrFreqScore < 10) {
     recommendations.push(
-      `Distribuição moldura/miolo incomum (${frameHits} na moldura). Mais de 70% dos concursos têm 9 ou 10 na moldura.`
+      `Distribuição moldura/miolo incomum (${frameHits} na moldura). Mais de 70% dos concursos ficam próximos de ${Math.round((sorted.length * config.frameNumbers.length) / config.totalNumbers)} dezenas na moldura.`
     );
   }
   if (recommendations.length === 0) {
@@ -205,6 +252,47 @@ export function getStrategyLabel(strategy: GeneratorStrategy): string {
     random: 'Surpresinha Aleatória Filtrada',
   };
   return map[strategy] || strategy;
+}
+
+/**
+ * Preenche o campo extra do volante (Mês da Sorte / Trevos da Sorte).
+ * Respeita o que o usuário fixou e, no que sobrar, segue a mesma lógica da
+ * estratégia escolhida para as dezenas.
+ */
+function buildExtraSelection(
+  lottery: LotteryType,
+  strategy: GeneratorStrategy,
+  stats: LotteryStats,
+  userSelection?: LotteryExtraSelection
+): LotteryExtraSelection | undefined {
+  const field = LOTTERY_CONFIGS[lottery].extraField;
+  if (!field) return undefined;
+
+  const frequencias = stats.extraFrequencias ?? {};
+  const ordered = [...field.options].sort((a, b) => {
+    const diff = (frequencias[b] ?? 0) - (frequencias[a] ?? 0);
+    return strategy === 'cold' ? -diff : diff;
+  });
+
+  // Estratégias sem leitura de frequência sorteiam livremente.
+  const pool = strategy === 'hot' || strategy === 'cold' || strategy === 'ai_smart'
+    ? ordered.slice(0, Math.max(field.maxSelection, Math.ceil(ordered.length * 0.5)))
+    : field.options;
+
+  if (field.key === 'mesSorte') {
+    const escolhido = userSelection?.mesSorte ?? pool[Math.floor(Math.random() * pool.length)];
+    return { mesSorte: escolhido };
+  }
+
+  const fixados = userSelection?.trevos ?? [];
+  const trevos = new Set<number>(fixados);
+  const candidatos = pool.map(Number).filter((n) => Number.isFinite(n));
+
+  while (trevos.size < field.minSelection && candidatos.length > 0) {
+    trevos.add(candidatos[Math.floor(Math.random() * candidatos.length)]);
+  }
+
+  return { trevos: Array.from(trevos).sort((a, b) => a - b) };
 }
 
 // Gerador multiestratégia com restrições e filtros
@@ -294,10 +382,10 @@ export function generateLotteryGames(
       }
 
       case 'frame_center': {
-        if (lottery === 'lotofacil' && config.frameNumbers && config.centerNumbers) {
-          // Meta: 9 ou 10 na moldura, 5 ou 6 no miolo
-          const targetFrame = Math.random() < 0.5 ? 10 : 9;
-          const targetCenter = numbersCount - targetFrame;
+        if (config.frameNumbers && config.centerNumbers) {
+          // Meta: a proporção histórica da moldura, com variação de ±1 dezena.
+          const esperado = (numbersCount * config.frameNumbers.length) / config.totalNumbers;
+          const targetFrame = Math.random() < 0.5 ? Math.floor(esperado) : Math.ceil(esperado);
 
           const framePool = config.frameNumbers.filter(
             (n) => !excludedNumbers.includes(n) && !chosen.has(n)
@@ -328,11 +416,17 @@ export function generateLotteryGames(
       }
 
       case 'anti_popular': {
-        // Evita dezenas de 1 a 31 (datas de aniversário)
-        // Mais de 70% dos apostadores marcam datas, o que divide os prêmios.
-        const highPool = allPool.filter((n) => n > 31);
+        // Mais de 70% dos apostadores marcam datas de aniversário, o que divide
+        // os prêmios. Onde o volante passa de 31 dezenas, fugimos da faixa de
+        // dias do mês; em volantes menores (Lotofácil, Dia de Sorte) todas as
+        // dezenas são "data válida", então evitamos 1 a 12, que acumulam a
+        // marcação de dia e de mês.
+        const highPool =
+          config.totalNumbers > 31 ? allPool.filter((n) => n > 31) : allPool.filter((n) => n > 12);
+        const viés = config.totalNumbers > 31 ? 0.65 : 0.6;
+
         while (chosen.size < numbersCount) {
-          const pool = Math.random() < 0.65 && highPool.length ? highPool : allPool;
+          const pool = Math.random() < viés && highPool.length ? highPool : allPool;
           const pick = pool[Math.floor(Math.random() * pool.length)];
           chosen.add(pick);
         }
@@ -391,12 +485,14 @@ export function generateLotteryGames(
       continue;
     }
 
-    const cost = officialBetPrice(lottery, numbersCount);
+    const extra = buildExtraSelection(lottery, strategy, stats, filters.extraSelection);
+    const cost = officialBetPrice(lottery, numbersCount, extra?.trevos?.length);
 
     games.push({
       id: `game_${Date.now()}_${games.length + 1}`,
       lottery,
       numbers: gameNumbers,
+      extra,
       strategy,
       strategyLabel: getStrategyLabel(strategy),
       createdAt: new Date().toISOString(),
