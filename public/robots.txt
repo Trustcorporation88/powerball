@@ -20,4 +20,4 @@ Disallow: /shared/
 Disallow: /loterias
 Disallow: /loterias-publico
 
-Sitemap: https://play.xbrex.com.br/sitemap.xml
+Sitemap: https://powerballbr.com.br/sitemap.xml
