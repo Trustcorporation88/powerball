@@ -8,9 +8,10 @@ import {
   GeneratedGame,
   GeneratorStrategy,
   FechamentoPlan,
+  LotteryExtraSelection,
   UserSavedGame,
 } from '@/types/lottery';
-import { LOTTERY_CONFIGS } from '@/constants/lotteryConstants';
+import { LOTTERY_CONFIGS, LOTTERY_ORDER } from '@/constants/lotteryConstants';
 import { getLotteryHistory } from '@/services/lotteryApiService';
 import { calculateLotteryStats } from '@/services/lotteryHistoricalData';
 import { generateLotteryGames } from '@/services/lotteryGenerator';
@@ -32,6 +33,10 @@ import {
 import { LotteryBall } from '@/components/lottery/LotteryBall';
 import { LotteryHeatmap } from '@/components/lottery/LotteryHeatmap';
 import { GameXRayModal } from '@/components/lottery/GameXRayModal';
+import { BacktestPanel } from '@/components/lottery/BacktestPanel';
+import { BolaoPanel } from '@/components/lottery/BolaoPanel';
+import { ResponsibleGamingCard } from '@/components/lottery/ResponsibleGamingCard';
+import { ExtraFieldPicker } from '@/components/lottery/ExtraFieldPicker';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -59,12 +64,16 @@ import {
   TrendingUp,
   Award,
   Calendar,
+  FlaskConical,
+  Users,
 } from 'lucide-react';
 
 export default function LotteryPalpites() {
   const navigate = useNavigate();
   const [selectedLottery, setSelectedLottery] = useState<LotteryType>('lotofacil');
-  const [activeTab, setActiveTab] = useState<'gerador' | 'fechamentos' | 'estatisticas' | 'carteira'>('gerador');
+  const [activeTab, setActiveTab] = useState<
+    'gerador' | 'fechamentos' | 'estatisticas' | 'backtest' | 'bolao' | 'carteira'
+  >('gerador');
 
   // Dados e Concursos
   const [loadingDraw, setLoadingDraw] = useState(false);
@@ -80,6 +89,7 @@ export default function LotteryPalpites() {
   const [excludedNumbers, setExcludedNumbers] = useState<number[]>([]);
   const [generatedGames, setGeneratedGames] = useState<GeneratedGame[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [extraSelection, setExtraSelection] = useState<LotteryExtraSelection | undefined>();
 
   // Fechamentos State
   const [selectedFechamento, setSelectedFechamento] = useState<FechamentoPlan | null>(null);
@@ -103,6 +113,8 @@ export default function LotteryPalpites() {
     setGeneratedGames([]);
     setFechamentoGames([]);
     setFechamentoPool([]);
+    setExtraSelection(undefined);
+    setStrategy('ai_smart');
 
     const fechamentos = getFechamentosByLottery(selectedLottery);
     if (fechamentos.length > 0) {
@@ -175,6 +187,7 @@ export default function LotteryPalpites() {
             fixedNumbers,
             excludedNumbers,
             gamesCount,
+            extraSelection,
           },
           stats
         );
@@ -265,32 +278,28 @@ export default function LotteryPalpites() {
         </div>
 
         {/* Alternador de Loteria Caixa */}
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant={selectedLottery === 'lotofacil' ? 'default' : 'outline'}
-            onClick={() => setSelectedLottery('lotofacil')}
-            className={
-              selectedLottery === 'lotofacil'
-                ? 'bg-purple-600 hover:bg-purple-700 text-white font-bold'
-                : 'border-purple-200 text-purple-700 hover:bg-purple-50'
-            }
-          >
-            🎯 Lotofácil
-          </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {LOTTERY_ORDER.map((tipo) => {
+            const opcao = LOTTERY_CONFIGS[tipo];
+            const ativo = selectedLottery === tipo;
 
-          <Button
-            type="button"
-            variant={selectedLottery === 'megasena' ? 'default' : 'outline'}
-            onClick={() => setSelectedLottery('megasena')}
-            className={
-              selectedLottery === 'megasena'
-                ? 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold'
-                : 'border-emerald-200 text-emerald-700 hover:bg-emerald-50'
-            }
-          >
-            🍀 Mega-Sena
-          </Button>
+            return (
+              <Button
+                key={tipo}
+                type="button"
+                variant={ativo ? 'default' : 'outline'}
+                onClick={() => setSelectedLottery(tipo)}
+                style={
+                  ativo
+                    ? { backgroundColor: opcao.color, borderColor: opcao.color }
+                    : { color: opcao.color, borderColor: `${opcao.color}40` }
+                }
+                className={ativo ? 'text-white font-bold' : 'font-semibold hover:bg-slate-50'}
+              >
+                {opcao.name}
+              </Button>
+            );
+          })}
 
           <Button
             type="button"
@@ -344,15 +353,49 @@ export default function LotteryPalpites() {
               </div>
 
               {/* Dezenas Sorteadas */}
-              <div className="flex flex-wrap items-center gap-1.5 justify-start md:justify-end">
-                {latestDraw.dezenas.map((n) => (
-                  <span
-                    key={n}
-                    className="w-8 h-8 rounded-full bg-white text-slate-900 font-extrabold text-sm flex items-center justify-center shadow-md"
-                  >
-                    {String(n).padStart(2, '0')}
-                  </span>
-                ))}
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-1.5 justify-start md:justify-end">
+                  {config.hasSecondDraw && (
+                    <span className="text-[11px] uppercase tracking-wide text-slate-400 mr-1">
+                      1º sorteio
+                    </span>
+                  )}
+                  {latestDraw.dezenas.map((n) => (
+                    <span
+                      key={n}
+                      className="w-8 h-8 rounded-full bg-white text-slate-900 font-extrabold text-sm flex items-center justify-center shadow-md"
+                    >
+                      {String(n).padStart(2, '0')}
+                    </span>
+                  ))}
+                </div>
+
+                {latestDraw.dezenasSegundoSorteio?.length ? (
+                  <div className="flex flex-wrap items-center gap-1.5 justify-start md:justify-end">
+                    <span className="text-[11px] uppercase tracking-wide text-slate-400 mr-1">
+                      2º sorteio
+                    </span>
+                    {latestDraw.dezenasSegundoSorteio.map((n) => (
+                      <span
+                        key={`s2-${n}`}
+                        className="w-8 h-8 rounded-full bg-slate-200 text-slate-900 font-extrabold text-sm flex items-center justify-center shadow-md"
+                      >
+                        {String(n).padStart(2, '0')}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+
+                {(latestDraw.mesSorte || latestDraw.trevos?.length) && (
+                  <div className="flex items-center gap-1.5 justify-start md:justify-end">
+                    <span className="text-[11px] uppercase tracking-wide text-slate-400">
+                      {latestDraw.mesSorte ? 'Mês da Sorte' : 'Trevos'}
+                    </span>
+                    <Badge className="bg-amber-400 text-amber-950 font-bold">
+                      {latestDraw.mesSorte ?? latestDraw.trevos?.join(' e ')}
+                    </Badge>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
@@ -361,22 +404,30 @@ export default function LotteryPalpites() {
 
       {/* Navegação por Abas Principais */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
-        <TabsList className="grid grid-cols-2 md:grid-cols-4 w-full h-auto p-1 bg-slate-100 dark:bg-slate-900">
+        <TabsList className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 w-full h-auto p-1 bg-slate-100 dark:bg-slate-900">
           <TabsTrigger value="gerador" className="py-2.5 font-semibold text-xs md:text-sm">
             <Sparkles className="h-4 w-4 mr-1.5 text-purple-600" />
-            Gerador Inteligente
+            Gerador
           </TabsTrigger>
           <TabsTrigger value="fechamentos" className="py-2.5 font-semibold text-xs md:text-sm">
             <Layers className="h-4 w-4 mr-1.5 text-emerald-600" />
-            Fechamentos & Cobertura
+            Fechamentos
           </TabsTrigger>
           <TabsTrigger value="estatisticas" className="py-2.5 font-semibold text-xs md:text-sm">
             <BarChart3 className="h-4 w-4 mr-1.5 text-blue-600" />
-            Mapa de Calor & Stats
+            Estatísticas
+          </TabsTrigger>
+          <TabsTrigger value="backtest" className="py-2.5 font-semibold text-xs md:text-sm">
+            <FlaskConical className="h-4 w-4 mr-1.5 text-indigo-600" />
+            Prova Real
+          </TabsTrigger>
+          <TabsTrigger value="bolao" className="py-2.5 font-semibold text-xs md:text-sm">
+            <Users className="h-4 w-4 mr-1.5 text-cyan-600" />
+            Bolão
           </TabsTrigger>
           <TabsTrigger value="carteira" className="py-2.5 font-semibold text-xs md:text-sm">
             <BookmarkCheck className="h-4 w-4 mr-1.5 text-amber-600" />
-            Minha Carteira ({savedGames.length})
+            Carteira ({savedGames.length})
           </TabsTrigger>
         </TabsList>
 
@@ -413,14 +464,22 @@ export default function LotteryPalpites() {
                       <SelectItem value="hot">🔥 Dezenas Quentes (Mais Frequentes)</SelectItem>
                       <SelectItem value="cold">❄️ Dezenas Atrasadas (Lei do Retorno)</SelectItem>
                       <SelectItem value="affinity">🔗 Afinidade Histórica (Pares Casados)</SelectItem>
-                      {selectedLottery === 'lotofacil' && (
+                      {config.frameNumbers && (
                         <SelectItem value="frame_center">🖼️ Moldura e Miolo (Padrão 10/5)</SelectItem>
                       )}
+                      <SelectItem value="parity_sum">📐 Paridade & Soma na Curva</SelectItem>
                       <SelectItem value="anti_popular">🛡️ Anti-Popular (Evita Divisão)</SelectItem>
-                      <SelectItem value="random">🎲 Surpresinha Filtrada</SelectItem>
+                      <SelectItem value="random">🎲 Surpresinha Pura</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+
+                <ExtraFieldPicker
+                  lottery={selectedLottery}
+                  value={extraSelection}
+                  onChange={setExtraSelection}
+                  stats={stats}
+                />
 
                 {/* Quantidade de Dezenas por Jogo */}
                 <div className="grid grid-cols-2 gap-3">
@@ -977,9 +1036,33 @@ export default function LotteryPalpites() {
         </TabsContent>
 
         {/* ============================================================== */}
-        {/* ABA 4: MINHA CARTEIRA DE JOGOS & CONFERIDOR                    */}
+        {/* ABA 4: PROVA REAL — BACKTEST DAS ESTRATÉGIAS                   */}
+        {/* ============================================================== */}
+        <TabsContent value="backtest" className="space-y-6">
+          <BacktestPanel lottery={selectedLottery} draws={draws} />
+        </TabsContent>
+
+        {/* ============================================================== */}
+        {/* ABA 5: BOLÃO — COTAS, RATEIO E PRESTAÇÃO DE CONTAS             */}
+        {/* ============================================================== */}
+        <TabsContent value="bolao" className="space-y-6">
+          <BolaoPanel
+            lottery={selectedLottery}
+            candidatos={[
+              ...generatedGames,
+              ...fechamentoGames,
+              ...savedGames.filter((game) => game.lottery === selectedLottery),
+            ]}
+            concursoAlvo={latestDraw ? latestDraw.concurso + 1 : undefined}
+          />
+        </TabsContent>
+
+        {/* ============================================================== */}
+        {/* ABA 6: MINHA CARTEIRA DE JOGOS & CONFERIDOR                    */}
         {/* ============================================================== */}
         <TabsContent value="carteira" className="space-y-6">
+          <ResponsibleGamingCard lottery={selectedLottery} savedGames={savedGames} />
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-xl font-bold flex items-center gap-2">
@@ -1034,7 +1117,7 @@ export default function LotteryPalpites() {
               {savedGames.map((game, idx) => {
                 const check =
                   latestDraw && latestDraw.loteria === game.lottery
-                    ? checkTicketAgainstDraw(game.numbers, latestDraw)
+                    ? checkTicketAgainstDraw(game.numbers, latestDraw, game.extra)
                     : null;
 
                 return (
