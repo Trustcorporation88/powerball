@@ -293,10 +293,10 @@ export default function LotteryPalpites() {
       {/* Top Banner & Seletor de Loteria Oficial */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center gap-4">
-          <PowerballLogo altura={72} className="hidden sm:block shrink-0" />
+          <PowerballLogo altura={64} className="hidden sm:block shrink-0" />
 
           <div>
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight uppercase text-powerball-navy dark:text-white">
+            <h1 className="text-xl md:text-2xl font-extrabold tracking-tight uppercase text-powerball-navy dark:text-white">
               Loterias Caixa • Powerball
             </h1>
             <div className="flex items-center gap-2 flex-wrap mt-0.5">
