@@ -3,46 +3,54 @@
 Passo a passo do que fazer depois de comprar o domínio. O site continua sendo
 servido pelo Railway; o domínio só passa a apontar para lá.
 
-## 1. Onde o DNS é gerenciado
+## 1. Por que entra a Cloudflare no meio
 
-`.com.br` é registrado no Registro.br. Se você comprou pela Hostinger, ela é a
-revendedora e o DNS fica no hPanel; se comprou direto no Registro.br, o DNS fica
-lá. O que importa é saber em qual painel você edita a zona DNS.
+O Railway **não fornece endereço IP fixo** — ele entrega um alvo `CNAME`. O DNS
+clássico não aceita `CNAME` no domínio raiz, então `powerballbr.com.br` (sem
+`www`) só funciona em um provedor que faça "CNAME flattening" ou ALIAS. A
+Hostinger e o Registro.br não fazem; a Cloudflare faz e é gratuita. Por isso o
+DNS do domínio passa a ser gerenciado nela.
 
-O Railway **não fornece endereço IP fixo** — ele entrega um alvo `CNAME`. Isso
-cria um problema no domínio raiz (`powerballbr.com.br`, sem `www`), porque o DNS
-clássico não aceita `CNAME` na raiz. Duas saídas, descritas abaixo.
+## 2. Ordem dos passos (Hostinger + Cloudflare + Railway)
 
-## 2. Caminho recomendado: Cloudflare + Railway
+A ordem importa. Em `.com.br`, o Registro.br recusa nameservers que ainda não
+respondam pelo domínio — é o erro "pesquisa recusada". Ou seja: a zona precisa
+existir na Cloudflare **antes** da troca de nameserver.
 
-A Cloudflare é gratuita e faz "CNAME flattening", que é exatamente o que falta.
+1. **Railway, domínios.** Serviço do frontend → Settings → Networking → Custom
+   Domain → `powerballbr.com.br`; repita para `www.powerballbr.com.br`. Serviço
+   da API → Custom Domain → `api.powerballbr.com.br`. Para cada um, o Railway
+   mostra **dois** registros: um `CNAME` de roteamento e um `TXT`
+   `_railway-verify`. Os dois são obrigatórios — só com o `CNAME` o domínio não
+   valida. Deixe essa tela aberta.
 
-1. Crie conta na Cloudflare, adicione o site `powerballbr.com.br` e anote os
-   dois nameservers que ela mostrar.
-2. No painel onde o domínio está (Hostinger ou Registro.br), troque os
-   nameservers pelos da Cloudflare. A propagação costuma levar de minutos a
-   algumas horas.
-3. No Railway, serviço **frontend** → Settings → Networking → Custom Domain →
-   `powerballbr.com.br`. Repita para `www.powerballbr.com.br`.
-4. No Railway, serviço **backend** (API) → Custom Domain → `api.powerballbr.com.br`.
-5. Para cada domínio, o Railway mostra **dois** registros: um `CNAME` de
-   roteamento e um `TXT` `_railway-verify` de verificação. Os dois são
-   obrigatórios — só com o `CNAME` o domínio não valida. Copie exatamente como
-   aparece e crie na Cloudflare:
+2. **Cloudflare, zona.** Crie a conta, adicione o site `powerballbr.com.br`
+   (plano Free) e cadastre os registros exatamente como o Railway mostrou:
 
-   | Tipo    | Nome  | Valor                         | Proxy      |
-   | ------- | ----- | ----------------------------- | ---------- |
-   | `CNAME` | `@`   | (alvo mostrado pelo Railway)  | Proxied    |
-   | `CNAME` | `www` | (alvo mostrado pelo Railway)  | Proxied    |
-   | `CNAME` | `api` | (alvo mostrado pelo Railway)  | Proxied    |
+   | Tipo    | Nome  | Valor                          | Proxy   |
+   | ------- | ----- | ------------------------------ | ------- |
+   | `CNAME` | `@`   | (alvo mostrado pelo Railway)   | Proxied |
+   | `CNAME` | `www` | (alvo mostrado pelo Railway)   | Proxied |
+   | `CNAME` | `api` | (alvo mostrado pelo Railway)   | Proxied |
    | `TXT`   | (o nome que o Railway mostrar) | (o valor que ele mostrar) | — |
 
-6. Em SSL/TLS na Cloudflare, use o modo **Full (strict)**. O certificado do
-   Railway é emitido sozinho depois que a verificação passa.
+   Em SSL/TLS, escolha o modo **Full (strict)**. Anote os dois nameservers que a
+   Cloudflare atribuir (algo como `xxx.ns.cloudflare.com`).
 
-Se não quiser mexer em nameserver, a alternativa é usar só
-`www.powerballbr.com.br` no Railway (aí um `CNAME` comum resolve) e configurar,
-no painel do domínio, um redirecionamento da raiz para o `www`.
+3. **Troca de nameserver.** No hPanel: Domínios → `powerballbr.com.br` →
+   DNS/Nameservers → nameservers personalizados, e informe os dois da
+   Cloudflare. Se o campo estiver bloqueado por ser `.com.br`, a troca é feita
+   no painel do Registro.br (a Hostinger é revendedora): entre com o CPF/CNPJ do
+   titular, abra o domínio, role até **DNS** → **Alterar servidores DNS** e
+   informe os mesmos dois nameservers.
+
+4. **Espera.** A Cloudflare avisa por e-mail quando a zona fica ativa. Em
+   `.com.br` costuma levar algumas horas; o limite é 24h. Depois disso o Railway
+   valida a posse e emite o certificado sozinho.
+
+Se em algum momento você preferir não mexer em nameserver, a alternativa é usar
+só `www.powerballbr.com.br` no Railway (aí um `CNAME` comum resolve) e deixar a
+raiz redirecionando para o `www` pelo painel do domínio.
 
 ## 3. Variáveis a ajustar depois que o domínio responder
 
@@ -79,3 +87,14 @@ resultado e o termo de uso — o gerador fica atrás de login e não é indexado
   falhar, quase sempre é `CORS_ORIGIN` ou `VITE_API_URL`.
 - `https://powerballbr.com.br/robots.txt` aponta para o sitemap certo.
 - Em uma página de resultado, a canônica no código-fonte usa o domínio novo.
+
+## 6. Se algo não subir
+
+| Sintoma                                   | Causa provável                                              |
+| ----------------------------------------- | ----------------------------------------------------------- |
+| Railway preso em "validating"             | Falta o `TXT` `_railway-verify`, ou o valor não bate         |
+| Registro.br recusa os nameservers         | Zona ainda não criada na Cloudflare — faça o passo 2 antes   |
+| Site abre, mas login falha                | `CORS_ORIGIN` no backend sem o domínio novo                  |
+| Site abre e não carrega resultado nenhum  | `VITE_API_URL` apontando para endereço que não responde      |
+| Mudou a variável e nada aconteceu         | `VITE_*` é lido no build; é preciso um deploy novo           |
+| Erro de certificado                       | SSL/TLS da Cloudflare fora de **Full (strict)**              |
