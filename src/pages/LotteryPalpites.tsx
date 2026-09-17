@@ -292,19 +292,19 @@ export default function LotteryPalpites() {
       {/* Top Banner & Seletor de Loteria Oficial */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight uppercase">
-              Loterias Caixa • Powerball
-            </h1>
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight uppercase">
+            Loterias Caixa • Powerball
+          </h1>
+          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+            <p className="text-lg md:text-xl font-bold text-purple-700 dark:text-purple-400">
+              Palpites Inteligentes
+            </p>
             {/* Nada de selo "oficial": o site não tem vínculo com a Caixa e o
                 termo de uso diz isso em letras grandes. */}
             <Badge variant="outline" className="text-[11px] font-semibold text-muted-foreground">
               Site independente
             </Badge>
           </div>
-          <p className="text-lg md:text-xl font-bold text-purple-700 dark:text-purple-400 -mt-0.5">
-            Palpites Inteligentes
-          </p>
           <p className="text-sm text-muted-foreground mt-1">
             Motor combinatório, estatísticas oficiais, inteligência analítica e fechamentos matemáticos.
           </p>
