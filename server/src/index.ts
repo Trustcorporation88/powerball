@@ -6,6 +6,7 @@ import { authRoutes } from "./routes/auth.js";
 import { lotteryRoutes } from "./routes/lottery.js";
 import { projectRoutes } from "./routes/projects.js";
 import { shareRoutes } from "./routes/shares.js";
+import { termsRoutes } from "./routes/terms.js";
 import { prisma } from "./prisma.js";
 
 async function main(): Promise<void> {
@@ -27,6 +28,7 @@ async function main(): Promise<void> {
   await app.register(lotteryRoutes);
   await app.register(projectRoutes);
   await app.register(shareRoutes);
+  await app.register(termsRoutes);
 
   const close = async () => {
     await app.close();
