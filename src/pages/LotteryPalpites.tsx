@@ -358,16 +358,6 @@ export default function LotteryPalpites() {
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
-                onClick={() => navigate('/home')}
-                className="text-xs text-muted-foreground"
-                title="Acessar painel financeiro"
-              >
-                Painel
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
                 size="icon"
                 onClick={logout}
                 title="Sair da conta"

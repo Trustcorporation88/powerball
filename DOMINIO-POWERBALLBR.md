@@ -98,3 +98,17 @@ resultado e o termo de uso — o gerador fica atrás de login e não é indexado
 | Site abre e não carrega resultado nenhum  | `VITE_API_URL` apontando para endereço que não responde      |
 | Mudou a variável e nada aconteceu         | `VITE_*` é lido no build; é preciso um deploy novo           |
 | Erro de certificado                       | SSL/TLS da Cloudflare fora de **Full (strict)**              |
+
+## 7. Desvincular do Análise Planilha / DataFin
+
+O Powerball não usa o painel financeiro. No Railway:
+
+1. Serviço **powerball** (o site) → Settings → Source: repositório
+   `Trustcorporation88/powerball`. Root Directory **vazio**.
+2. Serviço **sweet-vision** (a API) → Settings → Source: o **mesmo**
+   `Trustcorporation88/powerball`. Root Directory = `server`. **Não** use
+   `analise-planilha`.
+3. Variáveis sugeridas com `fin.trustcorp.com.br` ou `datafin` são lixo antigo:
+   apague e coloque os valores da seção 3.
+4. Depois do deploy, `/home`, `/login` financeiro e `/dashboard` redirecionam
+   para a tela do Powerball. Não existe mais botão "Painel".

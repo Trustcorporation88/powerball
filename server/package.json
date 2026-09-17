@@ -1,9 +1,9 @@
 {
-  "name": "datafin-server",
+  "name": "powerball-api",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Backend API (Fastify + Prisma + PostgreSQL) for the DataFin / Análise Planilha app, deployable on Railway.",
+  "description": "API do Powerball (login, aceite do termo, carteira de palpites). Fastify + Prisma + PostgreSQL, para deploy no Railway.",
   "main": "dist/index.js",
   "packageManager": "pnpm@9.15.9",
   "engines": {

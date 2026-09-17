@@ -192,24 +192,3 @@ export async function updateUserProfile(
 ): Promise<AuthResult> {
   return isRemote() ? remoteUpdateProfile(updates) : localUpdateProfile(email, updates);
 }
-
-export async function ensureAdminUser(): Promise<void> {
-  // No modo remoto a base de usuários vive no servidor.
-  if (isRemote() || !import.meta.env.DEV) {
-    return;
-  }
-
-  const admin = await getUser("admin@datafin.com");
-  if (!admin) {
-    const { hash, salt } = await hashPassword("admin123");
-    await saveUser({
-      username: "admin@datafin.com",
-      passwordHash: hash,
-      salt,
-      name: "Administrador",
-      email: "admin@datafin.com",
-      role: "admin",
-      createdAt: new Date().toISOString(),
-    });
-  }
-}
