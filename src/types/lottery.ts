@@ -99,6 +99,16 @@ export interface LotteryStats {
   extraFrequencias?: Record<string, number>;
 }
 
+/** Abas da página de palpites. */
+export type LotteryTab =
+  | 'como-usar'
+  | 'gerador'
+  | 'fechamentos'
+  | 'estatisticas'
+  | 'backtest'
+  | 'bolao'
+  | 'carteira';
+
 export type GeneratorStrategy =
   | 'balanced' // Balanceado (Frequentes + Atrasadas + Medianas)
   | 'hot' // Dezenas Quentes (Mais frequentes)
