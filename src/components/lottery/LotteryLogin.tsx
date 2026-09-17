@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Lock, ShieldCheck } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Eye, EyeOff, Lock, ShieldCheck, LifeBuoy } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/contexts/AuthContext';
@@ -203,6 +204,16 @@ export const LotteryLogin: React.FC = () => {
             </Tabs>
           </CardContent>
         </Card>
+
+        <p className="text-center">
+          <Link
+            to="/como-usar"
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-powerball-gold hover:text-white"
+          >
+            <LifeBuoy className="h-4 w-4" />
+            Como usar o site
+          </Link>
+        </p>
 
         <div className="rounded-lg border border-white/15 bg-white/5 p-3">
           <p className="text-[11px] leading-relaxed text-slate-300 flex gap-2">

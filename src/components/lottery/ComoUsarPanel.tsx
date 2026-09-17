@@ -30,7 +30,8 @@ import {
 
 interface ComoUsarPanelProps {
   lottery: LotteryType;
-  onIrPara: (tab: LotteryTab) => void;
+  /** Sem callback (página pública), os atalhos levam ao login. */
+  onIrPara?: (tab: LotteryTab) => void;
 }
 
 const PASSOS = [
@@ -204,7 +205,7 @@ export const ComoUsarPanel: React.FC<ComoUsarPanelProps> = ({ lottery, onIrPara 
 
           <Button
             className="mt-5 bg-gradient-to-r from-powerball-navy to-powerball-navy-light hover:opacity-90"
-            onClick={() => onIrPara('gerador')}
+            onClick={() => onIrPara?.('gerador')}
           >
             <Sparkles className="h-4 w-4 mr-2" />
             Começar pelo Gerador
@@ -224,7 +225,7 @@ export const ComoUsarPanel: React.FC<ComoUsarPanelProps> = ({ lottery, onIrPara 
               <button
                 key={aba.id}
                 type="button"
-                onClick={() => onIrPara(aba.id)}
+                onClick={() => onIrPara?.(aba.id)}
                 className="w-full text-left rounded-lg border border-slate-200 dark:border-slate-800 p-4 transition-colors hover:border-powerball-gold hover:bg-powerball-navy/5 dark:hover:bg-powerball-navy/20"
               >
                 <div className="flex items-start gap-3">
@@ -290,7 +291,7 @@ export const ComoUsarPanel: React.FC<ComoUsarPanelProps> = ({ lottery, onIrPara 
             </div>
           ))}
 
-          <Button variant="outline" size="sm" className="mt-2" onClick={() => onIrPara('backtest')}>
+          <Button variant="outline" size="sm" className="mt-2" onClick={() => onIrPara?.('backtest')}>
             <FlaskConical className="h-4 w-4 mr-2 text-powerball-gold-dark" />
             Comparar as estratégias na Prova Real
           </Button>
@@ -353,7 +354,7 @@ export const ComoUsarPanel: React.FC<ComoUsarPanelProps> = ({ lottery, onIrPara 
             revalida a garantia antes de exibir — o texto de cada plano descreve exatamente o que a
             matemática entrega.
           </p>
-          <Button variant="outline" size="sm" onClick={() => onIrPara('fechamentos')}>
+          <Button variant="outline" size="sm" onClick={() => onIrPara?.('fechamentos')}>
             <Layers className="h-4 w-4 mr-2 text-emerald-600" />
             Ver os fechamentos disponíveis
           </Button>
