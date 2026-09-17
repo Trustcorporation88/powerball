@@ -20,6 +20,16 @@ export default {
     },
     extend: {
       colors: {
+        // Cores tiradas do logotipo do Powerball: o azul do escudo e o dourado
+        // da borda e das letras.
+        powerball: {
+          navy: "#1E3054",
+          "navy-dark": "#16233D",
+          "navy-light": "#2C4576",
+          gold: "#BAA26C",
+          "gold-light": "#D6C596",
+          "gold-dark": "#8F7A4C",
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

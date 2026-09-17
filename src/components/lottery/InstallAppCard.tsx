@@ -93,7 +93,7 @@ export const InstallAppCard: React.FC = () => {
     <Card className="border-slate-200 dark:border-slate-800 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-950">
       <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
         <div className="flex items-start gap-3">
-          <div className="p-2.5 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-600 shrink-0">
+          <div className="p-2.5 rounded-xl bg-powerball-navy/10 dark:bg-powerball-navy/40 text-powerball-navy dark:text-powerball-gold shrink-0">
             <Smartphone className="h-5 w-5" />
           </div>
           <div>
@@ -123,7 +123,7 @@ export const InstallAppCard: React.FC = () => {
             <Button
               size="sm"
               onClick={instalar}
-              className="bg-purple-600 hover:bg-purple-700 text-white font-bold"
+              className="bg-powerball-navy hover:bg-powerball-navy-dark text-white font-bold"
             >
               <Download className="h-3.5 w-3.5 mr-1.5" />
               Instalar

@@ -12,7 +12,7 @@
  * caches antigos sejam descartados na ativação.
  */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const SHELL_CACHE = `loterias-shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `loterias-assets-${CACHE_VERSION}`;
 
@@ -90,7 +90,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (url.pathname.startsWith('/assets/') || url.pathname.startsWith('/icons/')) {
+  if (
+    url.pathname.startsWith('/assets/') ||
+    url.pathname.startsWith('/icons/') ||
+    url.pathname === '/logo-powerball.png'
+  ) {
     event.respondWith(cacheFirst(request, ASSET_CACHE));
   }
 });

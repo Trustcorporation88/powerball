@@ -78,7 +78,7 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ lottery, draws }) 
       <Card className="border-slate-200 dark:border-slate-800">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <FlaskConical className="h-5 w-5 text-indigo-600" />
+            <FlaskConical className="h-5 w-5 text-powerball-gold-dark" />
             Prova Real das Estratégias
           </CardTitle>
           <CardDescription>
@@ -138,7 +138,7 @@ export const BacktestPanel: React.FC<BacktestPanelProps> = ({ lottery, draws }) 
               <Button
                 onClick={executar}
                 disabled={rodando || draws.length < 100}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold"
+                className="w-full bg-powerball-navy hover:bg-powerball-navy-dark text-white font-bold"
               >
                 {rodando ? (
                   <>

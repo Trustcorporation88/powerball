@@ -42,6 +42,7 @@ import { ResponsibleGamingCard } from '@/components/lottery/ResponsibleGamingCar
 import { ExtraFieldPicker } from '@/components/lottery/ExtraFieldPicker';
 import { InstallAppCard } from '@/components/lottery/InstallAppCard';
 import { ComoUsarPanel } from '@/components/lottery/ComoUsarPanel';
+import { PowerballLogo } from '@/components/lottery/PowerballLogo';
 import { ehPrimeiraVisita, marcarVisita } from '@/lib/primeiraVisita';
 import { useAuth } from '@/contexts/AuthContext';
 import { AVISO_CURTO, TERMOS_VERSAO } from '@/constants/termosDeUso';
@@ -291,23 +292,27 @@ export default function LotteryPalpites() {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 md:p-6 space-y-6 max-w-7xl mx-auto">
       {/* Top Banner & Seletor de Loteria Oficial */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight uppercase">
-            Loterias Caixa • Powerball
-          </h1>
-          <div className="flex items-center gap-2 flex-wrap mt-0.5">
-            <p className="text-lg md:text-xl font-bold text-purple-700 dark:text-purple-400">
-              Palpites Inteligentes
+        <div className="flex items-center gap-4">
+          <PowerballLogo altura={72} className="hidden sm:block shrink-0" />
+
+          <div>
+            <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight uppercase text-powerball-navy dark:text-white">
+              Loterias Caixa • Powerball
+            </h1>
+            <div className="flex items-center gap-2 flex-wrap mt-0.5">
+              <p className="text-lg md:text-xl font-bold text-powerball-gold-dark dark:text-powerball-gold">
+                Palpites Inteligentes
+              </p>
+              {/* Nada de selo "oficial": o site não tem vínculo com a Caixa e o
+                  termo de uso diz isso em letras grandes. */}
+              <Badge variant="outline" className="text-[11px] font-semibold text-muted-foreground">
+                Site independente
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              Motor combinatório, estatísticas oficiais, inteligência analítica e fechamentos matemáticos.
             </p>
-            {/* Nada de selo "oficial": o site não tem vínculo com a Caixa e o
-                termo de uso diz isso em letras grandes. */}
-            <Badge variant="outline" className="text-[11px] font-semibold text-muted-foreground">
-              Site independente
-            </Badge>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Motor combinatório, estatísticas oficiais, inteligência analítica e fechamentos matemáticos.
-          </p>
         </div>
 
         {/* Alternador de Loteria Caixa */}
@@ -465,7 +470,7 @@ export default function LotteryPalpites() {
             Como Usar
           </TabsTrigger>
           <TabsTrigger value="gerador" className="py-2.5 font-semibold text-xs md:text-sm">
-            <Sparkles className="h-4 w-4 mr-1.5 text-purple-600" />
+            <Sparkles className="h-4 w-4 mr-1.5 text-powerball-navy" />
             Gerador
           </TabsTrigger>
           <TabsTrigger value="fechamentos" className="py-2.5 font-semibold text-xs md:text-sm">
@@ -477,7 +482,7 @@ export default function LotteryPalpites() {
             Estatísticas
           </TabsTrigger>
           <TabsTrigger value="backtest" className="py-2.5 font-semibold text-xs md:text-sm">
-            <FlaskConical className="h-4 w-4 mr-1.5 text-indigo-600" />
+            <FlaskConical className="h-4 w-4 mr-1.5 text-powerball-gold-dark" />
             Prova Real
           </TabsTrigger>
           <TabsTrigger value="bolao" className="py-2.5 font-semibold text-xs md:text-sm">
@@ -614,7 +619,7 @@ export default function LotteryPalpites() {
                 <Button
                   onClick={handleGenerate}
                   disabled={isGenerating || !stats}
-                  className="w-full bg-gradient-to-r from-emerald-600 to-purple-600 hover:from-emerald-700 hover:to-purple-700 text-white font-bold py-6 text-base shadow-md"
+                  className="w-full bg-powerball-gold hover:bg-powerball-gold-dark text-powerball-navy hover:text-white font-bold py-6 text-base shadow-md"
                 >
                   <Sparkles className="h-5 w-5 mr-2" />
                   {isGenerating ? 'Calculando Probabilidades...' : 'Gerar Palpites Inteligentes'}
@@ -885,7 +890,7 @@ export default function LotteryPalpites() {
                         variant="outline"
                         size="sm"
                         onClick={handleAutoFillFechamento}
-                        className="text-xs text-purple-700 border-purple-200 hover:bg-purple-50"
+                        className="text-xs text-powerball-navy border-powerball-navy/30 hover:bg-powerball-navy/5"
                       >
                         <TrendingUp className="h-3.5 w-3.5 mr-1" />
                         Mais Quentes Automático
@@ -1049,7 +1054,7 @@ export default function LotteryPalpites() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <Card className="border-slate-200 dark:border-slate-800">
                   <CardContent className="p-4 flex items-center gap-3">
-                    <div className="p-3 rounded-xl bg-purple-50 dark:bg-purple-950 text-purple-600">
+                    <div className="p-3 rounded-xl bg-powerball-navy/10 dark:bg-powerball-navy/40 text-powerball-navy dark:text-powerball-gold">
                       <TrendingUp className="h-6 w-6" />
                     </div>
                     <div>

@@ -70,7 +70,7 @@ const ABAS: Array<{
   {
     id: 'gerador',
     icone: Sparkles,
-    cor: 'text-purple-600',
+    cor: 'text-powerball-navy',
     nome: 'Gerador',
     texto:
       'Cria bilhetes a partir de uma estratégia. Dá para fixar dezenas que você sempre joga, excluir as que não quer ver e escolher quantos jogos gerar. Cada bilhete sai com nota e custo oficial.',
@@ -94,7 +94,7 @@ const ABAS: Array<{
   {
     id: 'backtest',
     icone: FlaskConical,
-    cor: 'text-indigo-600',
+    cor: 'text-powerball-gold-dark',
     nome: 'Prova Real',
     texto:
       'Roda cada estratégia contra concursos que já aconteceram, sem deixar o motor ver o resultado antes de apostar, e compara com um sorteio aleatório de verdade. Abra antes de confiar em qualquer estratégia.',
@@ -173,9 +173,9 @@ export const ComoUsarPanel: React.FC<ComoUsarPanelProps> = ({ lottery, onIrPara 
   return (
     <div className="space-y-6">
       <Card className="border-slate-200 dark:border-slate-800 overflow-hidden">
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 px-6 py-5 text-white">
+        <div className="bg-gradient-to-r from-powerball-navy to-powerball-navy-light px-6 py-5 text-white">
           <h2 className="text-xl font-bold">Como usar o site</h2>
-          <p className="text-sm text-purple-100 mt-1">
+          <p className="text-sm text-slate-200 mt-1">
             Quatro passos para sair daqui com seus jogos montados, salvos e conferindo sozinhos.
           </p>
         </div>
@@ -190,10 +190,10 @@ export const ComoUsarPanel: React.FC<ComoUsarPanelProps> = ({ lottery, onIrPara 
                   className="rounded-lg border border-slate-200 dark:border-slate-800 p-4 bg-slate-50/60 dark:bg-slate-900/40"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-purple-600 text-xs font-bold text-white">
+                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-powerball-gold text-xs font-bold text-powerball-navy">
                       {idx + 1}
                     </span>
-                    <Icone className="h-4 w-4 text-purple-600" />
+                    <Icone className="h-4 w-4 text-powerball-navy" />
                     <span className="font-semibold text-sm">{passo.titulo}</span>
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">{passo.texto}</p>
@@ -203,7 +203,7 @@ export const ComoUsarPanel: React.FC<ComoUsarPanelProps> = ({ lottery, onIrPara 
           </div>
 
           <Button
-            className="mt-5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:opacity-90"
+            className="mt-5 bg-gradient-to-r from-powerball-navy to-powerball-navy-light hover:opacity-90"
             onClick={() => onIrPara('gerador')}
           >
             <Sparkles className="h-4 w-4 mr-2" />
@@ -225,7 +225,7 @@ export const ComoUsarPanel: React.FC<ComoUsarPanelProps> = ({ lottery, onIrPara 
                 key={aba.id}
                 type="button"
                 onClick={() => onIrPara(aba.id)}
-                className="w-full text-left rounded-lg border border-slate-200 dark:border-slate-800 p-4 transition-colors hover:border-purple-400 hover:bg-purple-50/50 dark:hover:bg-purple-950/20"
+                className="w-full text-left rounded-lg border border-slate-200 dark:border-slate-800 p-4 transition-colors hover:border-powerball-gold hover:bg-powerball-navy/5 dark:hover:bg-powerball-navy/20"
               >
                 <div className="flex items-start gap-3">
                   <Icone className={`h-5 w-5 shrink-0 mt-0.5 ${aba.cor}`} />
@@ -291,7 +291,7 @@ export const ComoUsarPanel: React.FC<ComoUsarPanelProps> = ({ lottery, onIrPara 
           ))}
 
           <Button variant="outline" size="sm" className="mt-2" onClick={() => onIrPara('backtest')}>
-            <FlaskConical className="h-4 w-4 mr-2 text-indigo-600" />
+            <FlaskConical className="h-4 w-4 mr-2 text-powerball-gold-dark" />
             Comparar as estratégias na Prova Real
           </Button>
         </CardContent>
