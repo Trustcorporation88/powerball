@@ -1,11 +1,17 @@
 /**
  * Cliente HTTP para o backend (Railway).
  *
- * Se `VITE_API_URL` estiver definido, o app passa a usar o banco central via API.
- * Caso contrário, continua usando o armazenamento local (IndexedDB) — sem regressão.
+ * Se `VITE_API_URL` estiver definido, o app usa essa URL. Em produção, se a
+ * variável não foi injetada no build, cai na API pública do Powerball — senão
+ * o login grava a conta só no navegador e a mensagem vira "Email não encontrado".
  */
 
-const RAW_API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+const FALLBACK_API_URL = "https://apipowerball-production.up.railway.app";
+
+const RAW_API_URL =
+  (import.meta.env.VITE_API_URL as string | undefined)?.trim() ||
+  (import.meta.env.PROD ? FALLBACK_API_URL : "");
+
 export const API_URL = RAW_API_URL.replace(/\/+$/, "");
 
 const TOKEN_KEY = "powerball:token";

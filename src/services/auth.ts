@@ -14,6 +14,10 @@ export interface AuthResult {
   user?: AuthenticatedUser;
 }
 
+function normalizarEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 /* ------------------------------------------------------------------ */
 /* Local (IndexedDB) — usado quando VITE_API_URL não está configurado  */
 /* ------------------------------------------------------------------ */
@@ -50,18 +54,19 @@ async function localRegister(name: string, email: string, password: string): Pro
     return { success: false, message: "Senha deve ter no mínimo 6 caracteres" };
   }
 
-  const existing = await getUser(email);
+  const chave = normalizarEmail(email);
+  const existing = await getUser(chave);
   if (existing) {
     return { success: false, message: "Email já cadastrado" };
   }
 
   const { hash, salt } = await hashPassword(password);
   await saveUser({
-    username: email,
+    username: chave,
     passwordHash: hash,
     salt,
     name,
-    email,
+    email: chave,
     role: "user",
     createdAt: new Date().toISOString(),
   });
@@ -70,7 +75,7 @@ async function localRegister(name: string, email: string, password: string): Pro
 }
 
 async function localAuthenticate(email: string, password: string): Promise<AuthResult> {
-  const user = await getUser(email);
+  const user = await getUser(normalizarEmail(email));
   if (!user) {
     return { success: false, message: "Email não encontrado" };
   }
@@ -138,7 +143,7 @@ async function remoteRegister(name: string, email: string, password: string): Pr
   try {
     const data = await apiFetch<{ token: string; user: AuthenticatedUser }>("/auth/register", {
       method: "POST",
-      body: { name, email, password },
+      body: { name, email: normalizarEmail(email), password },
     });
     setToken(data.token);
     return { success: true, user: data.user };
@@ -151,7 +156,7 @@ async function remoteAuthenticate(email: string, password: string): Promise<Auth
   try {
     const data = await apiFetch<{ token: string; user: AuthenticatedUser }>("/auth/login", {
       method: "POST",
-      body: { email, password },
+      body: { email: normalizarEmail(email), password },
     });
     setToken(data.token);
     return { success: true, user: data.user };

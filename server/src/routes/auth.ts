@@ -5,12 +5,12 @@ import { authGuard, hashPassword, verifyPassword, type JwtUser } from "../auth.j
 
 const registerSchema = z.object({
   name: z.string().min(1, "Nome é obrigatório"),
-  email: z.string().email("E-mail inválido"),
+  email: z.string().trim().toLowerCase().email("E-mail inválido"),
   password: z.string().min(6, "Senha deve ter no mínimo 6 caracteres"),
 });
 
 const loginSchema = z.object({
-  email: z.string().email("E-mail inválido"),
+  email: z.string().trim().toLowerCase().email("E-mail inválido"),
   password: z.string().min(1, "Senha é obrigatória"),
 });
 

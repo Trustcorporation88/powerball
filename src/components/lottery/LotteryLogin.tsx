@@ -31,10 +31,13 @@ export const LotteryLogin: React.FC = () => {
   const [nome, setNome] = useState('');
   const [confirmacao, setConfirmacao] = useState('');
 
-  const entrar = async (evento: React.FormEvent) => {
+  const entrar = async (evento: React.FormEvent<HTMLFormElement>) => {
     evento.preventDefault();
+    const dados = new FormData(evento.currentTarget);
+    const emailEntrada = String(dados.get('email') ?? email).trim().toLowerCase();
+    const senhaEntrada = String(dados.get('password') ?? senha);
     setEnviando(true);
-    const resultado = await login(email, senha);
+    const resultado = await login(emailEntrada, senhaEntrada);
     setEnviando(false);
 
     if (!resultado.success) {
@@ -42,16 +45,21 @@ export const LotteryLogin: React.FC = () => {
     }
   };
 
-  const criarConta = async (evento: React.FormEvent) => {
+  const criarConta = async (evento: React.FormEvent<HTMLFormElement>) => {
     evento.preventDefault();
+    const dados = new FormData(evento.currentTarget);
+    const emailEntrada = String(dados.get('email') ?? email).trim().toLowerCase();
+    const senhaEntrada = String(dados.get('password') ?? senha);
+    const nomeEntrada = String(dados.get('name') ?? nome).trim();
+    const confirmacaoEntrada = String(dados.get('confirmacao') ?? confirmacao);
 
-    if (senha !== confirmacao) {
+    if (senhaEntrada !== confirmacaoEntrada) {
       toast.error('As senhas não conferem');
       return;
     }
 
     setEnviando(true);
-    const resultado = await register(nome, email, senha);
+    const resultado = await register(nomeEntrada, emailEntrada, senhaEntrada);
     setEnviando(false);
 
     if (!resultado.success) {
@@ -59,17 +67,18 @@ export const LotteryLogin: React.FC = () => {
     }
   };
 
-  const campoSenha = (
+  const campoSenha = (id: string, autoComplete: string) => (
     <div className="relative">
       <Input
-        id="senha"
+        id={id}
+        name="password"
         type={mostrarSenha ? 'text' : 'password'}
         placeholder="Mínimo de 6 caracteres"
         value={senha}
         onChange={(evento) => setSenha(evento.target.value)}
         required
         minLength={6}
-        autoComplete={aba === 'entrar' ? 'current-password' : 'new-password'}
+        autoComplete={autoComplete}
       />
       <button
         type="button"
@@ -117,6 +126,7 @@ export const LotteryLogin: React.FC = () => {
                     <Label htmlFor="email">E-mail</Label>
                     <Input
                       id="email"
+                      name="email"
                       type="email"
                       placeholder="voce@exemplo.com"
                       value={email}
@@ -127,17 +137,9 @@ export const LotteryLogin: React.FC = () => {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="senha">Senha</Label>
-                    {campoSenha}
+                    <Label htmlFor="senha-entrar">Senha</Label>
+                    {campoSenha('senha-entrar', 'current-password')}
                   </div>
-
-                  <Button
-                    type="submit"
-                    className="w-full bg-gradient-to-r from-powerball-navy to-powerball-navy-light hover:opacity-90"
-                    disabled={enviando}
-                  >
-                    {enviando ? 'Entrando...' : 'Entrar'}
-                  </Button>
                 </form>
               </TabsContent>
 
@@ -147,6 +149,7 @@ export const LotteryLogin: React.FC = () => {
                     <Label htmlFor="nome">Nome</Label>
                     <Input
                       id="nome"
+                      name="name"
                       placeholder="Como quer ser chamado"
                       value={nome}
                       onChange={(evento) => setNome(evento.target.value)}
@@ -159,6 +162,7 @@ export const LotteryLogin: React.FC = () => {
                     <Label htmlFor="email-criar">E-mail</Label>
                     <Input
                       id="email-criar"
+                      name="email"
                       type="email"
                       placeholder="voce@exemplo.com"
                       value={email}
@@ -169,8 +173,8 @@ export const LotteryLogin: React.FC = () => {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="senha">Senha</Label>
-                    {campoSenha}
+                    <Label htmlFor="senha-criar">Senha</Label>
+                    {campoSenha('senha-criar', 'new-password')}
                   </div>
 
                   <div className="space-y-1.5">
@@ -178,7 +182,7 @@ export const LotteryLogin: React.FC = () => {
                     <Input
                       id="confirmacao"
                       type={mostrarSenha ? 'text' : 'password'}
-                      placeholder="Repita a senha"
+                      name="confirmacao"
                       value={confirmacao}
                       onChange={(evento) => setConfirmacao(evento.target.value)}
                       required
