@@ -50,16 +50,29 @@ function toNumbers(list) {
 function encodeDraw(lottery, raw) {
   const concurso = Number(raw.concurso);
   const data = String(raw.data ?? '').trim();
-  const dezenas = toNumbers(raw.dezenas);
 
-  if (!Number.isFinite(concurso) || dezenas.length === 0) return null;
+  if (!Number.isFinite(concurso)) return null;
 
-  const base = `${concurso}|${data}|${dezenas.join(',')}`;
-
+  // A Dupla Sena não expõe os sorteios em campos separados: `dezenas` traz os
+  // dois concatenados (6 do 1º sorteio, depois 6 do 2º), cada metade já
+  // ordenada. Ordenar os 12 de uma vez misturaria os sorteios e falsearia
+  // paridade, soma e conferência.
   if (lottery === 'duplasena') {
-    const segundo = toNumbers(raw.dezenasSegundoSorteio ?? raw.listaDezenasSegundoSorteio);
+    const brutas = Array.isArray(raw.dezenas) ? raw.dezenas.map(Number) : [];
+    const metade = Math.floor(brutas.length / 2);
+    const primeiro = brutas.slice(0, metade).sort((a, b) => a - b);
+    const segundo = brutas.slice(metade).sort((a, b) => a - b);
+
+    if (primeiro.length === 0) return null;
+
+    const base = `${concurso}|${data}|${primeiro.join(',')}`;
     return segundo.length > 0 ? `${base}|${segundo.join(',')}` : base;
   }
+
+  const dezenas = toNumbers(raw.dezenas);
+  if (dezenas.length === 0) return null;
+
+  const base = `${concurso}|${data}|${dezenas.join(',')}`;
 
   if (lottery === 'diadesorte') {
     const mes = String(raw.mesSorte ?? raw.mesDaSorte ?? '').trim();

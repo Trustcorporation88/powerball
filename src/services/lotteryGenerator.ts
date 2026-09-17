@@ -433,6 +433,64 @@ export function generateLotteryGames(
         break;
       }
 
+      case 'random': {
+        // Surpresinha de verdade: sorteio uniforme no volante. Os filtros de
+        // validade ainda se aplicam depois, mas a escolha não é enviesada.
+        while (chosen.size < numbersCount) {
+          chosen.add(allPool[Math.floor(Math.random() * allPool.length)]);
+        }
+        break;
+      }
+
+      case 'parity_sum': {
+        // Monta o bilhete mirando diretamente a paridade e a soma típicas dos
+        // concursos, em vez de torcer para que o sorteio caia na faixa.
+        const { evenRange, sumRange } = scaledRanges(lottery, numbersCount);
+        const alvoPares =
+          evenRange[0] + Math.floor(Math.random() * (evenRange[1] - evenRange[0] + 1));
+
+        const pares = allPool.filter((n) => n % 2 === 0);
+        const impares = allPool.filter((n) => n % 2 !== 0);
+        const paresFixos = Array.from(chosen).filter((n) => n % 2 === 0).length;
+
+        const sortear = (pool: number[], quantos: number) => {
+          const restante = [...pool].filter((n) => !chosen.has(n));
+          for (let k = 0; k < quantos && restante.length > 0; k++) {
+            const idx = Math.floor(Math.random() * restante.length);
+            chosen.add(restante.splice(idx, 1)[0]);
+          }
+        };
+
+        sortear(pares, Math.max(0, alvoPares - paresFixos));
+        sortear(impares, numbersCount - chosen.size);
+
+        // Se a soma escapou da faixa, troca a dezena mais extrema por outra.
+        let tentativasDeAjuste = 0;
+        while (tentativasDeAjuste < 40) {
+          const atual = Array.from(chosen);
+          const soma = atual.reduce((a, b) => a + b, 0);
+          if (soma >= sumRange[0] && soma <= sumRange[1]) break;
+
+          const precisaSubir = soma < sumRange[0];
+          const alvo = precisaSubir
+            ? Math.min(...atual)
+            : Math.max(...atual);
+          const substitutos = allPool.filter(
+            (n) => !chosen.has(n) && n % 2 === alvo % 2 && (precisaSubir ? n > alvo : n < alvo),
+          );
+          if (substitutos.length === 0) break;
+
+          chosen.delete(alvo);
+          chosen.add(substitutos[Math.floor(Math.random() * substitutos.length)]);
+          tentativasDeAjuste++;
+        }
+
+        while (chosen.size < numbersCount) {
+          chosen.add(allPool[Math.floor(Math.random() * allPool.length)]);
+        }
+        break;
+      }
+
       case 'balanced':
       case 'ai_smart':
       default: {

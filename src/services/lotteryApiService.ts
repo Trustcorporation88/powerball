@@ -55,7 +55,21 @@ function toNumbers(list: unknown): number[] {
 /** Converte o payload da Caixa/espelho (que compartilham o mesmo formato) em `LotteryDraw`. */
 export function normalizeDraw(lottery: LotteryType, raw: Record<string, any>): LotteryDraw | null {
   const concurso = Number(raw.numero ?? raw.concurso);
-  const dezenas = toNumbers(raw.listaDezenas ?? raw.dezenas);
+  const brutas = raw.listaDezenas ?? raw.dezenas;
+
+  // A Dupla Sena devolve os dois sorteios concatenados num array único
+  // (6 dezenas do 1º, 6 do 2º). Separar antes de ordenar é obrigatório.
+  let dezenas: number[];
+  let segundoSorteioConcatenado: number[] = [];
+
+  if (lottery === 'duplasena' && Array.isArray(brutas) && brutas.length >= 12) {
+    const numeros = brutas.map((value: unknown) => Number(value));
+    const metade = Math.floor(numeros.length / 2);
+    dezenas = numeros.slice(0, metade).sort((a, b) => a - b);
+    segundoSorteioConcatenado = numeros.slice(metade).sort((a, b) => a - b);
+  } else {
+    dezenas = toNumbers(brutas);
+  }
 
   if (!Number.isFinite(concurso) || dezenas.length === 0) return null;
 
@@ -81,7 +95,10 @@ export function normalizeDraw(lottery: LotteryType, raw: Record<string, any>): L
       : undefined,
   };
 
-  const segundoSorteio = toNumbers(raw.dezenasSegundoSorteio ?? raw.listaDezenasSegundoSorteio);
+  const segundoSorteio =
+    segundoSorteioConcatenado.length > 0
+      ? segundoSorteioConcatenado
+      : toNumbers(raw.dezenasSegundoSorteio ?? raw.listaDezenasSegundoSorteio);
   if (segundoSorteio.length > 0) draw.dezenasSegundoSorteio = segundoSorteio;
 
   const mesSorte = raw.mesSorte ?? raw.nomeTimeCoracaoMesSorte;
