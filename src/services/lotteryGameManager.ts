@@ -1,4 +1,11 @@
-import { GeneratedGame, LotteryDraw, LotteryType, UserSavedGame } from '@/types/lottery';
+import {
+  GeneratedGame,
+  LotteryDraw,
+  LotteryExtraSelection,
+  LotteryType,
+  UserSavedGame,
+} from '@/types/lottery';
+import { LOTTERY_CONFIGS } from '@/constants/lotteryConstants';
 
 const SAVED_GAMES_KEY = 'caixa_lottery_saved_games';
 
@@ -61,46 +68,79 @@ export function toggleBetStatus(gameId: string): boolean {
   return false;
 }
 
-// Conferidor Automático de Jogos com base no Concurso
-export function checkTicketAgainstDraw(
-  gameNumbers: number[],
-  draw: LotteryDraw
-): {
+export interface TicketCheckResult {
   hits: number;
   hitNumbers: number[];
   isWinner: boolean;
   prizeLabel?: string;
-} {
-  const hitNumbers = gameNumbers.filter((n) => draw.dezenas.includes(n));
-  const hits = hitNumbers.length;
-  let isWinner = false;
-  let prizeLabel: string | undefined;
+  /** Acertos no 2º sorteio da Dupla Sena. */
+  secondDrawHits?: number;
+  /** Acertou o Mês da Sorte / os trevos exigidos pela faixa. */
+  extraHit?: boolean;
+}
 
-  if (draw.loteria === 'lotofacil') {
-    if (hits >= 11) {
-      isWinner = true;
-      prizeLabel = `${hits} acertos! Premiado`;
-    }
-  } else if (draw.loteria === 'megasena') {
-    if (hits === 6) {
-      isWinner = true;
-      prizeLabel = 'SENA! (6 acertos)';
-    } else if (hits === 5) {
-      isWinner = true;
-      prizeLabel = 'QUINA! (5 acertos)';
-    } else if (hits === 4) {
-      isWinner = true;
-      prizeLabel = 'QUADRA! (4 acertos)';
-    }
+/**
+ * Conferidor automático, guiado pelas faixas oficiais de cada modalidade.
+ *
+ * Na Dupla Sena o bilhete concorre nos dois sorteios e vale o melhor deles.
+ * Na +Milionária a faixa depende também do número de trevos acertados, e no
+ * Dia de Sorte o Mês da Sorte só muda a faixa máxima.
+ */
+export function checkTicketAgainstDraw(
+  gameNumbers: number[],
+  draw: LotteryDraw,
+  extra?: LotteryExtraSelection,
+): TicketCheckResult {
+  const config = LOTTERY_CONFIGS[draw.loteria];
+
+  const hitNumbers = gameNumbers.filter((n) => draw.dezenas.includes(n));
+  let hits = hitNumbers.length;
+  let secondDrawHits: number | undefined;
+
+  if (config.hasSecondDraw && draw.dezenasSegundoSorteio?.length) {
+    secondDrawHits = gameNumbers.filter((n) => draw.dezenasSegundoSorteio!.includes(n)).length;
+    hits = Math.max(hits, secondDrawHits);
   }
 
-  return { hits, hitNumbers, isWinner, prizeLabel };
+  const trevosAcertados = extra?.trevos?.filter((t) => draw.trevos?.includes(t)).length ?? 0;
+  const mesAcertado = Boolean(extra?.mesSorte && draw.mesSorte && extra.mesSorte === draw.mesSorte);
+  const extraHit = config.extraField
+    ? config.extraField.key === 'trevos'
+      ? trevosAcertados > 0
+      : mesAcertado
+    : undefined;
+
+  // A primeira faixa compatível é a de maior valor, já que prizeTiers vem
+  // ordenada da melhor para a pior.
+  const tier = config.prizeTiers.find((faixa) => {
+    if (hits < faixa.hits) return false;
+    if (faixa.trevos === undefined) return true;
+    return trevosAcertados >= faixa.trevos;
+  });
+
+  return {
+    hits,
+    hitNumbers,
+    isWinner: Boolean(tier),
+    prizeLabel: tier ? `${tier.label} — premiado!` : undefined,
+    secondDrawHits,
+    extraHit,
+  };
+}
+
+/** Descreve o campo extra do bilhete para exportações e listagens. */
+export function describeExtra(game: GeneratedGame): string {
+  if (game.extra?.mesSorte) return `Mês da Sorte: ${game.extra.mesSorte}`;
+  if (game.extra?.trevos?.length) return `Trevos: ${game.extra.trevos.join(' e ')}`;
+  return '';
 }
 
 // Exportador em formato texto para envio fácil no WhatsApp
 export function formatGamesForWhatsApp(games: GeneratedGame[], title?: string): string {
   const lines: string[] = [];
-  lines.push(`🍀 *PALPITES INTELIGENTES - LOTERIAS CAIXA*`);
+  const modalidade = games[0] ? LOTTERY_CONFIGS[games[0].lottery].name : 'Loterias Caixa';
+
+  lines.push(`🍀 *PALPITES INTELIGENTES — ${modalidade.toUpperCase()}*`);
   if (title) lines.push(`📌 *${title}*`);
   lines.push(`📅 Data: ${new Date().toLocaleDateString('pt-BR')}`);
   lines.push(`----------------------------------`);
@@ -111,8 +151,9 @@ export function formatGamesForWhatsApp(games: GeneratedGame[], title?: string): 
     const formattedNums = game.numbers
       .map((n) => String(n).padStart(2, '0'))
       .join(' - ');
+    const extra = describeExtra(game);
     lines.push(
-      `Jogo ${idx + 1} (${game.score} pts): ${formattedNums} [R$ ${game.cost.toFixed(2)}]`
+      `Jogo ${idx + 1} (${game.score} pts): ${formattedNums} [R$ ${game.cost.toFixed(2)}]${extra ? `\n   ${extra}` : ''}`
     );
   });
 
@@ -126,12 +167,12 @@ export function formatGamesForWhatsApp(games: GeneratedGame[], title?: string): 
 // Exportador CSV para abrir direto no Excel / Google Sheets
 export function exportGamesToCSV(games: GeneratedGame[], filename: string = 'apostas.csv') {
   const rows: string[] = [];
-  rows.push('ID;Loteria;Estrategia;Score;Dezenas;Custo;CriadoEm');
+  rows.push('ID;Loteria;Estrategia;Score;Dezenas;Extra;Custo;CriadoEm');
 
   games.forEach((g) => {
     const nums = g.numbers.map((n) => String(n).padStart(2, '0')).join(' ');
     rows.push(
-      `"${g.id}";"${g.lottery}";"${g.strategyLabel}";"${g.score}";"${nums}";"${g.cost.toFixed(2)}";"${g.createdAt}"`
+      `"${g.id}";"${LOTTERY_CONFIGS[g.lottery].name}";"${g.strategyLabel}";"${g.score}";"${nums}";"${describeExtra(g)}";"${g.cost.toFixed(2)}";"${g.createdAt}"`
     );
   });
 

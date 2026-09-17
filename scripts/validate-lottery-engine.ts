@@ -17,6 +17,7 @@ import { readFileSync } from 'node:fs';
 import { LOTTERY_CONFIGS, LOTTERY_ORDER, combinations } from '@/constants/lotteryConstants';
 import { decodeDraw } from '@/data/lotteryHistory';
 import { runBacktest } from '@/services/lotteryBacktest';
+import { getFechamentosByLottery, verifyFechamento } from '@/services/lotteryFechamento';
 import { generateLotteryGames } from '@/services/lotteryGenerator';
 import { calculateLotteryStats } from '@/services/lotteryHistoricalData';
 import { LotteryDraw, LotteryType } from '@/types/lottery';
@@ -105,7 +106,27 @@ async function main(): Promise<void> {
       'campo extra preenchido (Mês da Sorte / Trevos)',
     );
 
-    // 4. Backtest sem lookahead: o aleatório tem que convergir para a teoria
+    // 4. Fechamentos: nenhuma garantia pode ser anunciada sem se sustentar
+    const fechamentos = getFechamentosByLottery(lottery);
+    check(fechamentos.length > 0, `catálogo de fechamentos disponível (${fechamentos.length})`);
+
+    const mentirosos = fechamentos.filter((plano) => !verifyFechamento(plano).ok);
+    check(
+      mentirosos.length === 0,
+      'toda garantia de fechamento se confirma no pior caso',
+      mentirosos
+        .map((p) => `${p.id} entrega ${verifyFechamento(p).piorCaso} e promete ${p.guaranteedHit}`)
+        .join('; '),
+    );
+
+    const custosErrados = fechamentos.filter(
+      (plano) =>
+        Math.abs(plano.totalCost - plano.ticketsCount * config.priceTable[plano.numbersPerTicket]) >
+        0.01,
+    );
+    check(custosErrados.length === 0, 'custo do fechamento bate com a tabela oficial');
+
+    // 5. Backtest sem lookahead: o aleatório tem que convergir para a teoria
     const report = await runBacktest({
       lottery,
       draws,
