@@ -10,6 +10,7 @@ import { LotteryGate } from "./components/lottery/LotteryGate";
 const LotteryPalpites = lazy(() => import("./pages/LotteryPalpites"));
 const LotteryResultado = lazy(() => import("./pages/LotteryResultado"));
 const Termos = lazy(() => import("./pages/Termos"));
+const ComoUsar = lazy(() => import("./pages/ComoUsar"));
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const AppRoutes = () => (
       <Route path="/resultado/:lottery" element={<LotteryResultado />} />
       <Route path="/resultado/:lottery/:concurso" element={<LotteryResultado />} />
       <Route path="/termos" element={<Termos />} />
+      <Route path="/como-usar" element={<ComoUsar />} />
 
       {/* Rotas do painel financeiro antigo: este site é só o Powerball. */}
       <Route path="/login" element={<Navigate to="/" replace />} />

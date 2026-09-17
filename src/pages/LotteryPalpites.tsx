@@ -455,7 +455,10 @@ export default function LotteryPalpites() {
         className="space-y-4"
       >
         <TabsList className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 w-full h-auto p-1 bg-slate-100 dark:bg-slate-900">
-          <TabsTrigger value="como-usar" className="py-2.5 font-semibold text-xs md:text-sm">
+          <TabsTrigger
+            value="como-usar"
+            className="py-2.5 font-semibold text-xs md:text-sm data-[state=active]:bg-powerball-gold data-[state=active]:text-powerball-navy"
+          >
             <LifeBuoy className="h-4 w-4 mr-1.5 text-rose-600" />
             Como Usar
           </TabsTrigger>

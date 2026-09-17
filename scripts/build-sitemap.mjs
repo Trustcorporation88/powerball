@@ -50,7 +50,10 @@ function url(loc, { lastmod, changefreq, priority }) {
 async function main() {
   // O gerador fica atrás de login e aceite do termo, então não entra aqui: o
   // que o Google indexa são as páginas de resultado e o termo de uso.
-  const urls = [url(`${SITE_URL}/termos`, { changefreq: 'monthly', priority: '0.3' })];
+  const urls = [
+    url(`${SITE_URL}/como-usar`, { changefreq: 'monthly', priority: '0.8' }),
+    url(`${SITE_URL}/termos`, { changefreq: 'monthly', priority: '0.3' }),
+  ];
 
   for (const [lottery, slug] of Object.entries(SLUGS)) {
     let file;
