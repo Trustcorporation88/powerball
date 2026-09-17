@@ -9,6 +9,17 @@
 
 const JSONLD_ID = 'seo-jsonld';
 
+/**
+ * Domínio oficial do site. O mesmo build também responde pelo endereço
+ * `*.up.railway.app`, e sem isso cada página teria duas URLs indexáveis com o
+ * mesmo conteúdo. Define `VITE_SITE_URL` em produção para fixar a canônica.
+ */
+const SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/+$/, '') || '';
+
+function siteOrigin(): string {
+  return SITE_URL || window.location.origin;
+}
+
 function upsertMeta(seletor: string, attrs: Record<string, string>): void {
   let tag = document.head.querySelector<HTMLMetaElement>(seletor);
 
@@ -61,7 +72,7 @@ export function applyPageSeo({ title, description, path, jsonLd }: PageSeo): voi
   });
 
   if (path) {
-    const url = `${window.location.origin}${path}`;
+    const url = `${siteOrigin()}${path}`;
     upsertCanonical(url);
     upsertMeta('meta[property="og:url"]', { property: 'og:url', content: url });
   }

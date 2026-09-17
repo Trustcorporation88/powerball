@@ -17,7 +17,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const HISTORY_DIR = resolve(__dirname, '..', 'src', 'data', 'history');
 const OUTPUT = resolve(__dirname, '..', 'public', 'sitemap.xml');
 
-const SITE_URL = (process.env.SITE_URL ?? 'https://play.xbrex.com.br').replace(/\/+$/, '');
+const SITE_URL = (process.env.SITE_URL ?? 'https://powerballbr.com.br').replace(/\/+$/, '');
 
 /** Quantos concursos recentes por modalidade entram no sitemap. */
 const CONCURSOS_POR_MODALIDADE = 150;
