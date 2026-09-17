@@ -45,7 +45,7 @@ pnpm dev               # sobe em http://localhost:8080
 3. **Variáveis** (Settings → Variables do serviço da API):
    - `DATABASE_URL` = `${{ Postgres.DATABASE_URL }}` (referência ao banco)
    - `JWT_SECRET` = uma string longa e aleatória
-   - `CORS_ORIGIN` = a(s) URL(s) do frontend separadas por vírgula, ex.: `https://fin.trustcorp.com.br,https://merry-parrot-scurry.vercel.app`
+   - `CORS_ORIGIN` = as URLs do site, separadas por vírgula, ex.: `https://play.xbrex.com.br,https://powerballbr.com.br,https://www.powerballbr.com.br`
 4. **Gere um domínio** público (Settings → Networking → Generate Domain).
 
 ### Opção B: PostgreSQL hospedado no Supabase
@@ -56,12 +56,9 @@ Você também pode usar o banco gerenciado do **Supabase** conectado à API no *
 
 ---
 
-5. No **Vercel** (ou host do frontend), defina `VITE_API_URL` com a URL pública gerada no Railway (ex.: `https://api-datafin.up.railway.app`) e faça redeploy.
+5. No serviço do **frontend** (`powerball`), defina `VITE_API_URL` com a URL pública gerada no Railway (ex.: `https://sweet-vision-production.up.railway.app`) e faça redeploy.
 
-> Domínio próprio do frontend (`fin.trustcorp.com.br`): adicione-o em
-> **Vercel → Project → Settings → Domains** e crie o registro DNS indicado
-> (normalmente um CNAME `fin` → `cname.vercel-dns.com`). Garanta que esse domínio
-> esteja listado em `CORS_ORIGIN` no serviço da API.
+> Domínio próprio (`powerballbr.com.br`): adicione-o em **Settings → Networking → Custom Domain** no serviço do site. A API recebe o seu em `api.powerballbr.com.br`. Os dois precisam estar em `CORS_ORIGIN`.
 
 O comando de start roda `prisma db push` automaticamente, sincronizando o schema
 com o banco a cada deploy. Healthcheck disponível em `GET /health`.
