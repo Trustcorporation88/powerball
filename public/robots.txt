@@ -12,3 +12,10 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+# O painel financeiro exige login e não tem por que ser rastreado.
+Disallow: /login
+Disallow: /register
+Disallow: /shared/
+
+Sitemap: https://play.xbrex.com.br/sitemap.xml
