@@ -20,6 +20,8 @@ import {
   executeFechamento,
   getFechamentosByLottery,
 } from '@/services/lotteryFechamento';
+import { isCloudSyncAvailable, syncWallet } from '@/services/lotteryCloudSync';
+import { verificarNovosResultados } from '@/services/lotteryNotifications';
 import {
   getSavedGames,
   saveGame,
@@ -37,6 +39,7 @@ import { BacktestPanel } from '@/components/lottery/BacktestPanel';
 import { BolaoPanel } from '@/components/lottery/BolaoPanel';
 import { ResponsibleGamingCard } from '@/components/lottery/ResponsibleGamingCard';
 import { ExtraFieldPicker } from '@/components/lottery/ExtraFieldPicker';
+import { InstallAppCard } from '@/components/lottery/InstallAppCard';
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -125,6 +128,20 @@ export default function LotteryPalpites() {
   // Recarrega jogos salvos
   useEffect(() => {
     setSavedGames(getSavedGames());
+
+    // Quem ativou os avisos é notificado dos concursos que saíram enquanto o
+    // app estava fechado.
+    void verificarNovosResultados();
+
+    // Com login e backend configurados, a carteira acompanha o usuário entre
+    // os aparelhos. Sem isso o site segue funcionando só com o armazenamento local.
+    if (isCloudSyncAvailable()) {
+      void syncWallet().then((resultado) => {
+        if (resultado.status === 'sincronizado' && resultado.games) {
+          setSavedGames(resultado.games);
+        }
+      });
+    }
   }, []);
 
   const loadLotteryData = async (lottery: LotteryType) => {
@@ -401,6 +418,8 @@ export default function LotteryPalpites() {
           </CardContent>
         </Card>
       )}
+
+      <InstallAppCard />
 
       {/* Navegação por Abas Principais */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
