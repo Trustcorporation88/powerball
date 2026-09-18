@@ -51,7 +51,7 @@ const PASSOS = [
     icone: Wallet,
     titulo: 'Guarde na Carteira',
     texto:
-      'Salvar não custa nada e é o que faz a conferência automática funcionar depois. Marque como "apostado" só o que você realmente jogou na lotérica ou no app da Caixa.',
+      'Gerar ou enviar pelo WhatsApp já grava na Carteira. É o único lugar que resta quando você sai e volta: conferência, apostado e exportação.',
   },
   {
     icone: CheckCircle2,

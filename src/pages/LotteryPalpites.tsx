@@ -21,7 +21,7 @@ import {
   executeFechamento,
   getFechamentosByLottery,
 } from '@/services/lotteryFechamento';
-import { isCloudSyncAvailable, syncWallet } from '@/services/lotteryCloudSync';
+import { isCloudSyncAvailable, pushWallet, syncWallet } from '@/services/lotteryCloudSync';
 import { verificarNovosResultados } from '@/services/lotteryNotifications';
 import {
   getSavedGames,
@@ -109,7 +109,7 @@ export default function LotteryPalpites() {
   const [fechamentoGames, setFechamentoGames] = useState<GeneratedGame[]>([]);
 
   // Carteira de Jogos Salvos
-  const [savedGames, setSavedGames] = useState<UserSavedGame[]>([]);
+  const [savedGames, setSavedGames] = useState<UserSavedGame[]>(() => getSavedGames());
 
   // Modal Raio-X
   const [inspectGame, setInspectGame] = useState<GeneratedGame | null>(null);
@@ -219,7 +219,10 @@ export default function LotteryPalpites() {
           stats
         );
         setGeneratedGames(results);
-        toast.success(`${results.length} jogos gerados com alta eficiência estatística!`);
+        guardarNaCarteira(results);
+        toast.success(
+          `${results.length} jogos gerados e guardados na Carteira. Você encontra eles na aba Carteira.`,
+        );
       } catch (err: any) {
         toast.error(err.message || 'Erro ao gerar palpites');
       } finally {
@@ -242,8 +245,9 @@ export default function LotteryPalpites() {
     try {
       const tickets = executeFechamento(selectedFechamento, fechamentoPool, stats);
       setFechamentoGames(tickets);
+      guardarNaCarteira(tickets);
       toast.success(
-        `Fechamento de ${tickets.length} bilhetes gerado! Garantia de ${selectedFechamento.guaranteedHit} pontos.`
+        `Fechamento de ${tickets.length} bilhetes guardado na Carteira. Garantia de ${selectedFechamento.guaranteedHit} pontos.`,
       );
     } catch (err: any) {
       toast.error(err.message || 'Erro ao gerar fechamento');
@@ -263,29 +267,42 @@ export default function LotteryPalpites() {
     toast.success(`Selecionadas as ${sorted.length} dezenas mais quentes do histórico!`);
   };
 
+  const guardarNaCarteira = (games: GeneratedGame[]) => {
+    if (games.length === 0) return;
+    games.forEach((game) => saveGame(game));
+    const carteira = getSavedGames();
+    setSavedGames(carteira);
+    void pushWallet(carteira);
+  };
+
   // Salvar jogo na carteira
   const handleSaveGame = (game: GeneratedGame) => {
-    const saved = saveGame(game);
-    setSavedGames(getSavedGames());
-    toast.success('Jogo salvo na sua carteira!');
+    guardarNaCarteira([game]);
+    toast.success('Jogo salvo na Carteira.');
   };
 
   const handleRemoveSavedGame = (id: string) => {
     removeSavedGame(id);
-    setSavedGames(getSavedGames());
+    const carteira = getSavedGames();
+    setSavedGames(carteira);
+    void pushWallet(carteira);
     toast.info('Jogo removido da carteira.');
   };
 
   const handleToggleBet = (id: string) => {
     toggleBetStatus(id);
-    setSavedGames(getSavedGames());
+    const carteira = getSavedGames();
+    setSavedGames(carteira);
+    void pushWallet(carteira);
   };
 
-  // Compartilhar WhatsApp
+  // Compartilhar WhatsApp — também grava na Carteira, senão o envio some ao sair.
   const handleShareWhatsApp = (games: GeneratedGame[]) => {
+    guardarNaCarteira(games);
     const text = formatGamesForWhatsApp(games, `${config.fullName} - ${games.length} Jogos`);
     const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
     window.open(url, '_blank');
+    toast.success(`${games.length} jogos guardados na Carteira e enviados no WhatsApp.`);
   };
 
   return (
@@ -720,6 +737,19 @@ export default function LotteryPalpites() {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => {
+                      guardarNaCarteira(generatedGames);
+                      toast.success(`${generatedGames.length} jogos na Carteira.`);
+                      setActiveTab('carteira');
+                    }}
+                    className="text-xs"
+                  >
+                    <BookmarkCheck className="h-3.5 w-3.5 mr-1" />
+                    Ver na Carteira
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => exportGamesToCSV(generatedGames, `${selectedLottery}-palpites.csv`)}
                     className="text-xs"
                   >
@@ -984,6 +1014,19 @@ export default function LotteryPalpites() {
                   <Button
                     variant="outline"
                     size="sm"
+                    onClick={() => {
+                      guardarNaCarteira(fechamentoGames);
+                      toast.success(`${fechamentoGames.length} bilhetes na Carteira.`);
+                      setActiveTab('carteira');
+                    }}
+                    className="text-xs"
+                  >
+                    <BookmarkCheck className="h-3.5 w-3.5 mr-1" />
+                    Ver na Carteira
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() =>
                       exportGamesToCSV(fechamentoGames, `fechamento-${selectedLottery}.csv`)
                     }
@@ -1168,8 +1211,8 @@ export default function LotteryPalpites() {
                 <BookmarkCheck className="h-10 w-10 mx-auto text-slate-400" />
                 <h4 className="font-semibold text-base">Sua carteira está vazia</h4>
                 <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                  Gere combinações inteligentes pelo Gerador ou pelos Fechamentos e salve-os aqui
-                  para conferir os resultados!
+                  Gerar no Gerador ou nos Fechamentos já guarda os bilhetes aqui, e o envio pelo
+                  WhatsApp também. A Carteira é o único lugar que resta depois que você sai e volta.
                 </p>
                 <Button onClick={() => setActiveTab('gerador')} size="sm">
                   Criar Primeiros Palpites
