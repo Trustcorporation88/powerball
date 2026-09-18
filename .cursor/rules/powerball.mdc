@@ -1,0 +1,12 @@
+---
+description: Repositório canônico do Powerball
+alwaysApply: true
+---
+
+Este produto é o Powerball (palpites das Loterias Caixa).
+
+- Repositório: https://github.com/Trustcorporation88/powerball
+- Branch de produção: `main`
+- Railway, PRs, DNS e git remote usam só esse repositório.
+
+Nunca trate outro repositório como fonte deste site. Não abra PR, não aponte o Railway e não peça merge em outro GitHub.
