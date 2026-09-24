@@ -400,53 +400,59 @@ export interface StatusModalidade {
 const PUBLICACAO_TOLERANCIA_MS = 6 * 60 * 60 * 1000;
 
 export async function statusDasModalidades(agora = Date.now()): Promise<StatusModalidade[]> {
-  return Promise.all(
-    LOTTERIES.map(async (lottery) => {
-      const [ok, tentativa, primeira, maisRecente] = await Promise.all([
-        prisma.lotterySyncLog.findFirst({
-          where: { lottery, ok: true },
-          orderBy: { startedAt: "desc" },
-        }),
-        prisma.lotterySyncLog.findFirst({ where: { lottery }, orderBy: { startedAt: "desc" } }),
-        prisma.lotterySyncLog.findFirst({ where: { lottery }, orderBy: { startedAt: "asc" } }),
-        prisma.lotteryDrawCache.findFirst({ where: { lottery }, orderBy: { concurso: "desc" } }),
-      ]);
+  const lista: StatusModalidade[] = [];
+  // Uma modalidade por vez: seis em paralelo somam 24 consultas e esgotam o
+  // pool pequeno do Supabase.
+  for (const lottery of LOTTERIES) {
+    lista.push(await statusDaModalidade(lottery, agora));
+  }
+  return lista;
+}
 
-      const dataProximo = premioDoPayload(maisRecente?.payload).dataProximoConcurso ?? null;
-      const momentoProximo = momentoDoSorteio(dataProximo);
-
-      // A janela conta da última resposta boa ou, sem nenhuma, da primeira
-      // tentativa: uma falha isolada logo depois do deploy não é alerta.
-      const referencia = ok?.finishedAt ?? primeira?.startedAt ?? null;
-      const fonteSemResposta = Boolean(
-        referencia && agora - referencia.getTime() > SEM_RESPOSTA_ALERTA_MS,
-      );
-      const resultadoAtrasado =
-        momentoProximo !== null && agora > momentoProximo + PUBLICACAO_TOLERANCIA_MS;
-
-      let alerta: string | null = null;
-      if (fonteSemResposta) {
-        alerta = ok
-          ? `Nenhuma fonte responde desde ${ok.finishedAt.toISOString()}.`
-          : "Nenhuma fonte respondeu desde que a API subiu.";
-      } else if (resultadoAtrasado) {
-        alerta = `O sorteio de ${dataProximo} já aconteceu e o resultado ainda não chegou.`;
-      }
-
-      return {
-        lottery,
-        nome: NOMES[lottery],
-        ultimoConcurso: maisRecente?.concurso ?? null,
-        dataUltimoConcurso: maisRecente?.data ?? null,
-        dataProximoConcurso: dataProximo,
-        ultimaSincronizacaoOk: ok?.finishedAt.toISOString() ?? null,
-        fonteUltimaSincronizacao: ok?.source ?? null,
-        ultimaTentativa: tentativa?.finishedAt.toISOString() ?? null,
-        ultimoErro: tentativa && !tentativa.ok ? tentativa.error : null,
-        fonteSemResposta,
-        resultadoAtrasado,
-        alerta,
-      };
+async function statusDaModalidade(lottery: Lottery, agora: number): Promise<StatusModalidade> {
+  const [ok, tentativa, primeira, maisRecente] = await Promise.all([
+    prisma.lotterySyncLog.findFirst({
+      where: { lottery, ok: true },
+      orderBy: { startedAt: "desc" },
     }),
+    prisma.lotterySyncLog.findFirst({ where: { lottery }, orderBy: { startedAt: "desc" } }),
+    prisma.lotterySyncLog.findFirst({ where: { lottery }, orderBy: { startedAt: "asc" } }),
+    prisma.lotteryDrawCache.findFirst({ where: { lottery }, orderBy: { concurso: "desc" } }),
+  ]);
+
+  const dataProximo = premioDoPayload(maisRecente?.payload).dataProximoConcurso ?? null;
+  const momentoProximo = momentoDoSorteio(dataProximo);
+
+  // A janela conta da última resposta boa ou, sem nenhuma, da primeira
+  // tentativa: uma falha isolada logo depois do deploy não é alerta.
+  const referencia = ok?.finishedAt ?? primeira?.startedAt ?? null;
+  const fonteSemResposta = Boolean(
+    referencia && agora - referencia.getTime() > SEM_RESPOSTA_ALERTA_MS,
   );
+  const resultadoAtrasado =
+    momentoProximo !== null && agora > momentoProximo + PUBLICACAO_TOLERANCIA_MS;
+
+  let alerta: string | null = null;
+  if (fonteSemResposta) {
+    alerta = ok
+      ? `Nenhuma fonte responde desde ${ok.finishedAt.toISOString()}.`
+      : "Nenhuma fonte respondeu desde que a API subiu.";
+  } else if (resultadoAtrasado) {
+    alerta = `O sorteio de ${dataProximo} já aconteceu e o resultado ainda não chegou.`;
+  }
+
+  return {
+    lottery,
+    nome: NOMES[lottery],
+    ultimoConcurso: maisRecente?.concurso ?? null,
+    dataUltimoConcurso: maisRecente?.data ?? null,
+    dataProximoConcurso: dataProximo,
+    ultimaSincronizacaoOk: ok?.finishedAt.toISOString() ?? null,
+    fonteUltimaSincronizacao: ok?.source ?? null,
+    ultimaTentativa: tentativa?.finishedAt.toISOString() ?? null,
+    ultimoErro: tentativa && !tentativa.ok ? tentativa.error : null,
+    fonteSemResposta,
+    resultadoAtrasado,
+    alerta,
+  };
 }
