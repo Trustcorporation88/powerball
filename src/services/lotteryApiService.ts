@@ -237,10 +237,12 @@ export async function getLotteryHistory(
   const proxyDraws = await fetchFromProxy(lottery, 1000);
   if (proxyDraws.length > 0) {
     draws = mergeDraws(proxyDraws, draws);
-    saveCachedDraws(lottery, draws);
-    return { lottery, draws, source: 'proxy', lastUpdated: new Date().toISOString() };
+    source = 'proxy';
   }
 
+  // O proxy devolve o que está no banco. Se a sincronização atrasou, o
+  // concurso da Carteira fica parado. A Caixa e o espelho, chamados daqui do
+  // navegador, trazem o sorteio do dia e entram na frente do cache.
   const known = draws[0]?.concurso ?? 0;
 
   let latest = await fetchLatestFromCaixa(lottery);

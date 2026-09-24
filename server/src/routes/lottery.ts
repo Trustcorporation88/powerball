@@ -181,7 +181,6 @@ async function refreshLottery(lottery: Lottery, app: FastifyInstance): Promise<v
   const agora = Date.now();
   const anterior = ultimaAtualizacao.get(lottery) ?? 0;
   if (agora - anterior < REFRESH_INTERVAL_MS) return;
-  ultimaAtualizacao.set(lottery, agora);
 
   const total = await prisma.lotteryDrawCache.count({ where: { lottery } });
 
@@ -192,6 +191,7 @@ async function refreshLottery(lottery: Lottery, app: FastifyInstance): Promise<v
         .map((raw) => normalize(lottery, raw))
         .filter((draw): draw is NormalizedDraw => draw !== null);
       await persistDraws(draws);
+      ultimaAtualizacao.set(lottery, Date.now());
       app.log.info(`[loterias] carga inicial de ${lottery}: ${draws.length} concursos`);
       return;
     }
@@ -222,6 +222,7 @@ async function refreshLottery(lottery: Lottery, app: FastifyInstance): Promise<v
   }
 
   await persistDraws(pendentes);
+  ultimaAtualizacao.set(lottery, Date.now());
 }
 
 export async function lotteryRoutes(app: FastifyInstance): Promise<void> {
@@ -234,9 +235,12 @@ export async function lotteryRoutes(app: FastifyInstance): Promise<void> {
     const parsed = historyQuerySchema.safeParse(request.query);
     const limit = parsed.success ? (parsed.data.limit ?? 1000) : 1000;
 
-    // A atualização não pode bloquear a resposta: se a Caixa estiver lenta,
-    // o visitante ainda recebe o que já está em cache.
-    void refreshLottery(lottery, app).catch((error) => app.log.warn(error));
+    // Espera a sincronização do concurso do dia. Se a fonte externa travar,
+    // responde com o cache em vez de deixar a Carteira no concurso antigo.
+    await Promise.race([
+      refreshLottery(lottery, app).catch((error) => app.log.warn(error)),
+      new Promise((resolve) => setTimeout(resolve, 8000)),
+    ]);
 
     const registros = await prisma.lotteryDrawCache.findMany({
       where: { lottery },
@@ -245,7 +249,7 @@ export async function lotteryRoutes(app: FastifyInstance): Promise<void> {
     });
 
     return reply
-      .header("Cache-Control", "public, max-age=300")
+      .header("Cache-Control", "public, max-age=60")
       .send({
         lottery,
         total: registros.length,
