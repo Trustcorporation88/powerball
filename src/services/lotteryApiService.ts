@@ -83,7 +83,9 @@ export function normalizeDraw(lottery: LotteryType, raw: Record<string, any>): L
     acumulou: Boolean(raw.acumulou ?? raw.acumulado),
     valorAcumuladoProximoConcurso: Number(raw.valorAcumuladoProximoConcurso ?? 0),
     dataProximoConcurso: raw.dataProximoConcurso,
-    estimativaProximoPremio: Number(raw.valorEstimadoProximoConcurso ?? 0),
+    estimativaProximoPremio: Number(
+      raw.valorEstimadoProximoConcurso ?? raw.estimativaProximoPremio ?? 0,
+    ),
     arrecadacaoTotal: Number(raw.valorArrecadado ?? 0),
     premiacoes: Array.isArray(raw.premiacoes ?? raw.listaRateioPremio)
       ? (raw.premiacoes ?? raw.listaRateioPremio).map((item: any) => ({
@@ -146,11 +148,20 @@ export function mergeDraws(...lists: LotteryDraw[][]): LotteryDraw[] {
   for (const list of lists) {
     for (const draw of list) {
       const existing = byConcurso.get(draw.concurso);
-      // Registros ao vivo trazem premiação e local; não deixamos o bundle
-      // sobrescrever um registro mais rico.
-      if (!existing || (!existing.premiacoes && draw.premiacoes)) {
-        byConcurso.set(draw.concurso, existing ? { ...existing, ...draw } : draw);
+      if (!existing) {
+        byConcurso.set(draw.concurso, draw);
+        continue;
       }
+
+      const merged = { ...existing };
+      if (!existing.premiacoes?.length && draw.premiacoes?.length) {
+        merged.premiacoes = draw.premiacoes;
+      }
+      if (!existing.estimativaProximoPremio && draw.estimativaProximoPremio) {
+        merged.estimativaProximoPremio = draw.estimativaProximoPremio;
+      }
+      if (!existing.local && draw.local) merged.local = draw.local;
+      byConcurso.set(draw.concurso, merged);
     }
   }
 

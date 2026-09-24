@@ -405,8 +405,8 @@ export default function LotteryPalpites() {
                 </div>
                 <div className="text-2xl font-extrabold mt-1">
                   {latestDraw.estimativaProximoPremio
-                    ? `Prêmio Estimado: R$ ${(latestDraw.estimativaProximoPremio / 1000000).toFixed(1)} Milhões`
-                    : 'Premiação Oficial Caixa'}
+                    ? `Próximo prêmio: ${latestDraw.estimativaProximoPremio.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}`
+                    : 'Premiação oficial da Caixa'}
                 </div>
                 <p className="text-xs text-slate-400 mt-0.5">
                   Realizado em {latestDraw.data} • {latestDraw.local || 'Espaço da Sorte, SP'}
@@ -459,6 +459,38 @@ export default function LotteryPalpites() {
                 )}
               </div>
             </div>
+
+            {latestDraw.premiacoes?.length ? (
+              <div className="mt-4 overflow-x-auto rounded-lg border border-white/10">
+                <table className="w-full text-xs">
+                  <thead className="text-slate-400 uppercase">
+                    <tr>
+                      <th className="text-left font-semibold px-3 py-2">Faixa deste concurso</th>
+                      <th className="text-right font-semibold px-3 py-2">Ganhadores</th>
+                      <th className="text-right font-semibold px-3 py-2">Prêmio</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {latestDraw.premiacoes.map((faixa, idx) => (
+                      <tr key={`${faixa.faixa}-${idx}`} className="border-t border-white/10">
+                        <td className="px-3 py-1.5">{faixa.descricao}</td>
+                        <td className="px-3 py-1.5 text-right tabular-nums">
+                          {faixa.ganhadores.toLocaleString('pt-BR')}
+                        </td>
+                        <td className="px-3 py-1.5 text-right tabular-nums">
+                          {faixa.valorPremio > 0
+                            ? faixa.valorPremio.toLocaleString('pt-BR', {
+                                style: 'currency',
+                                currency: 'BRL',
+                              })
+                            : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       )}

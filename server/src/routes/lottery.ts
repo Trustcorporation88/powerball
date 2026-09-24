@@ -104,6 +104,9 @@ interface NormalizedDraw {
   trevos: number[] | null;
   acumulou: boolean;
   premiacoes: unknown;
+  estimativaProximoPremio: number;
+  valorAcumuladoProximoConcurso: number;
+  dataProximoConcurso: string | null;
 }
 
 function normalize(lottery: Lottery, raw: any): NormalizedDraw | null {
@@ -141,6 +144,53 @@ function normalize(lottery: Lottery, raw: any): NormalizedDraw | null {
     trevos: trevos.length > 0 ? trevos : null,
     acumulou: Boolean(raw?.acumulou ?? raw?.acumulado),
     premiacoes: raw?.premiacoes ?? raw?.listaRateioPremio ?? null,
+    estimativaProximoPremio: Number(
+      raw?.valorEstimadoProximoConcurso ?? raw?.estimativaProximoPremio ?? 0,
+    ),
+    valorAcumuladoProximoConcurso: Number(raw?.valorAcumuladoProximoConcurso ?? 0),
+    dataProximoConcurso: raw?.dataProximoConcurso ? String(raw.dataProximoConcurso) : null,
+  };
+}
+
+function premioDoPayload(payload: unknown): {
+  estimativaProximoPremio?: number;
+  valorAcumuladoProximoConcurso?: number;
+  dataProximoConcurso?: string;
+} {
+  if (!payload || typeof payload !== "object") return {};
+  const dados = payload as Record<string, unknown>;
+  return {
+    estimativaProximoPremio: Number(dados.estimativaProximoPremio ?? 0) || undefined,
+    valorAcumuladoProximoConcurso: Number(dados.valorAcumuladoProximoConcurso ?? 0) || undefined,
+    dataProximoConcurso:
+      typeof dados.dataProximoConcurso === "string" ? dados.dataProximoConcurso : undefined,
+  };
+}
+
+function concursoPublico(registro: {
+  concurso: number;
+  data: string;
+  dezenas: unknown;
+  dezenas2: unknown;
+  mesSorte: string | null;
+  trevos: unknown;
+  acumulou: boolean;
+  premiacoes: unknown;
+  payload: unknown;
+}) {
+  const premio = premioDoPayload(registro.payload);
+  return {
+    concurso: registro.concurso,
+    data: registro.data,
+    dezenas: registro.dezenas,
+    dezenasSegundoSorteio: registro.dezenas2 ?? undefined,
+    mesSorte: registro.mesSorte ?? undefined,
+    trevos: registro.trevos ?? undefined,
+    acumulou: registro.acumulou,
+    premiacoes: registro.premiacoes ?? undefined,
+    valorEstimadoProximoConcurso: premio.estimativaProximoPremio,
+    valorAcumuladoProximoConcurso: premio.valorAcumuladoProximoConcurso,
+    dataProximoConcurso: premio.dataProximoConcurso,
   };
 }
 
@@ -158,6 +208,11 @@ async function persistDraws(draws: NormalizedDraw[]): Promise<void> {
         trevos: draw.trevos ?? undefined,
         acumulou: draw.acumulou,
         premiacoes: (draw.premiacoes as any) ?? undefined,
+        payload: {
+          estimativaProximoPremio: draw.estimativaProximoPremio,
+          valorAcumuladoProximoConcurso: draw.valorAcumuladoProximoConcurso,
+          dataProximoConcurso: draw.dataProximoConcurso,
+        },
       },
       update: {
         data: draw.data,
@@ -167,6 +222,11 @@ async function persistDraws(draws: NormalizedDraw[]): Promise<void> {
         trevos: draw.trevos ?? undefined,
         acumulou: draw.acumulou,
         premiacoes: (draw.premiacoes as any) ?? undefined,
+        payload: {
+          estimativaProximoPremio: draw.estimativaProximoPremio,
+          valorAcumuladoProximoConcurso: draw.valorAcumuladoProximoConcurso,
+          dataProximoConcurso: draw.dataProximoConcurso,
+        },
       },
     });
   }
@@ -253,16 +313,7 @@ export async function lotteryRoutes(app: FastifyInstance): Promise<void> {
       .send({
         lottery,
         total: registros.length,
-        draws: registros.map((registro) => ({
-          concurso: registro.concurso,
-          data: registro.data,
-          dezenas: registro.dezenas,
-          dezenasSegundoSorteio: registro.dezenas2 ?? undefined,
-          mesSorte: registro.mesSorte ?? undefined,
-          trevos: registro.trevos ?? undefined,
-          acumulou: registro.acumulou,
-          premiacoes: registro.premiacoes ?? undefined,
-        })),
+        draws: registros.map(concursoPublico),
       });
   });
 
@@ -283,16 +334,7 @@ export async function lotteryRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(503).send({ message: "Resultado ainda não disponível" });
     }
 
-    return reply.header("Cache-Control", "public, max-age=120").send({
-      concurso: registro.concurso,
-      data: registro.data,
-      dezenas: registro.dezenas,
-      dezenasSegundoSorteio: registro.dezenas2 ?? undefined,
-      mesSorte: registro.mesSorte ?? undefined,
-      trevos: registro.trevos ?? undefined,
-      acumulou: registro.acumulou,
-      premiacoes: registro.premiacoes ?? undefined,
-    });
+    return reply.header("Cache-Control", "public, max-age=120").send(concursoPublico(registro));
   });
 
   app.get("/lottery/:lottery/:concurso", async (request, reply) => {
@@ -328,16 +370,7 @@ export async function lotteryRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(404).send({ message: "Concurso não encontrado" });
     }
 
-    return reply.header("Cache-Control", "public, max-age=86400").send({
-      concurso: registro.concurso,
-      data: registro.data,
-      dezenas: registro.dezenas,
-      dezenasSegundoSorteio: registro.dezenas2 ?? undefined,
-      mesSorte: registro.mesSorte ?? undefined,
-      trevos: registro.trevos ?? undefined,
-      acumulou: registro.acumulou,
-      premiacoes: registro.premiacoes ?? undefined,
-    });
+    return reply.header("Cache-Control", "public, max-age=86400").send(concursoPublico(registro));
   });
 
   /* ---------------------------------------------------------------- *
