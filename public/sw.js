@@ -12,7 +12,7 @@
  * caches antigos sejam descartados na ativação.
  */
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const SHELL_CACHE = `loterias-shell-${CACHE_VERSION}`;
 const ASSET_CACHE = `loterias-assets-${CACHE_VERSION}`;
 
