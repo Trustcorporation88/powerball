@@ -18,7 +18,7 @@ ou planilhas.
 | `JWT_SECRET`    | Segredo para assinar os tokens. No Railway: `${{ secret(44, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789") }}` |
 | `PORT`          | Injetada pelo Railway |
 | `CORS_ORIGIN`   | `https://play.xbrex.com.br,https://powerballbr.com.br,https://www.powerballbr.com.br` |
-| `APP_URL`       | Endereço do site, usado no link de nova senha. Padrão `https://powerballbr.com.br` |
+| `APP_URL`       | Endereço do site para o link de nova senha quando o pedido não vem de um endereço do `CORS_ORIGIN`. Padrão `https://powerballbr.com.br` |
 | `RESEND_API_KEY`| Chave da [Resend](https://resend.com). Sem ela, "Esqueci minha senha" avisa que não está configurado |
 | `MAIL_FROM`     | Remetente, num domínio verificado na Resend. Padrão `Powerball <nao-responda@powerballbr.com.br>` |
 | `ALERT_WEBHOOK_URL` | Opcional. Webhook do Discord ou do Slack avisado quando os resultados param de chegar |

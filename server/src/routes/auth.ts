@@ -3,7 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { authGuard, hashPassword, verifyPassword, type JwtUser } from "../auth.js";
-import { env } from "../env.js";
+import { env, parseCorsOrigin } from "../env.js";
 import { emailConfigurado, enviarEmail } from "../mail.js";
 
 const RESET_VALIDADE_MS = 60 * 60 * 1000;
@@ -20,6 +20,19 @@ const resetSchema = z.object({
 
 function hashDoToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
+}
+
+/**
+ * O link volta para o endereço de onde a pessoa pediu, se ele estiver na
+ * lista explícita do CORS. Com CORS aberto ("*") vale só o APP_URL: senão
+ * qualquer site poderia pedir um link que leva o token da vítima para ele.
+ */
+function enderecoDoSite(origem: string | undefined): string {
+  const permitidas = parseCorsOrigin(env.CORS_ORIGIN);
+  if (origem && Array.isArray(permitidas) && permitidas.includes(origem)) {
+    return origem.replace(/\/+$/, "");
+  }
+  return env.APP_URL;
 }
 
 function escaparHtml(texto: string): string {
@@ -131,7 +144,7 @@ export async function authRoutes(app: FastifyInstance): Promise<void> {
       },
     });
 
-    const link = `${env.APP_URL}/redefinir-senha?token=${token}`;
+    const link = `${enderecoDoSite(request.headers.origin)}/redefinir-senha?token=${token}`;
     const nome = escaparHtml(user.name.split(" ")[0] ?? "");
 
     try {
