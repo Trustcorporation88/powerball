@@ -52,6 +52,7 @@ async function main() {
   // que o Google indexa são as páginas de resultado e o termo de uso.
   const urls = [
     url(`${SITE_URL}/como-usar`, { changefreq: 'monthly', priority: '0.8' }),
+    url(`${SITE_URL}/transparencia`, { changefreq: 'daily', priority: '0.7' }),
     url(`${SITE_URL}/termos`, { changefreq: 'monthly', priority: '0.3' }),
   ];
 
@@ -74,6 +75,11 @@ async function main() {
         lastmod: concursos[0]?.lastmod ?? undefined,
         changefreq: 'daily',
         priority: '0.9',
+      }),
+      url(`${SITE_URL}/resultados/${slug}`, {
+        lastmod: concursos[0]?.lastmod ?? undefined,
+        changefreq: 'daily',
+        priority: '0.8',
       }),
     );
 

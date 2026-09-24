@@ -19,5 +19,6 @@ Disallow: /register
 Disallow: /shared/
 Disallow: /loterias
 Disallow: /loterias-publico
+Disallow: /redefinir-senha
 
 Sitemap: https://powerballbr.com.br/sitemap.xml

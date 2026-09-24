@@ -1,4 +1,4 @@
-import { LotteryType } from '@/types/lottery';
+import { LotteryType, UserSavedGame } from '@/types/lottery';
 import { LOTTERY_CONFIGS, LOTTERY_ORDER } from '@/constants/lotteryConstants';
 import { getLotteryHistory } from '@/services/lotteryApiService';
 
@@ -87,6 +87,59 @@ async function notificar(titulo: string, corpo: string, url: string, tag: string
   }
 
   await registro.showNotification(titulo, { body: corpo, tag, data: { url } });
+}
+
+function formatarReais(valor: number): string {
+  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+/** Frase curta com o resultado de um bilhete já conferido. */
+export function descreverConferencia(game: UserSavedGame): string {
+  const resultado = game.checkResult;
+  if (!resultado) return '';
+  const nome = LOTTERY_CONFIGS[game.lottery].name;
+  const base = `${nome} ${resultado.drawNumber}: ${resultado.hits} acertos`;
+  if (!resultado.isWinner) return base;
+  return resultado.valorPremio
+    ? `${base} — premiado, ${formatarReais(resultado.valorPremio)}`
+    : `${base} — premiado!`;
+}
+
+/**
+ * Avisa sobre bilhetes que acabaram de ser conferidos: uma notificação por
+ * bilhete premiado e, se nenhum ganhou, um resumo com o melhor resultado.
+ */
+export async function notificarConferencia(conferidos: UserSavedGame[]): Promise<void> {
+  if (conferidos.length === 0 || !notificacoesAtivadas()) return;
+
+  const premiados = conferidos.filter((game) => game.checkResult?.isWinner);
+
+  try {
+    if (premiados.length > 0) {
+      for (const game of premiados.slice(0, 5)) {
+        const resultado = game.checkResult!;
+        await notificar(
+          `Seu bilhete fez ${resultado.hits} pontos!`,
+          `${descreverConferencia(game)}. Confira na Carteira e no site da Caixa.`,
+          '/',
+          `premio-${game.id}`,
+        );
+      }
+      return;
+    }
+
+    const melhor = conferidos.reduce((a, b) =>
+      (b.checkResult?.hits ?? 0) > (a.checkResult?.hits ?? 0) ? b : a,
+    );
+    await notificar(
+      `${conferidos.length} bilhete(s) conferido(s)`,
+      `Nenhum premiado desta vez. Melhor resultado — ${descreverConferencia(melhor)}.`,
+      '/',
+      `conferencia-${melhor.checkResult?.drawNumber ?? ''}`,
+    );
+  } catch {
+    // Sem service worker pronto o aviso fica só na tela.
+  }
 }
 
 /**

@@ -57,7 +57,7 @@ const PASSOS = [
     icone: CheckCircle2,
     titulo: 'Confira o resultado',
     texto:
-      'Assim que o concurso sai, a Carteira compara seus jogos com o sorteio oficial e mostra acertos e faixa premiada. Você não precisa conferir dezena por dezena.',
+      'Cada jogo fica ligado ao concurso para o qual foi feito. Quando esse sorteio sai, a Carteira confere sozinha, mostra acertos, faixa e prêmio, e avisa você. Dá para trocar o concurso de um bilhete pelo botão Alterar.',
   },
 ];
 

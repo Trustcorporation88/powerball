@@ -25,9 +25,16 @@ export function saveGame(game: GeneratedGame, notes?: string): UserSavedGame {
   const current = getSavedGames();
   const existingIdx = current.findIndex((g) => g.id === game.id);
 
+  const existing = existingIdx >= 0 ? current[existingIdx] : undefined;
+
+  // Regravar o mesmo bilhete (ex.: reenviar no WhatsApp) não pode apagar a
+  // marcação de apostado, o concurso-alvo nem a conferência já feita.
   const userGame: UserSavedGame = {
+    ...existing,
     ...game,
-    notes: notes || (existingIdx >= 0 ? current[existingIdx].notes : undefined),
+    isBet: game.isBet ?? existing?.isBet,
+    concursoAlvo: game.concursoAlvo ?? existing?.concursoAlvo,
+    notes: notes || existing?.notes,
   };
 
   let updated: UserSavedGame[];
@@ -64,6 +71,15 @@ export function removeSavedGame(gameId: string) {
   } catch {
     // Storage cheio ou bloqueado: a remoção vale só nesta sessão.
   }
+}
+
+/** Troca o concurso de um bilhete e descarta a conferência feita para o anterior. */
+export function setConcursoAlvo(gameId: string, concurso: number): UserSavedGame[] {
+  const current = getSavedGames().map((game) =>
+    game.id === gameId ? { ...game, concursoAlvo: concurso, checkResult: undefined } : game,
+  );
+  replaceSavedGames(current);
+  return current;
 }
 
 export function toggleBetStatus(gameId: string): boolean {

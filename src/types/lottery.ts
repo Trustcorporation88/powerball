@@ -157,6 +157,8 @@ export interface GeneratedGame {
   pinned?: boolean;
   isBet?: boolean; // Se o usuário marcou como apostado
   name?: string;
+  /** Concurso para o qual o bilhete foi feito; a conferência usa só ele. */
+  concursoAlvo?: number;
 }
 
 export interface GameAnalysis {
@@ -211,6 +213,10 @@ export interface UserSavedGame extends GeneratedGame {
     /** Melhor resultado no 2º sorteio da Dupla Sena. */
     secondDrawHits?: number;
     extraHit?: boolean;
+    /** Prêmio bruto por bilhete informado pela Caixa para a faixa. */
+    valorPremio?: number;
+    drawDate?: string;
+    conferidoEm?: string;
   };
 }
 

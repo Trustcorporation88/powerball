@@ -5,6 +5,7 @@ import { env, parseCorsOrigin } from "./env.js";
 import { authRoutes } from "./routes/auth.js";
 import { lotteryRoutes } from "./routes/lottery.js";
 import { termsRoutes } from "./routes/terms.js";
+import { iniciarAgendador } from "./scheduler.js";
 import { prisma } from "./prisma.js";
 
 async function main(): Promise<void> {
@@ -26,7 +27,10 @@ async function main(): Promise<void> {
   await app.register(lotteryRoutes);
   await app.register(termsRoutes);
 
+  let pararAgendador: () => void = () => undefined;
+
   const close = async () => {
+    pararAgendador();
     await app.close();
     await prisma.$disconnect();
     process.exit(0);
@@ -36,6 +40,7 @@ async function main(): Promise<void> {
 
   try {
     await app.listen({ port: env.PORT, host: env.HOST });
+    pararAgendador = iniciarAgendador(app.log);
   } catch (error) {
     app.log.error(error);
     process.exit(1);

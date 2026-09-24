@@ -1,4 +1,4 @@
-# Powerball — schema da API (login, termo, carteira de palpites).
+// Powerball — schema da API (login, termo, carteira de palpites).
 
 generator client {
   provider      = "prisma-client-js"
@@ -21,6 +21,22 @@ model User {
   projects     Project[]
   lotteryGames LotteryWalletGame[]
   termAcceptances LotteryTermAcceptance[]
+  passwordResets PasswordResetToken[]
+}
+
+/// Link de redefinição de senha enviado por e-mail.
+/// Só o hash do token fica no banco: quem ler a tabela não consegue usar o link.
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
 }
 
 model Project {
@@ -148,6 +164,25 @@ model LotteryDrawCache {
   @@index([lottery, concurso])
 }
 
+/// Uma tentativa de sincronizar a modalidade com a Caixa ou o espelho.
+/// É o que a página de transparência mostra e o que dispara o alerta quando
+/// as fontes param de responder.
+model LotterySyncLog {
+  id             String   @id @default(uuid())
+  lottery        String
+  startedAt      DateTime @default(now())
+  finishedAt     DateTime
+  ok             Boolean
+  /// "caixa" ou "mirror"; nulo quando nenhuma fonte respondeu.
+  source         String?
+  latestConcurso Int?
+  newDraws       Int      @default(0)
+  error          String?
+
+  @@index([lottery, startedAt])
+  @@index([lottery, ok, startedAt])
+}
+
 /// Registro do aceite do termo de uso e isenção de responsabilidade.
 /// Guarda a versão exata do texto aceito: sem isso não dá para provar a que o
 /// usuário concordou quando o texto mudar. Um registro por versão, preservando
@@ -183,12 +218,19 @@ model LotteryWalletGame {
   notes         String?
   folder        String?
   bolaoId       String?
+  /// Concurso para o qual o bilhete foi feito. A conferência usa este, nunca
+  /// "o último sorteio".
+  concursoAlvo  Int?
   checkResult   Json?
   createdAt     DateTime @default(now())
+  /// Hora do servidor em que as dezenas e o concurso-alvo chegaram. O
+  /// createdAt vem do navegador e pode ser forjado; a transparência usa este.
+  registradoEm  DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([userId, lottery])
+  @@index([lottery, concursoAlvo])
 }

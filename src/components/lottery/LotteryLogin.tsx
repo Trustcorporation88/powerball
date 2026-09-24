@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, EyeOff, Lock, ShieldCheck, LifeBuoy } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, Lock, ShieldCheck, LifeBuoy } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { solicitarRecuperacaoSenha } from '@/services/auth';
 import { AVISO_CURTO } from '@/constants/termosDeUso';
 
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,20 @@ export const LotteryLogin: React.FC = () => {
   const [senha, setSenha] = useState('');
   const [nome, setNome] = useState('');
   const [confirmacao, setConfirmacao] = useState('');
+
+  const [recuperando, setRecuperando] = useState(false);
+  const [enviandoLink, setEnviandoLink] = useState(false);
+  const [avisoRecuperacao, setAvisoRecuperacao] = useState('');
+
+  const pedirLink = async (evento: React.FormEvent<HTMLFormElement>) => {
+    evento.preventDefault();
+    const dados = new FormData(evento.currentTarget);
+    setEnviandoLink(true);
+    const resultado = await solicitarRecuperacaoSenha(String(dados.get('email') ?? ''));
+    setEnviandoLink(false);
+    setAvisoRecuperacao(resultado.message ?? '');
+    if (!resultado.success) toast.error(resultado.message ?? 'Não foi possível enviar o link');
+  };
 
   const entrar = async (evento: React.FormEvent<HTMLFormElement>) => {
     evento.preventDefault();
@@ -137,10 +152,67 @@ export const LotteryLogin: React.FC = () => {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="senha-entrar">Senha</Label>
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="senha-entrar">Senha</Label>
+                      <button
+                        type="button"
+                        onClick={() => setRecuperando(true)}
+                        className="text-xs font-semibold text-powerball-navy hover:underline"
+                      >
+                        Esqueci minha senha
+                      </button>
+                    </div>
                     {campoSenha('senha-entrar', 'current-password')}
                   </div>
+
+                  <Button
+                    type="submit"
+                    className="w-full bg-gradient-to-r from-powerball-navy to-powerball-navy-light hover:opacity-90"
+                    disabled={enviando}
+                  >
+                    {enviando ? 'Entrando...' : 'Entrar'}
+                  </Button>
                 </form>
+
+                {recuperando && (
+                  <form
+                    onSubmit={pedirLink}
+                    className="mt-4 space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-3"
+                  >
+                    <p className="text-xs font-semibold flex items-center gap-1.5">
+                      <KeyRound className="h-3.5 w-3.5" />
+                      Receber link para criar nova senha
+                    </p>
+                    <Input
+                      name="email"
+                      type="email"
+                      placeholder="E-mail da sua conta"
+                      defaultValue={email}
+                      required
+                      autoComplete="email"
+                      aria-label="E-mail da conta"
+                    />
+                    {avisoRecuperacao && (
+                      <p className="text-xs text-muted-foreground">{avisoRecuperacao}</p>
+                    )}
+                    <div className="flex gap-2">
+                      <Button type="submit" size="sm" disabled={enviandoLink}>
+                        {enviandoLink ? 'Enviando...' : 'Enviar link'}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setRecuperando(false);
+                          setAvisoRecuperacao('');
+                        }}
+                      >
+                        Fechar
+                      </Button>
+                    </div>
+                  </form>
+                )}
               </TabsContent>
 
               <TabsContent value="criar">

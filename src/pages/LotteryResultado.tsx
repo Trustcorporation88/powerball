@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Calendar, MapPin, Sparkles, Trophy } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Calendar, ListOrdered, MapPin, Sparkles, Trophy } from 'lucide-react';
 
 import { LotteryDraw, LotteryType } from '@/types/lottery';
 import { LOTTERY_CONFIGS, LOTTERY_ORDER, lotteryFromSlug } from '@/constants/lotteryConstants';
@@ -271,16 +271,24 @@ export default function LotteryResultado() {
                     )}
                   </div>
 
-                  <Link to="/">
-                    <Button
-                      size="sm"
-                      style={{ backgroundColor: config.color }}
-                      className="text-white font-bold"
-                    >
-                      <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-                      Gerar palpites para o próximo
-                    </Button>
-                  </Link>
+                  <div className="flex flex-wrap gap-2">
+                    <Link to={`/resultados/${config.slug}`}>
+                      <Button variant="outline" size="sm">
+                        <ListOrdered className="h-3.5 w-3.5 mr-1.5" />
+                        Todos os concursos
+                      </Button>
+                    </Link>
+                    <Link to="/">
+                      <Button
+                        size="sm"
+                        style={{ backgroundColor: config.color }}
+                        className="text-white font-bold"
+                      >
+                        <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                        Gerar palpites para o próximo
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               </>
             )}

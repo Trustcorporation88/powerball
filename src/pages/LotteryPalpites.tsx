@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   LotteryType,
@@ -13,7 +13,7 @@ import {
   UserSavedGame,
 } from '@/types/lottery';
 import { LOTTERY_CONFIGS, LOTTERY_ORDER } from '@/constants/lotteryConstants';
-import { getLotteryHistory } from '@/services/lotteryApiService';
+import { getLotteryHistory, type LotterySource } from '@/services/lotteryApiService';
 import { calculateLotteryStats } from '@/services/lotteryHistoricalData';
 import { generateLotteryGames } from '@/services/lotteryGenerator';
 import {
@@ -22,16 +22,34 @@ import {
   getFechamentosByLottery,
 } from '@/services/lotteryFechamento';
 import { isCloudSyncAvailable, pushWallet, syncWallet } from '@/services/lotteryCloudSync';
-import { verificarNovosResultados } from '@/services/lotteryNotifications';
+import {
+  descreverConferencia,
+  notificarConferencia,
+  verificarNovosResultados,
+} from '@/services/lotteryNotifications';
 import {
   getSavedGames,
   saveGame,
   removeSavedGame,
+  replaceSavedGames,
+  setConcursoAlvo,
   toggleBetStatus,
-  checkTicketAgainstDraw,
   formatGamesForWhatsApp,
   exportGamesToCSV,
 } from '@/services/lotteryGameManager';
+import {
+  conferirCarteira,
+  modalidadesPendentes,
+  momentoDoSorteio,
+  proximoConcursoAberto,
+  situacaoDoBilhete,
+} from '@/services/lotteryConferencia';
+import {
+  buscarStatusDados,
+  nomeDaFonte,
+  tempoDesde,
+  type StatusDados,
+} from '@/services/lotteryTransparencia';
 
 import { LotteryBall } from '@/components/lottery/LotteryBall';
 import { LotteryHeatmap } from '@/components/lottery/LotteryHeatmap';
@@ -77,7 +95,26 @@ import {
   Users,
   LifeBuoy,
   LogOut,
+  AlertTriangle,
+  Clock,
+  Pencil,
+  Scale,
+  ListOrdered,
 } from 'lucide-react';
+
+type FiltroCarteira = 'todos' | 'aguardando' | 'conferidos' | 'premiados';
+
+const HISTORICO_VALIDADE_MS = 10 * 60 * 1000;
+
+function formatarReais(valor: number): string {
+  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function formatarDataHora(iso: string): string {
+  const data = new Date(iso);
+  if (Number.isNaN(data.getTime())) return '';
+  return data.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+}
 
 export default function LotteryPalpites() {
   const navigate = useNavigate();
@@ -110,6 +147,16 @@ export default function LotteryPalpites() {
 
   // Carteira de Jogos Salvos
   const [savedGames, setSavedGames] = useState<UserSavedGame[]>(() => getSavedGames());
+  const [filtroCarteira, setFiltroCarteira] = useState<FiltroCarteira>('todos');
+  const [editandoAlvo, setEditandoAlvo] = useState<{ id: string; valor: string } | null>(null);
+
+  // De onde veio o resultado exibido e o estado das fontes no servidor
+  const [fonteDados, setFonteDados] = useState<{ source: LotterySource; em: string } | null>(null);
+  const [statusDados, setStatusDados] = useState<StatusDados | null>(null);
+
+  const historicosRef = useRef<Partial<Record<LotteryType, { em: number; draws: LotteryDraw[] }>>>({});
+  const conferindoRef = useRef(false);
+  const conferirDeNovoRef = useRef(false);
 
   // Modal Raio-X
   const [inspectGame, setInspectGame] = useState<GeneratedGame | null>(null);
@@ -149,23 +196,123 @@ export default function LotteryPalpites() {
       void syncWallet().then((resultado) => {
         if (resultado.status === 'sincronizado' && resultado.games) {
           setSavedGames(resultado.games);
+          void conferirAgora();
         }
       });
     }
+
+    void buscarStatusDados().then(setStatusDados);
   }, []);
+
+  // Cada histórico novo pode completar a conferência de bilhetes pendentes.
+  useEffect(() => {
+    if (draws.length > 0) void conferirAgora();
+  }, [draws]);
 
   const loadLotteryData = async (lottery: LotteryType) => {
     setLoadingDraw(true);
     try {
       const history = await getLotteryHistory(lottery);
+      historicosRef.current[lottery] = { em: Date.now(), draws: history.draws };
       setDraws(history.draws);
       setLatestDraw(history.draws[0] ?? null);
+      setFonteDados({ source: history.source, em: history.lastUpdated });
       setStats(calculateLotteryStats(lottery, history.draws));
     } catch {
       toast.error('Erro ao conectar com dados da Caixa');
     } finally {
       setLoadingDraw(false);
     }
+  };
+
+  const avisarConferidos = (conferidos: UserSavedGame[]) => {
+    if (conferidos.length === 0) return;
+
+    const premiados = conferidos.filter((game) => game.checkResult?.isWinner);
+    if (premiados.length > 0) {
+      premiados.slice(0, 3).forEach((game) => {
+        toast.success(`Bilhete premiado! ${descreverConferencia(game)}.`, { duration: 10000 });
+      });
+      if (premiados.length > 3) {
+        toast.success(`Mais ${premiados.length - 3} bilhetes premiados na Carteira.`);
+      }
+    } else {
+      const melhor = conferidos.reduce((a, b) =>
+        (b.checkResult?.hits ?? 0) > (a.checkResult?.hits ?? 0) ? b : a,
+      );
+      toast.info(
+        `${conferidos.length} bilhete(s) conferido(s). Nenhum premiado; melhor resultado — ${descreverConferencia(melhor)}.`,
+      );
+    }
+
+    void notificarConferencia(conferidos);
+  };
+
+  /**
+   * Confere os bilhetes cujo sorteio já saiu, em todas as modalidades da
+   * Carteira. Busca o histórico só das modalidades com bilhete pendente.
+   */
+  const conferirAgora = async () => {
+    if (conferindoRef.current) {
+      conferirDeNovoRef.current = true;
+      return;
+    }
+    conferindoRef.current = true;
+
+    try {
+      const carteira = getSavedGames();
+      const pendentes = modalidadesPendentes(carteira);
+      if (pendentes.length === 0) return;
+
+      const historicos: Partial<Record<LotteryType, LotteryDraw[]>> = {};
+      for (const lottery of pendentes) {
+        const guardado = historicosRef.current[lottery];
+        if (guardado && Date.now() - guardado.em < HISTORICO_VALIDADE_MS) {
+          historicos[lottery] = guardado.draws;
+          continue;
+        }
+        const history = await getLotteryHistory(lottery);
+        historicosRef.current[lottery] = { em: Date.now(), draws: history.draws };
+        historicos[lottery] = history.draws;
+      }
+
+      const resultado = await conferirCarteira(carteira, historicos);
+      if (!resultado.alterou) return;
+
+      // A Carteira pode ter mudado durante as buscas: aplica só o concurso e
+      // a conferência sobre a versão atual.
+      const porId = new Map(resultado.carteira.map((game) => [game.id, game]));
+      const atual = getSavedGames().map((game) => {
+        const conferido = porId.get(game.id);
+        if (!conferido) return game;
+        if (game.concursoAlvo && game.concursoAlvo !== conferido.concursoAlvo) return game;
+        return {
+          ...game,
+          concursoAlvo: conferido.concursoAlvo,
+          checkResult: conferido.checkResult,
+        };
+      });
+
+      replaceSavedGames(atual);
+      setSavedGames(atual);
+      void pushWallet(atual);
+      avisarConferidos(resultado.recemConferidos);
+    } catch {
+      // A conferência volta a rodar no próximo carregamento de resultados.
+    } finally {
+      conferindoRef.current = false;
+      if (conferirDeNovoRef.current) {
+        conferirDeNovoRef.current = false;
+        void conferirAgora();
+      }
+    }
+  };
+
+  /** Marca os bilhetes com o concurso que ainda está aberto para apostas. */
+  const comConcursoAlvo = (games: GeneratedGame[]): GeneratedGame[] => {
+    const alvo = proximoConcursoAberto(draws);
+    if (!alvo) return games;
+    return games.map((game) => ({ ...game, concursoAlvo: game.concursoAlvo ?? alvo }));
   };
 
   // Manipulação de dezenas fixas e excluídas no seletor
@@ -218,8 +365,9 @@ export default function LotteryPalpites() {
           },
           stats
         );
-        setGeneratedGames(results);
-        guardarNaCarteira(results);
+        const comAlvo = comConcursoAlvo(results);
+        setGeneratedGames(comAlvo);
+        guardarNaCarteira(comAlvo);
         toast.success(
           `${results.length} jogos gerados e guardados na Carteira. Você encontra eles na aba Carteira.`,
         );
@@ -243,7 +391,9 @@ export default function LotteryPalpites() {
     }
 
     try {
-      const tickets = executeFechamento(selectedFechamento, fechamentoPool, stats);
+      const tickets = comConcursoAlvo(
+        executeFechamento(selectedFechamento, fechamentoPool, stats),
+      );
       setFechamentoGames(tickets);
       guardarNaCarteira(tickets);
       toast.success(
@@ -294,6 +444,21 @@ export default function LotteryPalpites() {
     const carteira = getSavedGames();
     setSavedGames(carteira);
     void pushWallet(carteira);
+  };
+
+  const handleSalvarConcursoAlvo = () => {
+    if (!editandoAlvo) return;
+    const concurso = Number(editandoAlvo.valor);
+    if (!Number.isInteger(concurso) || concurso <= 0) {
+      toast.error('Informe o número do concurso.');
+      return;
+    }
+    const carteira = setConcursoAlvo(editandoAlvo.id, concurso);
+    setSavedGames(carteira);
+    setEditandoAlvo(null);
+    void pushWallet(carteira);
+    void conferirAgora();
+    toast.success(`Bilhete vinculado ao concurso ${concurso}.`);
   };
 
   // Compartilhar WhatsApp — também grava na Carteira, senão o envio some ao sair.
@@ -367,6 +532,19 @@ export default function LotteryPalpites() {
             <RefreshCw className={`h-4 w-4 ${loadingDraw ? 'animate-spin' : ''}`} />
           </Button>
 
+          <Button asChild variant="ghost" size="sm" className="text-xs font-semibold">
+            <Link to={`/resultados/${config.slug}`} title="Todos os concursos com premiação">
+              <ListOrdered className="h-4 w-4 mr-1" />
+              Resultados
+            </Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm" className="text-xs font-semibold">
+            <Link to="/transparencia" title="Placar real das estratégias e status das fontes">
+              <Scale className="h-4 w-4 mr-1" />
+              Transparência
+            </Link>
+          </Button>
+
           {user && (
             <div className="flex items-center gap-1.5 ml-2 pl-2 border-l border-slate-200 dark:border-slate-800">
               <span className="text-xs font-semibold text-muted-foreground hidden sm:inline">
@@ -385,6 +563,23 @@ export default function LotteryPalpites() {
           )}
         </div>
       </div>
+
+      {(() => {
+        const status = statusDados?.modalidades.find((item) => item.lottery === selectedLottery);
+        if (!status?.alerta) return null;
+        return (
+          <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm flex gap-2">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+            <span>
+              <strong>Os dados da {config.name} podem estar atrasados.</strong> {status.alerta}{' '}
+              Confira o resultado também no site da Caixa.{' '}
+              <Link to="/transparencia" className="font-semibold underline">
+                Ver status das fontes
+              </Link>
+            </span>
+          </div>
+        );
+      })()}
 
       {/* Card do Último Concurso Oficial da Caixa */}
       {latestDraw && (
@@ -411,6 +606,14 @@ export default function LotteryPalpites() {
                 <p className="text-xs text-slate-400 mt-0.5">
                   Realizado em {latestDraw.data} • {latestDraw.local || 'Espaço da Sorte, SP'}
                 </p>
+                {fonteDados && (
+                  <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    Fonte: {nomeDaFonte(fonteDados.source)} • verificado em{' '}
+                    {formatarDataHora(fonteDados.em)}
+                    {latestDraw.dataProximoConcurso && ` • próximo sorteio ${latestDraw.dataProximoConcurso}`}
+                  </p>
+                )}
               </div>
 
               {/* Dezenas Sorteadas */}
@@ -1192,7 +1395,7 @@ export default function LotteryPalpites() {
               ...fechamentoGames,
               ...savedGames.filter((game) => game.lottery === selectedLottery),
             ]}
-            concursoAlvo={latestDraw ? latestDraw.concurso + 1 : undefined}
+            concursoAlvo={proximoConcursoAberto(draws) ?? undefined}
           />
         </TabsContent>
 
@@ -1202,19 +1405,56 @@ export default function LotteryPalpites() {
         <TabsContent value="carteira" className="space-y-6">
           <ResponsibleGamingCard lottery={selectedLottery} savedGames={savedGames} />
 
+          {(() => {
+            const premiados = savedGames.filter((game) => game.checkResult?.isWinner);
+            if (premiados.length === 0) return null;
+            const total = premiados.reduce((soma, game) => soma + (game.checkResult?.valorPremio ?? 0), 0);
+            return (
+              <Card className="border-amber-400 bg-amber-50/60 dark:bg-amber-950/20">
+                <CardContent className="p-4 space-y-2">
+                  <p className="font-bold flex items-center gap-2">
+                    <Award className="h-4 w-4 text-amber-600" />
+                    {premiados.length} bilhete(s) premiado(s) na sua Carteira
+                    {total > 0 && ` — ${formatarReais(total)} em prêmios brutos`}
+                  </p>
+                  <ul className="text-xs space-y-0.5">
+                    {premiados.slice(0, 8).map((game) => (
+                      <li key={game.id}>{descreverConferencia(game)}</li>
+                    ))}
+                  </ul>
+                  <p className="text-[11px] text-muted-foreground">
+                    Valores brutos informados pela Caixa, antes do imposto. Só vale o bilhete
+                    registrado na lotérica ou no app oficial: confira sempre no site da Caixa.
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-xl font-bold flex items-center gap-2">
                 Minha Carteira de Bilhetes ({savedGames.length})
               </h3>
               <p className="text-xs text-muted-foreground">
-                Acompanhe, marque seus jogos apostados na lotérica e confira automaticamente contra os
-                sorteios.
+                Cada bilhete é conferido contra o concurso para o qual foi feito, assim que o
+                resultado sai.
               </p>
             </div>
 
             {savedGames.length > 0 && (
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <Select value={filtroCarteira} onValueChange={(valor) => setFiltroCarteira(valor as FiltroCarteira)}>
+                  <SelectTrigger className="h-8 w-[150px] text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="aguardando">Aguardando sorteio</SelectItem>
+                    <SelectItem value="conferidos">Conferidos</SelectItem>
+                    <SelectItem value="premiados">Premiados</SelectItem>
+                  </SelectContent>
+                </Select>
                 <Button
                   variant="outline"
                   size="sm"
@@ -1253,11 +1493,27 @@ export default function LotteryPalpites() {
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {savedGames.map((game, idx) => {
-                const check =
-                  latestDraw && latestDraw.loteria === game.lottery
-                    ? checkTicketAgainstDraw(game.numbers, latestDraw, game.extra)
-                    : null;
+              {savedGames
+                .filter((game) => {
+                  const situacao = situacaoDoBilhete(game).tipo;
+                  if (filtroCarteira === 'aguardando') return situacao !== 'conferido';
+                  if (filtroCarteira === 'conferidos') return situacao === 'conferido';
+                  if (filtroCarteira === 'premiados') return Boolean(game.checkResult?.isWinner);
+                  return true;
+                })
+                .map((game, idx) => {
+                const situacao = situacaoDoBilhete(game);
+                const check = situacao.tipo === 'conferido' ? game.checkResult : undefined;
+                const configBilhete = LOTTERY_CONFIGS[game.lottery];
+                const historicoBilhete =
+                  game.lottery === selectedLottery ? draws : historicosRef.current[game.lottery]?.draws;
+                const ultimoBilhete = historicoBilhete?.[0];
+                const dataPrevista =
+                  situacao.tipo === 'aguardando' && ultimoBilhete?.concurso === situacao.concurso - 1
+                    ? ultimoBilhete.dataProximoConcurso
+                    : undefined;
+                const sorteioPassou =
+                  dataPrevista !== undefined && (momentoDoSorteio(dataPrevista) ?? Infinity) < Date.now();
 
                 return (
                   <Card
@@ -1270,10 +1526,14 @@ export default function LotteryPalpites() {
                   >
                     <CardContent className="p-4 space-y-3">
                       <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-sm">Aposta #{idx + 1}</span>
-                          <Badge variant="outline" className="text-[10px] uppercase">
-                            {game.lottery}
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] uppercase"
+                            style={{ color: configBilhete.color, borderColor: `${configBilhete.color}60` }}
+                          >
+                            {configBilhete.name}
                           </Badge>
                           {game.isBet && (
                             <Badge className="bg-emerald-600 text-white text-[10px]">
@@ -1297,41 +1557,110 @@ export default function LotteryPalpites() {
 
                       {/* Dezenas */}
                       <div className="flex flex-wrap gap-1.5 py-1">
-                        {game.numbers.map((n) => {
-                          const isHit = check?.hitNumbers.includes(n);
-                          return (
-                            <LotteryBall
-                              key={n}
-                              number={n}
-                              lottery={game.lottery}
-                              selected
-                              isHit={isHit}
-                              size="sm"
-                            />
-                          );
-                        })}
+                        {game.numbers.map((n) => (
+                          <LotteryBall
+                            key={n}
+                            number={n}
+                            lottery={game.lottery}
+                            selected
+                            isHit={check?.hitNumbers.includes(n)}
+                            size="sm"
+                          />
+                        ))}
                       </div>
 
-                      {/* Conferência contra o último concurso */}
-                      {check && (
-                        <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">
-                            Concurso {latestDraw?.concurso}:
-                          </span>
-                          <span
-                            className={`font-bold ${
-                              check.isWinner ? 'text-amber-600 text-sm' : 'text-slate-700'
-                            }`}
+                      {/* Concurso do bilhete e conferência */}
+                      <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs space-y-1.5">
+                        {editandoAlvo?.id === game.id ? (
+                          <form
+                            className="flex items-center gap-2"
+                            onSubmit={(evento) => {
+                              evento.preventDefault();
+                              handleSalvarConcursoAlvo();
+                            }}
                           >
-                            {check.prizeLabel || `${check.hits} acertos`}
-                          </span>
-                        </div>
-                      )}
+                            <span className="text-muted-foreground">Concurso</span>
+                            <input
+                              type="number"
+                              min={1}
+                              autoFocus
+                              value={editandoAlvo.valor}
+                              onChange={(evento) =>
+                                setEditandoAlvo({ id: game.id, valor: evento.target.value })
+                              }
+                              className="w-24 h-7 rounded border border-slate-300 dark:border-slate-700 bg-transparent px-2"
+                              aria-label="Número do concurso"
+                            />
+                            <Button type="submit" size="sm" className="h-7 text-xs">
+                              Salvar
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={() => setEditandoAlvo(null)}
+                            >
+                              Cancelar
+                            </Button>
+                          </form>
+                        ) : (
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-muted-foreground">
+                              {situacao.tipo === 'sem-concurso'
+                                ? 'Concurso ainda não definido'
+                                : `Para o concurso ${situacao.concurso}`}
+                            </span>
+                            <button
+                              type="button"
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-powerball-navy dark:text-powerball-gold hover:underline"
+                              onClick={() =>
+                                setEditandoAlvo({
+                                  id: game.id,
+                                  valor: String(game.concursoAlvo ?? proximoConcursoAberto(draws) ?? ''),
+                                })
+                              }
+                            >
+                              <Pencil className="h-3 w-3" />
+                              Alterar
+                            </button>
+                          </div>
+                        )}
+
+                        {check ? (
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-muted-foreground">
+                              Resultado{check.drawDate ? ` de ${check.drawDate}` : ''}:
+                            </span>
+                            <span
+                              className={`font-bold ${
+                                check.isWinner ? 'text-amber-600 text-sm' : 'text-slate-700 dark:text-slate-200'
+                              }`}
+                            >
+                              {check.isWinner
+                                ? `${check.prizeLabel ?? `${check.hits} acertos — premiado!`}${
+                                    check.valorPremio ? ` ${formatarReais(check.valorPremio)}` : ''
+                                  }`
+                                : `${check.hits} acertos`}
+                              {check.secondDrawHits !== undefined &&
+                                ` (2º sorteio: ${check.secondDrawHits})`}
+                            </span>
+                          </div>
+                        ) : situacao.tipo === 'aguardando' ? (
+                          <p className="text-muted-foreground flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {sorteioPassou
+                              ? 'Sorteio realizado; aguardando a Caixa publicar o resultado.'
+                              : `Aguardando o sorteio${dataPrevista ? ` de ${dataPrevista}` : ''}.`}
+                          </p>
+                        ) : null}
+                      </div>
 
                       {/* Rodapé do Bilhete */}
                       <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
                         <span className="text-muted-foreground font-semibold">
                           R$ {game.cost.toFixed(2)}
+                          <span className="font-normal"> • gerado em {formatarDataHora(game.createdAt)}</span>
                         </span>
 
                         <div className="flex items-center gap-2">
@@ -1393,6 +1722,14 @@ export default function LotteryPalpites() {
             Termo de Uso e Isenção de Responsabilidade
           </button>
           {user && ` — versão ${TERMOS_VERSAO}, aceita por ${user.email}.`}
+          {' • '}
+          <Link to="/transparencia" className="font-semibold underline hover:text-foreground">
+            Transparência
+          </Link>
+          {' • '}
+          <Link to={`/resultados/${config.slug}`} className="font-semibold underline hover:text-foreground">
+            Todos os resultados
+          </Link>
         </p>
       </footer>
     </motion.div>

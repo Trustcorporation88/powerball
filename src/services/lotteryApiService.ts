@@ -213,6 +213,12 @@ async function fetchLatestFromMirror(lottery: LotteryType): Promise<LotteryDraw 
 }
 
 async function fetchConcurso(lottery: LotteryType, concurso: number): Promise<LotteryDraw | null> {
+  if (API_URL) {
+    const proxy = await fetchJson(`${API_URL}/lottery/${lottery}/${concurso}`, 5000);
+    const draw = proxy ? normalizeDraw(lottery, proxy) : null;
+    if (draw) return draw;
+  }
+
   const caixa = await fetchJson(`${CAIXA_BASE}/${lottery}/${concurso}`, 3500);
   if (caixa) {
     const draw = normalizeDraw(lottery, caixa);

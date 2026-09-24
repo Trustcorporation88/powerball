@@ -180,6 +180,42 @@ async function remoteUpdateProfile(
 }
 
 /* ------------------------------------------------------------------ */
+/* Recuperação de senha — só existe com a API: a conta local mora no   */
+/* navegador e não tem e-mail verificado para onde mandar o link.      */
+/* ------------------------------------------------------------------ */
+
+export async function solicitarRecuperacaoSenha(email: string): Promise<AuthResult> {
+  if (!isRemote()) {
+    return {
+      success: false,
+      message: "Sua conta está só neste navegador e não pode ser recuperada por e-mail.",
+    };
+  }
+
+  try {
+    const data = await apiFetch<{ message: string }>("/auth/forgot-password", {
+      method: "POST",
+      body: { email: normalizarEmail(email) },
+    });
+    return { success: true, message: data.message };
+  } catch (error) {
+    return { success: false, message: errorMessage(error, "Não foi possível pedir o link agora") };
+  }
+}
+
+export async function redefinirSenha(token: string, password: string): Promise<AuthResult> {
+  try {
+    const data = await apiFetch<{ message: string }>("/auth/reset-password", {
+      method: "POST",
+      body: { token, password },
+    });
+    return { success: true, message: data.message };
+  } catch (error) {
+    return { success: false, message: errorMessage(error, "Não foi possível trocar a senha") };
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* API pública (escolhe local ou remoto)                               */
 /* ------------------------------------------------------------------ */
 
