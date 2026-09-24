@@ -16,6 +16,7 @@ import { relatorioTransparencia } from "../transparencia.js";
 
 const historyQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(5000).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
 });
 
 const walletGameSchema = z.object({
@@ -90,25 +91,34 @@ export async function lotteryRoutes(app: FastifyInstance): Promise<void> {
 
     const parsed = historyQuerySchema.safeParse(request.query);
     const limit = parsed.success ? (parsed.data.limit ?? 1000) : 1000;
+    const offset = parsed.success ? (parsed.data.offset ?? 0) : 0;
 
     // Espera a sincronização do concurso do dia. Se a fonte externa travar,
     // responde com o cache em vez de deixar a Carteira no concurso antigo.
-    await Promise.race([
-      refreshLottery(lottery, app.log),
-      new Promise((resolve) => setTimeout(resolve, 8000)),
+    // Páginas antigas do histórico não dependem do concurso do dia.
+    if (offset === 0) {
+      await Promise.race([
+        refreshLottery(lottery, app.log),
+        new Promise((resolve) => setTimeout(resolve, 8000)),
+      ]);
+    }
+
+    const [registros, total] = await Promise.all([
+      prisma.lotteryDrawCache.findMany({
+        where: { lottery },
+        orderBy: { concurso: "desc" },
+        skip: offset,
+        take: limit,
+      }),
+      prisma.lotteryDrawCache.count({ where: { lottery } }),
     ]);
 
-    const registros = await prisma.lotteryDrawCache.findMany({
-      where: { lottery },
-      orderBy: { concurso: "desc" },
-      take: limit,
-    });
-
     return reply
-      .header("Cache-Control", "public, max-age=60")
+      .header("Cache-Control", offset === 0 ? "public, max-age=60" : "public, max-age=3600")
       .send({
         lottery,
-        total: registros.length,
+        total,
+        offset,
         draws: registros.map(concursoPublico),
       });
   });

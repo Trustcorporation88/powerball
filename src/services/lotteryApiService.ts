@@ -292,6 +292,31 @@ export async function getLotteryHistory(
   return { lottery, draws, source, lastUpdated: new Date().toISOString() };
 }
 
+/**
+ * Uma página do histórico completo guardado na API, do mais novo para o mais
+ * antigo. `null` quando a API não está disponível.
+ */
+export async function getHistoryPage(
+  lottery: LotteryType,
+  offset: number,
+  limit: number,
+): Promise<{ total: number; draws: LotteryDraw[] } | null> {
+  if (!API_URL) return null;
+
+  const payload = await fetchJson(
+    `${API_URL}/lottery/${lottery}/history?limit=${limit}&offset=${offset}`,
+    8000,
+  );
+  if (!payload || !Array.isArray(payload.draws)) return null;
+
+  return {
+    total: Number(payload.total ?? 0),
+    draws: payload.draws
+      .map((raw: Record<string, any>) => normalizeDraw(lottery, raw))
+      .filter((draw: LotteryDraw | null): draw is LotteryDraw => draw !== null),
+  };
+}
+
 /** Compatibilidade: devolve apenas o concurso mais recente conhecido. */
 export async function fetchLatestCaixaDraw(lottery: LotteryType): Promise<LotteryDraw> {
   const history = await getLotteryHistory(lottery);

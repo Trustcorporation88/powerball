@@ -4,7 +4,7 @@ import { ArrowLeft, ChevronLeft, ChevronRight, ListOrdered, Search } from 'lucid
 
 import { LotteryDraw, LotteryType } from '@/types/lottery';
 import { LOTTERY_CONFIGS, LOTTERY_ORDER, lotteryFromSlug } from '@/constants/lotteryConstants';
-import { getLotteryHistory } from '@/services/lotteryApiService';
+import { getHistoryPage, getLotteryHistory } from '@/services/lotteryApiService';
 import { applyPageSeo } from '@/lib/seo';
 import { AVISO_CURTO } from '@/constants/termosDeUso';
 
@@ -30,12 +30,32 @@ export default function LotteryResultados() {
   const [draws, setDraws] = useState<LotteryDraw[] | null>(null);
   const [busca, setBusca] = useState('');
 
+  const [paginaRemota, setPaginaRemota] = useState<{ pagina: number; draws: LotteryDraw[] } | null>(
+    null,
+  );
+
   const pagina = Math.max(1, Number(parametros.get('pagina')) || 1);
+
+  // Os concursos são numerados em sequência, então o mais recente diz o total
+  // mesmo quando só os últimos vieram no carregamento inicial.
+  const total = draws ? Math.max(draws[0]?.concurso ?? 0, draws.length) : 0;
+  const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
+  const paginaAtual = Math.min(pagina, paginas);
+  const inicio = (paginaAtual - 1) * POR_PAGINA;
+  const paginaLocal = useMemo(
+    () => draws?.slice(inicio, inicio + POR_PAGINA) ?? [],
+    [draws, inicio],
+  );
+  const esperadoNoTopo = (draws?.[0]?.concurso ?? 0) - inicio;
+  const paginaLocalCompleta =
+    paginaLocal[0]?.concurso === esperadoNoTopo &&
+    paginaLocal.length === Math.min(POR_PAGINA, esperadoNoTopo);
 
   useEffect(() => {
     if (!lottery) return;
     let ativo = true;
     setDraws(null);
+    setPaginaRemota(null);
     void getLotteryHistory(lottery).then((historico) => {
       if (ativo) setDraws(historico.draws);
     });
@@ -43,6 +63,20 @@ export default function LotteryResultados() {
       ativo = false;
     };
   }, [lottery]);
+
+  // Páginas antigas que não vieram no carregamento inicial saem da API.
+  useEffect(() => {
+    if (!lottery || !draws || paginaLocalCompleta) return;
+    let ativo = true;
+    void getHistoryPage(lottery, inicio, POR_PAGINA).then((resultado) => {
+      if (ativo && resultado?.draws.length) {
+        setPaginaRemota({ pagina: paginaAtual, draws: resultado.draws });
+      }
+    });
+    return () => {
+      ativo = false;
+    };
+  }, [lottery, draws, inicio, paginaAtual, paginaLocalCompleta]);
 
   useEffect(() => {
     if (!lottery) return;
@@ -64,10 +98,8 @@ export default function LotteryResultados() {
   }
 
   const config = LOTTERY_CONFIGS[lottery];
-  const total = draws?.length ?? 0;
-  const paginas = Math.max(1, Math.ceil(total / POR_PAGINA));
-  const paginaAtual = Math.min(pagina, paginas);
-  const visiveis = draws?.slice((paginaAtual - 1) * POR_PAGINA, paginaAtual * POR_PAGINA) ?? [];
+  const visiveis =
+    paginaRemota && paginaRemota.pagina === paginaAtual ? paginaRemota.draws : paginaLocal;
 
   const irPara = (destino: number) => {
     setParametros(destino > 1 ? { pagina: String(destino) } : {});
