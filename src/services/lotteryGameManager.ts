@@ -82,6 +82,15 @@ export function setConcursoAlvo(gameId: string, concurso: number): UserSavedGame
   return current;
 }
 
+export function setConcursoAlvoEmLote(gameIds: string[], concurso: number): UserSavedGame[] {
+  const alvos = new Set(gameIds);
+  const current = getSavedGames().map((game) =>
+    alvos.has(game.id) ? { ...game, concursoAlvo: concurso, checkResult: undefined } : game,
+  );
+  replaceSavedGames(current);
+  return current;
+}
+
 export function toggleBetStatus(gameId: string): boolean {
   const current = getSavedGames();
   const idx = current.findIndex((g) => g.id === gameId);

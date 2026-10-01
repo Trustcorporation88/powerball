@@ -33,6 +33,7 @@ import {
   removeSavedGame,
   replaceSavedGames,
   setConcursoAlvo,
+  setConcursoAlvoEmLote,
   toggleBetStatus,
   formatGamesForWhatsApp,
   exportGamesToCSV,
@@ -149,6 +150,8 @@ export default function LotteryPalpites() {
   const [savedGames, setSavedGames] = useState<UserSavedGame[]>(() => getSavedGames());
   const [filtroCarteira, setFiltroCarteira] = useState<FiltroCarteira>('todos');
   const [editandoAlvo, setEditandoAlvo] = useState<{ id: string; valor: string } | null>(null);
+  const [alvoEmLote, setAlvoEmLote] = useState('');
+  const [loteSoApostados, setLoteSoApostados] = useState(false);
 
   // De onde veio o resultado exibido e o estado das fontes no servidor
   const [fonteDados, setFonteDados] = useState<{ source: LotterySource; em: string } | null>(null);
@@ -459,6 +462,47 @@ export default function LotteryPalpites() {
     void pushWallet(carteira);
     void conferirAgora();
     toast.success(`Bilhete vinculado ao concurso ${concurso}.`);
+  };
+
+  const passaNoFiltroCarteira = (game: UserSavedGame) => {
+    const situacao = situacaoDoBilhete(game).tipo;
+    if (filtroCarteira === 'aguardando') return situacao !== 'conferido';
+    if (filtroCarteira === 'conferidos') return situacao === 'conferido';
+    if (filtroCarteira === 'premiados') return Boolean(game.checkResult?.isWinner);
+    return true;
+  };
+
+  const bilhetesDoLote = savedGames.filter(
+    (game) =>
+      game.lottery === selectedLottery &&
+      passaNoFiltroCarteira(game) &&
+      (!loteSoApostados || game.isBet),
+  );
+
+  const handleAlterarConcursoEmLote = () => {
+    const concurso = Number(alvoEmLote || proximoConcursoAberto(draws));
+    if (!Number.isInteger(concurso) || concurso <= 0) {
+      toast.error('Informe o número do concurso.');
+      return;
+    }
+    if (bilhetesDoLote.length === 0) {
+      toast.error('Nenhum bilhete para alterar com esse filtro.');
+      return;
+    }
+    const confirmado = window.confirm(
+      `Vincular ${bilhetesDoLote.length} bilhete(s) da ${config.fullName} ao concurso ${concurso}?`,
+    );
+    if (!confirmado) return;
+    const carteira = setConcursoAlvoEmLote(
+      bilhetesDoLote.map((game) => game.id),
+      concurso,
+    );
+    setSavedGames(carteira);
+    setEditandoAlvo(null);
+    setAlvoEmLote('');
+    void pushWallet(carteira);
+    void conferirAgora();
+    toast.success(`${bilhetesDoLote.length} bilhete(s) vinculados ao concurso ${concurso}.`);
   };
 
   // Compartilhar WhatsApp — também grava na Carteira, senão o envio some ao sair.
@@ -1492,15 +1536,44 @@ export default function LotteryPalpites() {
               </CardContent>
             </Card>
           ) : (
+            <>
+            <form
+              className="flex flex-wrap items-center gap-2 p-3 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-xs"
+              onSubmit={(evento) => {
+                evento.preventDefault();
+                handleAlterarConcursoEmLote();
+              }}
+            >
+              <span className="font-semibold">Mudar o concurso de vários bilhetes:</span>
+              <span className="text-muted-foreground">
+                {bilhetesDoLote.length} bilhete(s) da {config.fullName}
+                {filtroCarteira !== 'todos' ? ' no filtro atual' : ''}
+              </span>
+              <label className="flex items-center gap-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={loteSoApostados}
+                  onChange={(evento) => setLoteSoApostados(evento.target.checked)}
+                />
+                só os apostados na lotérica
+              </label>
+              <span className="text-muted-foreground">para o concurso</span>
+              <input
+                type="number"
+                min={1}
+                value={alvoEmLote}
+                placeholder={String(proximoConcursoAberto(draws) ?? '')}
+                onChange={(evento) => setAlvoEmLote(evento.target.value)}
+                className="w-24 h-7 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-transparent px-2"
+                aria-label="Número do concurso para todos os bilhetes"
+              />
+              <Button type="submit" size="sm" className="h-7 text-xs" disabled={bilhetesDoLote.length === 0}>
+                Aplicar a todos
+              </Button>
+            </form>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {savedGames
-                .filter((game) => {
-                  const situacao = situacaoDoBilhete(game).tipo;
-                  if (filtroCarteira === 'aguardando') return situacao !== 'conferido';
-                  if (filtroCarteira === 'conferidos') return situacao === 'conferido';
-                  if (filtroCarteira === 'premiados') return Boolean(game.checkResult?.isWinner);
-                  return true;
-                })
+                .filter(passaNoFiltroCarteira)
                 .map((game, idx) => {
                 const situacao = situacaoDoBilhete(game);
                 const check = situacao.tipo === 'conferido' ? game.checkResult : undefined;
@@ -1687,6 +1760,7 @@ export default function LotteryPalpites() {
                 );
               })}
             </div>
+            </>
           )}
         </TabsContent>
       </Tabs>

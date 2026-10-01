@@ -57,7 +57,7 @@ const PASSOS = [
     icone: CheckCircle2,
     titulo: 'Confira o resultado',
     texto:
-      'Cada jogo fica ligado ao concurso para o qual foi feito. Quando esse sorteio sai, a Carteira confere sozinha, mostra acertos, faixa e prêmio, e avisa você. Dá para trocar o concurso de um bilhete pelo botão Alterar.',
+      'Cada jogo fica ligado ao concurso para o qual foi feito. Quando esse sorteio sai, a Carteira confere sozinha, mostra acertos, faixa e prêmio, e avisa você. Dá para trocar o concurso de um bilhete pelo botão Alterar, ou de todos de uma vez pela barra "Mudar o concurso de vários bilhetes", no topo da Carteira.',
   },
 ];
 
