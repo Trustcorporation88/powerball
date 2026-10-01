@@ -39,6 +39,10 @@ export default defineConfig(() => ({
             return "xlsx";
           }
 
+          if (id.includes("tesseract")) {
+            return "ocr";
+          }
+
           if (id.includes("dexie")) {
             return "data";
           }

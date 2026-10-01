@@ -55,7 +55,7 @@ export function inferirConcursoAlvo(criadoEm: string, draws: LotteryDraw[]): num
 }
 
 /** Valor bruto por bilhete da faixa atingida, quando a Caixa já publicou o rateio. */
-function valorDaFaixa(lottery: LotteryType, draw: LotteryDraw, prizeLabel?: string): number | undefined {
+export function valorDaFaixa(lottery: LotteryType, draw: LotteryDraw, prizeLabel?: string): number | undefined {
   const config = LOTTERY_CONFIGS[lottery];
   // Na Dupla Sena a lista mistura as faixas dos dois sorteios.
   if (!prizeLabel || config.hasSecondDraw || !draw.premiacoes?.length) return undefined;

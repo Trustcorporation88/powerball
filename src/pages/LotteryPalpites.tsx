@@ -57,6 +57,7 @@ import { LotteryHeatmap } from '@/components/lottery/LotteryHeatmap';
 import { GameXRayModal } from '@/components/lottery/GameXRayModal';
 import { BacktestPanel } from '@/components/lottery/BacktestPanel';
 import { BolaoPanel } from '@/components/lottery/BolaoPanel';
+import { ConferirJogosDialog } from '@/components/lottery/ConferirJogosDialog';
 import { ResponsibleGamingCard } from '@/components/lottery/ResponsibleGamingCard';
 import { ExtraFieldPicker } from '@/components/lottery/ExtraFieldPicker';
 import { InstallAppCard } from '@/components/lottery/InstallAppCard';
@@ -82,6 +83,7 @@ import {
   CheckCircle2,
   RefreshCw,
   Share2,
+  ScanSearch,
   Download,
   Trash2,
   Calculator,
@@ -152,6 +154,7 @@ export default function LotteryPalpites() {
   const [editandoAlvo, setEditandoAlvo] = useState<{ id: string; valor: string } | null>(null);
   const [alvoEmLote, setAlvoEmLote] = useState('');
   const [loteSoApostados, setLoteSoApostados] = useState(false);
+  const [conferirAberto, setConferirAberto] = useState(false);
 
   // De onde veio o resultado exibido e o estado das fontes no servidor
   const [fonteDados, setFonteDados] = useState<{ source: LotterySource; em: string } | null>(null);
@@ -462,6 +465,18 @@ export default function LotteryPalpites() {
     void pushWallet(carteira);
     void conferirAgora();
     toast.success(`Bilhete vinculado ao concurso ${concurso}.`);
+  };
+
+  const handleGuardarImportados = (games: GeneratedGame[]) => {
+    const chave = (game: GeneratedGame) =>
+      `${game.lottery}:${game.concursoAlvo}:${game.numbers.join(',')}`;
+    const existentes = new Set(savedGames.map(chave));
+    const novos = games.filter((game) => !existentes.has(chave(game)));
+    if (novos.length < games.length) {
+      toast.info(`${games.length - novos.length} jogo(s) já estavam na Carteira para esse concurso.`);
+    }
+    guardarNaCarteira(novos);
+    void conferirAgora();
   };
 
   const passaNoFiltroCarteira = (game: UserSavedGame) => {
@@ -1486,8 +1501,17 @@ export default function LotteryPalpites() {
               </p>
             </div>
 
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="sm"
+                onClick={() => setConferirAberto(true)}
+                className="text-xs"
+              >
+                <ScanSearch className="h-3.5 w-3.5 mr-1" />
+                Conferir meus jogos
+              </Button>
             {savedGames.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2">
+              <>
                 <Select value={filtroCarteira} onValueChange={(valor) => setFiltroCarteira(valor as FiltroCarteira)}>
                   <SelectTrigger className="h-8 w-[150px] text-xs">
                     <SelectValue />
@@ -1517,9 +1541,18 @@ export default function LotteryPalpites() {
                   <Download className="h-3.5 w-3.5 mr-1" />
                   Exportar CSV
                 </Button>
-              </div>
+              </>
             )}
+            </div>
           </div>
+
+          <ConferirJogosDialog
+            open={conferirAberto}
+            onOpenChange={setConferirAberto}
+            lottery={selectedLottery}
+            draws={draws}
+            onGuardar={handleGuardarImportados}
+          />
 
           {savedGames.length === 0 ? (
             <Card className="border-dashed border-2 border-slate-300 dark:border-slate-800">
