@@ -1,7 +1,7 @@
 import { LotteryDraw, LotteryType, UserSavedGame } from '@/types/lottery';
 import { LOTTERY_CONFIGS } from '@/constants/lotteryConstants';
 import { getDrawByConcurso } from '@/services/lotteryApiService';
-import { checkTicketAgainstDraw, MES_DA_SORTE_LABEL } from '@/services/lotteryGameManager';
+import { checkTicketAgainstDraw, FaixaAtingida } from '@/services/lotteryGameManager';
 
 /**
  * Conferência da Carteira pelo concurso de cada bilhete.
@@ -12,13 +12,39 @@ import { checkTicketAgainstDraw, MES_DA_SORTE_LABEL } from '@/services/lotteryGa
  * concurso para o qual foi feito e só é conferido contra ele.
  */
 
-/** Os sorteios são às 20h de Brasília (23h UTC). */
-export function momentoDoSorteio(data: string | undefined): number | null {
+/**
+ * Calendário da Caixa (Brasília = UTC−3):
+ * - de segunda a sábado o sorteio é às 21h e as apostas fecham às 20h;
+ * - desde 19/07/2026 o sorteio de fim de semana é no domingo às 11h, com
+ *   apostas até as 22h de sábado.
+ * Quando um feriado ou eleição antecipa o domingo para sábado, a data do
+ * concurso já vem como sábado e cai na regra dos dias de semana.
+ */
+function dataDoConcurso(data: string | undefined): { ano: number; mes: number; dia: number; domingo: boolean } | null {
   const partes = String(data ?? '').split('/');
   if (partes.length !== 3) return null;
   const [dia, mes, ano] = partes.map(Number);
   if (!dia || !mes || !ano) return null;
-  return Date.UTC(ano, mes - 1, dia, 23, 0, 0);
+  const domingo = new Date(Date.UTC(ano, mes - 1, dia)).getUTCDay() === 0;
+  return { ano, mes, dia, domingo };
+}
+
+/** Hora em que a Caixa sorteia o concurso (usada para saber se o resultado já deveria ter saído). */
+export function momentoDoSorteio(data: string | undefined): number | null {
+  const d = dataDoConcurso(data);
+  if (!d) return null;
+  return d.domingo
+    ? Date.UTC(d.ano, d.mes - 1, d.dia, 14, 0, 0)
+    : Date.UTC(d.ano, d.mes - 1, d.dia + 1, 0, 0, 0);
+}
+
+/** Último instante em que uma aposta ainda vale para o concurso. */
+export function fechamentoDasApostas(data: string | undefined): number | null {
+  const d = dataDoConcurso(data);
+  if (!d) return null;
+  return d.domingo
+    ? Date.UTC(d.ano, d.mes - 1, d.dia, 1, 0, 0)
+    : Date.UTC(d.ano, d.mes - 1, d.dia, 23, 0, 0);
 }
 
 /**
@@ -57,45 +83,43 @@ export function inferirConcursoAlvo(criadoEm: string, draws: LotteryDraw[]): num
 /**
  * Sobe quando a regra de premiação muda, para a Carteira reconferir bilhetes
  * já conferidos. 2: Mês da Sorte do Dia de Sorte como faixa própria.
+ * 3: apostas múltiplas premiadas por aposta simples, Dupla Sena nos dois
+ * sorteios e faixas oficiais da +Milionária.
  */
-const VERSAO_DA_REGRA = 2;
+const VERSAO_DA_REGRA = 3;
 
-/** Valor bruto por bilhete da faixa atingida, quando a Caixa já publicou o rateio. */
-export function valorDaFaixa(lottery: LotteryType, draw: LotteryDraw, prizeLabel?: string): number | undefined {
+/**
+ * Prêmio bruto do bilhete: soma, faixa a faixa, das apostas simples premiadas
+ * vezes o valor que a Caixa publicou. Fica indefinido enquanto alguma faixa
+ * atingida não tiver valor publicado (rateio ainda não saiu).
+ */
+export function valorDoResultado(
+  lottery: LotteryType,
+  draw: LotteryDraw,
+  faixas: FaixaAtingida[] | undefined,
+): number | undefined {
   const config = LOTTERY_CONFIGS[lottery];
-  // Na Dupla Sena a lista mistura as faixas dos dois sorteios.
-  if (!prizeLabel || config.hasSecondDraw || !draw.premiacoes?.length) return undefined;
+  if (!faixas?.length || !draw.premiacoes?.length) return undefined;
 
   const ehFaixaDoMes = (descricao: string) => /m[eê]s/i.test(descricao);
   const ordenadas = [...draw.premiacoes].sort((a, b) => a.faixa - b.faixa);
-  const faixas = ordenadas.filter((faixa) => !ehFaixaDoMes(faixa.descricao));
+  const dezenas = ordenadas.filter((faixa) => !ehFaixaDoMes(faixa.descricao));
   const faixaDoMes = ordenadas.find((faixa) => ehFaixaDoMes(faixa.descricao));
-  if (faixas.length !== config.prizeTiers.length) return undefined;
-
-  // Formatos: "<faixa> — premiado!", "<faixa> + Mês da Sorte — premiado!" e
-  // "Mês da Sorte — premiado!". Faixas da +Milionária já têm " + " no nome.
-  const [faixasGanhas] = prizeLabel.split(' — ');
-  const sufixoMes = ` + ${MES_DA_SORTE_LABEL}`;
-  const ganhouMes = faixasGanhas === MES_DA_SORTE_LABEL || faixasGanhas.endsWith(sufixoMes);
-  const nomeFaixa =
-    faixasGanhas === MES_DA_SORTE_LABEL
-      ? undefined
-      : ganhouMes
-        ? faixasGanhas.slice(0, -sufixoMes.length)
-        : faixasGanhas;
+  // Na Dupla Sena a Caixa publica as faixas do 1º sorteio e depois as do 2º.
+  const porSorteio = config.prizeTiers.length;
+  if (dezenas.length !== porSorteio * (config.hasSecondDraw ? 2 : 1)) return undefined;
 
   let total = 0;
-  if (nomeFaixa) {
-    const indice = config.prizeTiers.findIndex((faixa) => faixa.label === nomeFaixa);
-    const valor = indice >= 0 ? faixas[indice]?.valorPremio : undefined;
-    if (!valor || valor <= 0) return undefined;
-    total += valor;
+  for (const faixa of faixas) {
+    const publicada = faixa.mesSorte
+      ? faixaDoMes
+      : faixa.tier !== undefined
+        ? dezenas[faixa.tier + (faixa.sorteio === 2 ? porSorteio : 0)]
+        : undefined;
+    if (!publicada?.valorPremio || publicada.valorPremio <= 0) return undefined;
+    total += publicada.valorPremio * faixa.quantidade;
   }
-  if (ganhouMes) {
-    if (!faixaDoMes?.valorPremio) return undefined;
-    total += faixaDoMes.valorPremio;
-  }
-  return total > 0 ? Math.round(total * 100) / 100 : undefined;
+  return Math.round(total * 100) / 100;
 }
 
 export type SituacaoBilhete =
@@ -179,9 +203,8 @@ export async function conferirCarteira(
         prizeLabel: resultado.prizeLabel,
         secondDrawHits: resultado.secondDrawHits,
         extraHit: resultado.extraHit,
-        valorPremio: resultado.isWinner
-          ? valorDaFaixa(game.lottery, draw, resultado.prizeLabel)
-          : undefined,
+        faixas: resultado.faixas,
+        valorPremio: valorDoResultado(game.lottery, draw, resultado.faixas),
         drawDate: draw.data,
         conferidoEm: new Date().toISOString(),
         regra: VERSAO_DA_REGRA,

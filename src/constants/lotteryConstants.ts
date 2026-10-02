@@ -5,8 +5,9 @@ import { LotteryConfig, LotteryType } from '@/types/lottery';
  * loterias.caixa.gov.br (reajuste vigente desde julho/2025), e não um cálculo
  * derivado, para que qualquer pessoa consiga auditá-las linha a linha.
  *
- * Os dias de sorteio foram conferidos contra o histórico real de concursos
- * baixado em `scripts/fetch-lottery-history.mjs`.
+ * Os dias de sorteio seguem o calendário vigente desde 19/07/2026, quando a
+ * Caixa passou os sorteios de sábado para domingo às 11h; conferidos contra o
+ * histórico real de concursos.
  */
 export const LOTTERY_CONFIGS: Record<LotteryType, LotteryConfig> = {
   lotofacil: {
@@ -21,7 +22,7 @@ export const LOTTERY_CONFIGS: Record<LotteryType, LotteryConfig> = {
     totalNumbers: 25,
     minSelection: 15,
     maxSelection: 20,
-    drawDays: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
+    drawDays: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Domingo'],
     basePrice: 3.5,
     priceTable: {
       15: 3.5,
@@ -60,8 +61,8 @@ export const LOTTERY_CONFIGS: Record<LotteryType, LotteryConfig> = {
     badgeText: 'text-emerald-700 dark:text-emerald-300',
     totalNumbers: 60,
     minSelection: 6,
-    maxSelection: 15,
-    drawDays: ['Terça', 'Quinta', 'Sábado'],
+    maxSelection: 20,
+    drawDays: ['Terça', 'Quinta', 'Domingo'],
     basePrice: 6.0,
     priceTable: {
       6: 6.0,
@@ -74,6 +75,11 @@ export const LOTTERY_CONFIGS: Record<LotteryType, LotteryConfig> = {
       13: 10296.0,
       14: 18018.0,
       15: 30030.0,
+      16: 48048.0,
+      17: 74256.0,
+      18: 111384.0,
+      19: 162792.0,
+      20: 232560.0,
     },
     colsGrid: 10,
     primeNumbers: [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53, 59],
@@ -98,7 +104,7 @@ export const LOTTERY_CONFIGS: Record<LotteryType, LotteryConfig> = {
     totalNumbers: 80,
     minSelection: 5,
     maxSelection: 15,
-    drawDays: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'],
+    drawDays: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Domingo'],
     basePrice: 3.0,
     priceTable: {
       5: 3.0,
@@ -180,7 +186,7 @@ export const LOTTERY_CONFIGS: Record<LotteryType, LotteryConfig> = {
     totalNumbers: 31,
     minSelection: 7,
     maxSelection: 15,
-    drawDays: ['Terça', 'Quinta', 'Sábado'],
+    drawDays: ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Domingo'],
     basePrice: 2.5,
     priceTable: {
       7: 2.5,
@@ -238,7 +244,7 @@ export const LOTTERY_CONFIGS: Record<LotteryType, LotteryConfig> = {
     totalNumbers: 50,
     minSelection: 6,
     maxSelection: 12,
-    drawDays: ['Quarta', 'Sábado'],
+    drawDays: ['Quarta', 'Domingo'],
     basePrice: 6.0,
     // Valores para o mínimo de 2 trevos; trevos adicionais multiplicam o custo
     // e são tratados em `officialBetPrice`.
@@ -257,15 +263,15 @@ export const LOTTERY_CONFIGS: Record<LotteryType, LotteryConfig> = {
     idealEvenRange: [2, 4],
     prizeTiers: [
       { hits: 6, label: '6 acertos + 2 trevos', trevos: 2 },
-      { hits: 6, label: '6 acertos + 1 trevo', trevos: 1 },
-      { hits: 6, label: '6 acertos', trevos: 0 },
+      { hits: 6, label: '6 acertos + 1 ou nenhum trevo', trevos: 0 },
       { hits: 5, label: '5 acertos + 2 trevos', trevos: 2 },
-      { hits: 5, label: '5 acertos + 1 trevo', trevos: 1 },
-      { hits: 5, label: '5 acertos', trevos: 0 },
+      { hits: 5, label: '5 acertos + 1 ou nenhum trevo', trevos: 0 },
       { hits: 4, label: '4 acertos + 2 trevos', trevos: 2 },
-      { hits: 4, label: '4 acertos', trevos: 0 },
+      { hits: 4, label: '4 acertos + 1 ou nenhum trevo', trevos: 0 },
       { hits: 3, label: '3 acertos + 2 trevos', trevos: 2 },
+      { hits: 3, label: '3 acertos + 1 trevo', trevos: 1 },
       { hits: 2, label: '2 acertos + 2 trevos', trevos: 2 },
+      { hits: 2, label: '2 acertos + 1 trevo', trevos: 1 },
     ],
     mainPrizeOdds: 238_360_500,
     extraField: {

@@ -9,6 +9,8 @@ import {
 import { LOTTERY_CONFIGS, officialBetPrice } from '@/constants/lotteryConstants';
 import { calculateLotteryStats } from '@/services/lotteryHistoricalData';
 import { generateLotteryGames, getStrategyLabel } from '@/services/lotteryGenerator';
+import { checkTicketAgainstDraw } from '@/services/lotteryGameManager';
+import { valorDoResultado } from '@/services/lotteryConferencia';
 
 /**
  * Prova real das estratégias.
@@ -100,20 +102,6 @@ export function theoreticalExpectation(lottery: LotteryType, numbersCount: numbe
   return esperanca;
 }
 
-/** Soma os prêmios das faixas atingidas, quando o concurso traz rateio oficial. */
-function prizeForHits(draw: LotteryDraw, lottery: LotteryType, hits: number): number {
-  const tier = LOTTERY_CONFIGS[lottery].prizeTiers.find((t) => t.hits === hits);
-  if (!tier || !draw.premiacoes?.length) return 0;
-
-  const faixa = draw.premiacoes.find(
-    (p) =>
-      p.descricao?.toLowerCase().includes(tier.label.toLowerCase()) ||
-      p.descricao?.startsWith(String(hits)),
-  );
-
-  return faixa?.valorPremio ?? 0;
-}
-
 function emptyTiers(lottery: LotteryType): BacktestTierResult[] {
   return LOTTERY_CONFIGS[lottery].prizeTiers.map((tier) => ({
     label: tier.label,
@@ -190,7 +178,8 @@ export async function runBacktest(options: BacktestOptions): Promise<BacktestRep
         const hits = countHits(lottery, bilhete.numbers, alvo);
         registro.hits.push(hits);
         registro.custo += bilhete.cost;
-        registro.retorno += prizeForHits(alvo, lottery, hits);
+        const resultado = checkTicketAgainstDraw(bilhete.numbers, alvo, bilhete.extra);
+        registro.retorno += valorDoResultado(lottery, alvo, resultado.faixas) ?? 0;
 
         const tier = registro.tiers.find((t) => t.hits === hits);
         if (tier) tier.count += 1;

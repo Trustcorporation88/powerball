@@ -6,7 +6,7 @@ import { GeneratedGame, LotteryDraw, LotteryType } from '@/types/lottery';
 import { LOTTERY_CONFIGS } from '@/constants/lotteryConstants';
 import { getDrawByConcurso } from '@/services/lotteryApiService';
 import { checkTicketAgainstDraw, TicketCheckResult } from '@/services/lotteryGameManager';
-import { valorDaFaixa } from '@/services/lotteryConferencia';
+import { valorDoResultado } from '@/services/lotteryConferencia';
 import { bilhetesImportados, JogoLido, lerJogosDoTexto } from '@/services/lotteryImportacao';
 import { lerTextoDaImagem } from '@/services/lotteryOcr';
 
@@ -114,7 +114,7 @@ export const ConferirJogosDialog: React.FC<ConferirJogosDialogProps> = ({
         return {
           jogo,
           resultado,
-          valorPremio: resultado.isWinner ? valorDaFaixa(lottery, draw, resultado.prizeLabel) : undefined,
+          valorPremio: valorDoResultado(lottery, draw, resultado.faixas),
         };
       });
       linhas.sort((a, b) => (b.resultado?.hits ?? 0) - (a.resultado?.hits ?? 0));

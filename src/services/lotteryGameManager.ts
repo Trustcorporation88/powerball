@@ -5,7 +5,7 @@ import {
   LotteryType,
   UserSavedGame,
 } from '@/types/lottery';
-import { LOTTERY_CONFIGS } from '@/constants/lotteryConstants';
+import { combinations, LOTTERY_CONFIGS } from '@/constants/lotteryConstants';
 
 const SAVED_GAMES_KEY = 'caixa_lottery_saved_games';
 
@@ -108,6 +108,17 @@ export function toggleBetStatus(gameId: string): boolean {
 
 export const MES_DA_SORTE_LABEL = 'Mês da Sorte';
 
+/** Uma faixa atingida e quantas apostas simples do bilhete caíram nela. */
+export interface FaixaAtingida {
+  /** Posição da faixa em `prizeTiers`; ausente para o Mês da Sorte. */
+  tier?: number;
+  label: string;
+  quantidade: number;
+  /** Dupla Sena: 1º ou 2º sorteio. */
+  sorteio?: 1 | 2;
+  mesSorte?: boolean;
+}
+
 export interface TicketCheckResult {
   hits: number;
   hitNumbers: number[];
@@ -115,18 +126,29 @@ export interface TicketCheckResult {
   prizeLabel?: string;
   /** Acertos no 2º sorteio da Dupla Sena. */
   secondDrawHits?: number;
-  /** Acertou o Mês da Sorte / os trevos exigidos pela faixa. */
+  /** Acertou o Mês da Sorte / algum trevo. */
   extraHit?: boolean;
+  faixas: FaixaAtingida[];
+}
+
+function normalizarMes(mes: string): string {
+  return mes.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 }
 
 /**
- * Conferidor automático, guiado pelas faixas oficiais de cada modalidade.
+ * Conferidor guiado pelas regras oficiais de cada modalidade.
  *
- * Na Dupla Sena o bilhete concorre nos dois sorteios e vale o melhor deles.
- * Na +Milionária a faixa depende também do número de trevos acertados. No
- * Dia de Sorte o Mês da Sorte é a 5ª faixa, independente das dezenas e
- * cumulativa com elas (Portaria SPA/MF nº 2.755/2026): o bilhete que acerta
- * 5 dezenas e o mês recebe as duas faixas.
+ * Um bilhete com mais dezenas que o mínimo equivale a todas as apostas
+ * simples que ele contém, e cada uma é premiada (Lotofácil de 16 dezenas
+ * com 15 acertos = 1 prêmio de 15 + 15 prêmios de 14). Por isso a conta é
+ * feita por aposta simples: C(acertos, j) × C(erros, mínimo − j) apostas
+ * fazem exatamente j pontos.
+ *
+ * - Dupla Sena: o bilhete concorre nos dois sorteios e pode ganhar nos dois.
+ * - +Milionária: cada aposta simples leva 2 dos trevos marcados; a faixa
+ *   depende de quantos desses 2 saíram.
+ * - Dia de Sorte: o Mês da Sorte é a 5ª faixa, independente das dezenas e
+ *   cumulativa com elas (Portaria SPA/MF nº 2.755/2026).
  */
 export function checkTicketAgainstDraw(
   gameNumbers: number[],
@@ -134,47 +156,87 @@ export function checkTicketAgainstDraw(
   extra?: LotteryExtraSelection,
 ): TicketCheckResult {
   const config = LOTTERY_CONFIGS[draw.loteria];
+  const porAposta = config.minSelection;
+  const marcadas = gameNumbers.length;
 
   const hitNumbers = gameNumbers.filter((n) => draw.dezenas.includes(n));
   let hits = hitNumbers.length;
   let secondDrawHits: number | undefined;
-
-  if (config.hasSecondDraw && draw.dezenasSegundoSorteio?.length) {
-    secondDrawHits = gameNumbers.filter((n) => draw.dezenasSegundoSorteio!.includes(n)).length;
+  const segundo = config.hasSecondDraw && draw.dezenasSegundoSorteio?.length ? draw.dezenasSegundoSorteio : null;
+  if (segundo) {
+    secondDrawHits = gameNumbers.filter((n) => segundo.includes(n)).length;
     hits = Math.max(hits, secondDrawHits);
   }
 
+  // Combinações de trevos por aposta simples, agrupadas por trevos acertados.
+  const trevosMarcados = extra?.trevos?.length ?? 0;
   const trevosAcertados = extra?.trevos?.filter((t) => draw.trevos?.includes(t)).length ?? 0;
-  const normalizarMes = (mes: string) =>
-    mes.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  const combinacoesDeTrevos: Array<{ acertos: number; quantidade: number }> =
+    config.extraField?.key === 'trevos' && trevosMarcados >= 2
+      ? [2, 1, 0].map((acertos) => ({
+          acertos,
+          quantidade:
+            combinations(trevosAcertados, acertos) *
+            combinations(trevosMarcados - trevosAcertados, 2 - acertos),
+        }))
+      : [{ acertos: 0, quantidade: 1 }];
+
+  const faixas: FaixaAtingida[] = [];
+  const conferirSorteio = (acertos: number, sorteio?: 1 | 2) => {
+    for (let j = Math.min(acertos, porAposta); j >= 0; j--) {
+      const apostas = combinations(acertos, j) * combinations(marcadas - acertos, porAposta - j);
+      if (apostas === 0) continue;
+      for (const trevos of combinacoesDeTrevos) {
+        if (trevos.quantidade === 0) continue;
+        const tier = config.prizeTiers.findIndex(
+          (faixa) => faixa.hits === j && (faixa.trevos === undefined || trevos.acertos >= faixa.trevos),
+        );
+        if (tier < 0) continue;
+        const existente = faixas.find((f) => f.tier === tier && f.sorteio === sorteio);
+        const quantidade = apostas * trevos.quantidade;
+        if (existente) existente.quantidade += quantidade;
+        else faixas.push({ tier, label: config.prizeTiers[tier].label, quantidade, sorteio });
+      }
+    }
+  };
+
+  conferirSorteio(hitNumbers.length, segundo ? 1 : undefined);
+  if (segundo) conferirSorteio(secondDrawHits ?? 0, 2);
+
   const mesAcertado = Boolean(
     extra?.mesSorte && draw.mesSorte && normalizarMes(extra.mesSorte) === normalizarMes(draw.mesSorte),
   );
+  if (config.extraField?.key === 'mesSorte' && mesAcertado) {
+    faixas.push({ label: MES_DA_SORTE_LABEL, quantidade: combinations(marcadas, porAposta), mesSorte: true });
+  }
+
+  faixas.sort((a, b) => (a.tier ?? Infinity) - (b.tier ?? Infinity) || (a.sorteio ?? 0) - (b.sorteio ?? 0));
+
   const extraHit = config.extraField
     ? config.extraField.key === 'trevos'
       ? trevosAcertados > 0
       : mesAcertado
     : undefined;
 
-  // A primeira faixa compatível é a de maior valor, já que prizeTiers vem
-  // ordenada da melhor para a pior.
-  const tier = config.prizeTiers.find((faixa) => {
-    if (hits < faixa.hits) return false;
-    if (faixa.trevos === undefined) return true;
-    return trevosAcertados >= faixa.trevos;
-  });
-
-  const ganhouMes = config.extraField?.key === 'mesSorte' && mesAcertado;
-  const faixas = [tier?.label, ganhouMes ? MES_DA_SORTE_LABEL : undefined].filter(Boolean);
-
   return {
     hits,
     hitNumbers,
     isWinner: faixas.length > 0,
-    prizeLabel: faixas.length > 0 ? `${faixas.join(' + ')} — premiado!` : undefined,
+    prizeLabel: faixas.length > 0 ? `${descreverFaixas(faixas)} — premiado!` : undefined,
     secondDrawHits,
     extraHit,
+    faixas,
   };
+}
+
+export function descreverFaixas(faixas: FaixaAtingida[]): string {
+  return faixas
+    .map((faixa) => {
+      const quantidade = faixa.quantidade > 1 ? `${faixa.quantidade}× ` : '';
+      const sorteio = faixa.sorteio ? ` (${faixa.sorteio}º sorteio)` : '';
+      return `${quantidade}${faixa.label}${sorteio}`;
+    })
+    .join(' + ');
 }
 
 /** Descreve o campo extra do bilhete para exportações e listagens. */

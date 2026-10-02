@@ -219,6 +219,14 @@ export interface UserSavedGame extends GeneratedGame {
     conferidoEm?: string;
     /** Versão da regra de premiação usada na conferência. */
     regra?: number;
+    /** Faixas atingidas e quantas apostas simples caíram em cada uma. */
+    faixas?: Array<{
+      tier?: number;
+      label: string;
+      quantidade: number;
+      sorteio?: 1 | 2;
+      mesSorte?: boolean;
+    }>;
   };
 }
 
