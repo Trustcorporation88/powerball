@@ -1,4 +1,10 @@
-import { FechamentoPlan, GeneratedGame, LotteryStats, LotteryType } from '@/types/lottery';
+import {
+  FechamentoPlan,
+  GeneratedGame,
+  LotteryExtraSelection,
+  LotteryStats,
+  LotteryType,
+} from '@/types/lottery';
 import { LOTTERY_CONFIGS, officialBetPrice, savingsPercent } from '@/constants/lotteryConstants';
 import fechamentosGerados from '@/data/fechamentos.json';
 import { analyzeGame, computeGameScore } from './lotteryGenerator';
@@ -109,7 +115,9 @@ export function verifyFechamento(plan: FechamentoPlan): { ok: boolean; piorCaso:
 export function executeFechamento(
   plan: FechamentoPlan,
   selectedNumbers: number[],
-  stats?: LotteryStats
+  stats?: LotteryStats,
+  /** Mês da Sorte / Trevos: obrigatórios no volante e iguais em todos os bilhetes. */
+  extra?: LotteryExtraSelection,
 ): GeneratedGame[] {
   if (selectedNumbers.length !== plan.totalSelectedNumbers) {
     throw new Error(
@@ -119,7 +127,7 @@ export function executeFechamento(
 
   const sortedSelected = [...selectedNumbers].sort((a, b) => a - b);
   const matrices = plan.matrices || [];
-  const costPerTicket = officialBetPrice(plan.lottery, plan.numbersPerTicket);
+  const costPerTicket = officialBetPrice(plan.lottery, plan.numbersPerTicket, extra?.trevos?.length);
 
   return matrices.map((matrixIndices, index) => {
     const ticketNumbers = matrixIndices
@@ -134,6 +142,7 @@ export function executeFechamento(
       id: `fechamento_${plan.id}_${index + 1}_${Date.now()}`,
       lottery: plan.lottery,
       numbers: ticketNumbers,
+      extra,
       strategy: 'balanced',
       strategyLabel: `Fechamento: ${plan.name} (#${index + 1})`,
       createdAt: new Date().toISOString(),

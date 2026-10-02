@@ -1,7 +1,7 @@
 import { LotteryDraw, LotteryType, UserSavedGame } from '@/types/lottery';
 import { LOTTERY_CONFIGS } from '@/constants/lotteryConstants';
 import { getDrawByConcurso } from '@/services/lotteryApiService';
-import { checkTicketAgainstDraw } from '@/services/lotteryGameManager';
+import { checkTicketAgainstDraw, MES_DA_SORTE_LABEL } from '@/services/lotteryGameManager';
 
 /**
  * Conferência da Carteira pelo concurso de cada bilhete.
@@ -54,17 +54,48 @@ export function inferirConcursoAlvo(criadoEm: string, draws: LotteryDraw[]): num
   return alvo ?? proximoConcursoAberto(draws, criado);
 }
 
+/**
+ * Sobe quando a regra de premiação muda, para a Carteira reconferir bilhetes
+ * já conferidos. 2: Mês da Sorte do Dia de Sorte como faixa própria.
+ */
+const VERSAO_DA_REGRA = 2;
+
 /** Valor bruto por bilhete da faixa atingida, quando a Caixa já publicou o rateio. */
 export function valorDaFaixa(lottery: LotteryType, draw: LotteryDraw, prizeLabel?: string): number | undefined {
   const config = LOTTERY_CONFIGS[lottery];
   // Na Dupla Sena a lista mistura as faixas dos dois sorteios.
   if (!prizeLabel || config.hasSecondDraw || !draw.premiacoes?.length) return undefined;
-  if (draw.premiacoes.length !== config.prizeTiers.length) return undefined;
 
-  const indice = config.prizeTiers.findIndex((faixa) => prizeLabel.startsWith(`${faixa.label} —`));
-  const faixas = [...draw.premiacoes].sort((a, b) => a.faixa - b.faixa);
-  const valor = indice >= 0 ? faixas[indice]?.valorPremio : undefined;
-  return valor && valor > 0 ? valor : undefined;
+  const ehFaixaDoMes = (descricao: string) => /m[eê]s/i.test(descricao);
+  const ordenadas = [...draw.premiacoes].sort((a, b) => a.faixa - b.faixa);
+  const faixas = ordenadas.filter((faixa) => !ehFaixaDoMes(faixa.descricao));
+  const faixaDoMes = ordenadas.find((faixa) => ehFaixaDoMes(faixa.descricao));
+  if (faixas.length !== config.prizeTiers.length) return undefined;
+
+  // Formatos: "<faixa> — premiado!", "<faixa> + Mês da Sorte — premiado!" e
+  // "Mês da Sorte — premiado!". Faixas da +Milionária já têm " + " no nome.
+  const [faixasGanhas] = prizeLabel.split(' — ');
+  const sufixoMes = ` + ${MES_DA_SORTE_LABEL}`;
+  const ganhouMes = faixasGanhas === MES_DA_SORTE_LABEL || faixasGanhas.endsWith(sufixoMes);
+  const nomeFaixa =
+    faixasGanhas === MES_DA_SORTE_LABEL
+      ? undefined
+      : ganhouMes
+        ? faixasGanhas.slice(0, -sufixoMes.length)
+        : faixasGanhas;
+
+  let total = 0;
+  if (nomeFaixa) {
+    const indice = config.prizeTiers.findIndex((faixa) => faixa.label === nomeFaixa);
+    const valor = indice >= 0 ? faixas[indice]?.valorPremio : undefined;
+    if (!valor || valor <= 0) return undefined;
+    total += valor;
+  }
+  if (ganhouMes) {
+    if (!faixaDoMes?.valorPremio) return undefined;
+    total += faixaDoMes.valorPremio;
+  }
+  return total > 0 ? Math.round(total * 100) / 100 : undefined;
 }
 
 export type SituacaoBilhete =
@@ -116,7 +147,9 @@ export async function conferirCarteira(
 
     const alvo = game.concursoAlvo;
     const ultimoConhecido = draws[0]?.concurso ?? 0;
-    const jaConferido = game.checkResult?.drawNumber === alvo;
+    const anterior = game.checkResult;
+    const jaConferido =
+      anterior?.drawNumber === alvo && (anterior.regra ?? 1) >= VERSAO_DA_REGRA;
 
     if (!alvo || jaConferido || alvo > ultimoConhecido) {
       carteira.push(game);
@@ -151,11 +184,17 @@ export async function conferirCarteira(
           : undefined,
         drawDate: draw.data,
         conferidoEm: new Date().toISOString(),
+        regra: VERSAO_DA_REGRA,
       },
     };
 
     alterou = true;
-    recemConferidos.push(game);
+    // Reconferir pela regra nova só avisa de novo quando o resultado mudou.
+    const mudou =
+      anterior?.drawNumber !== alvo ||
+      anterior.isWinner !== resultado.isWinner ||
+      anterior.prizeLabel !== resultado.prizeLabel;
+    if (mudou) recemConferidos.push(game);
     carteira.push(game);
   }
 

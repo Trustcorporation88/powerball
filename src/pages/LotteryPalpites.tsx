@@ -15,7 +15,7 @@ import {
 import { LOTTERY_CONFIGS, LOTTERY_ORDER } from '@/constants/lotteryConstants';
 import { getLotteryHistory, type LotterySource } from '@/services/lotteryApiService';
 import { calculateLotteryStats } from '@/services/lotteryHistoricalData';
-import { generateLotteryGames } from '@/services/lotteryGenerator';
+import { buildExtraSelection, generateLotteryGames } from '@/services/lotteryGenerator';
 import {
   FECHAMENTOS_CATALOG,
   executeFechamento,
@@ -35,6 +35,7 @@ import {
   setConcursoAlvo,
   setConcursoAlvoEmLote,
   toggleBetStatus,
+  describeExtra,
   formatGamesForWhatsApp,
   exportGamesToCSV,
 } from '@/services/lotteryGameManager';
@@ -397,8 +398,10 @@ export default function LotteryPalpites() {
     }
 
     try {
+      const extra = buildExtraSelection(selectedLottery, 'hot', stats, extraSelection);
+      if (extra) setExtraSelection(extra);
       const tickets = comConcursoAlvo(
-        executeFechamento(selectedFechamento, fechamentoPool, stats),
+        executeFechamento(selectedFechamento, fechamentoPool, stats, extra),
       );
       setFechamentoGames(tickets);
       guardarNaCarteira(tickets);
@@ -1095,6 +1098,11 @@ export default function LotteryPalpites() {
                           />
                         ))}
                       </div>
+                      {describeExtra(game) && (
+                        <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                          {describeExtra(game)}
+                        </p>
+                      )}
 
                       {/* Resumo Rápido & Ações */}
                       <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
@@ -1249,6 +1257,21 @@ export default function LotteryPalpites() {
                     })}
                   </div>
 
+                  {config.extraField && (
+                    <div className="space-y-1">
+                      <ExtraFieldPicker
+                        lottery={selectedLottery}
+                        value={extraSelection}
+                        onChange={setExtraSelection}
+                        stats={stats}
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        {config.extraField.label} é obrigatório no volante e vai igual em todos os
+                        bilhetes do fechamento. Se não escolher, o site usa um dos mais sorteados.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Informações Matemáticas da Garantia */}
                   <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-900 text-xs text-emerald-900 dark:text-emerald-200 flex items-start gap-3">
                     <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
@@ -1351,6 +1374,11 @@ export default function LotteryPalpites() {
                           />
                         ))}
                       </div>
+                      {describeExtra(game) && (
+                        <p className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                          {describeExtra(game)}
+                        </p>
+                      )}
                       <div className="flex items-center justify-between pt-1 text-[11px] text-muted-foreground">
                         <span>
                           {game.analysis.evenCount}P / {game.analysis.oddCount}I
@@ -1674,6 +1702,12 @@ export default function LotteryPalpites() {
                           />
                         ))}
                       </div>
+                      {describeExtra(game) && (
+                        <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                          {describeExtra(game)}
+                          {check?.extraHit ? ' (acertou)' : ''}
+                        </p>
+                      )}
 
                       {/* Concurso do bilhete e conferência */}
                       <div className="p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs space-y-1.5">

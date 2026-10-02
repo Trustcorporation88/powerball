@@ -259,7 +259,7 @@ export function getStrategyLabel(strategy: GeneratorStrategy): string {
  * Respeita o que o usuário fixou e, no que sobrar, segue a mesma lógica da
  * estratégia escolhida para as dezenas.
  */
-function buildExtraSelection(
+export function buildExtraSelection(
   lottery: LotteryType,
   strategy: GeneratorStrategy,
   stats: LotteryStats,

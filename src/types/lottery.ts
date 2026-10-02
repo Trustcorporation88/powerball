@@ -217,6 +217,8 @@ export interface UserSavedGame extends GeneratedGame {
     valorPremio?: number;
     drawDate?: string;
     conferidoEm?: string;
+    /** Versão da regra de premiação usada na conferência. */
+    regra?: number;
   };
 }
 

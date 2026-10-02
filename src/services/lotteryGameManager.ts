@@ -106,6 +106,8 @@ export function toggleBetStatus(gameId: string): boolean {
   return false;
 }
 
+export const MES_DA_SORTE_LABEL = 'Mês da Sorte';
+
 export interface TicketCheckResult {
   hits: number;
   hitNumbers: number[];
@@ -121,8 +123,10 @@ export interface TicketCheckResult {
  * Conferidor automático, guiado pelas faixas oficiais de cada modalidade.
  *
  * Na Dupla Sena o bilhete concorre nos dois sorteios e vale o melhor deles.
- * Na +Milionária a faixa depende também do número de trevos acertados, e no
- * Dia de Sorte o Mês da Sorte só muda a faixa máxima.
+ * Na +Milionária a faixa depende também do número de trevos acertados. No
+ * Dia de Sorte o Mês da Sorte é a 5ª faixa, independente das dezenas e
+ * cumulativa com elas (Portaria SPA/MF nº 2.755/2026): o bilhete que acerta
+ * 5 dezenas e o mês recebe as duas faixas.
  */
 export function checkTicketAgainstDraw(
   gameNumbers: number[],
@@ -141,7 +145,11 @@ export function checkTicketAgainstDraw(
   }
 
   const trevosAcertados = extra?.trevos?.filter((t) => draw.trevos?.includes(t)).length ?? 0;
-  const mesAcertado = Boolean(extra?.mesSorte && draw.mesSorte && extra.mesSorte === draw.mesSorte);
+  const normalizarMes = (mes: string) =>
+    mes.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  const mesAcertado = Boolean(
+    extra?.mesSorte && draw.mesSorte && normalizarMes(extra.mesSorte) === normalizarMes(draw.mesSorte),
+  );
   const extraHit = config.extraField
     ? config.extraField.key === 'trevos'
       ? trevosAcertados > 0
@@ -156,11 +164,14 @@ export function checkTicketAgainstDraw(
     return trevosAcertados >= faixa.trevos;
   });
 
+  const ganhouMes = config.extraField?.key === 'mesSorte' && mesAcertado;
+  const faixas = [tier?.label, ganhouMes ? MES_DA_SORTE_LABEL : undefined].filter(Boolean);
+
   return {
     hits,
     hitNumbers,
-    isWinner: Boolean(tier),
-    prizeLabel: tier ? `${tier.label} — premiado!` : undefined,
+    isWinner: faixas.length > 0,
+    prizeLabel: faixas.length > 0 ? `${faixas.join(' + ')} — premiado!` : undefined,
     secondDrawHits,
     extraHit,
   };
