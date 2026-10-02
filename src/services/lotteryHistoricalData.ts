@@ -47,13 +47,18 @@ export function calculateLotteryStats(lottery: LotteryType, draws: LotteryDraw[]
   const sortedDraws = [...draws].sort((a, b) => b.concurso - a.concurso);
   const observations = toObservations(lottery, sortedDraws);
 
-  // Atraso: quantas observações se passaram desde a última aparição da dezena.
-  // Uma varredura única evita o custo quadrático de buscar dezena por dezena.
+  // Atraso: quantos concursos se passaram desde a última aparição da dezena.
+  // Na Dupla Sena conta o concurso, não o sorteio — sair em qualquer um dos
+  // dois zera o atraso, como o apostador e a Caixa entendem.
   const pendentes = new Set<number>();
   for (let n = 1; n <= config.totalNumbers; n++) pendentes.add(n);
 
-  for (let index = 0; index < observations.length && pendentes.size > 0; index++) {
-    for (const numero of observations[index]) {
+  for (let index = 0; index < sortedDraws.length && pendentes.size > 0; index++) {
+    const draw = sortedDraws[index];
+    const sorteadas = config.hasSecondDraw
+      ? [...draw.dezenas, ...(draw.dezenasSegundoSorteio ?? [])]
+      : draw.dezenas;
+    for (const numero of sorteadas) {
       if (pendentes.delete(numero)) {
         atrasos[numero] = index;
       }
@@ -62,7 +67,7 @@ export function calculateLotteryStats(lottery: LotteryType, draws: LotteryDraw[]
 
   // Dezenas que nunca saíram na janela analisada recebem o atraso máximo.
   for (const numero of pendentes) {
-    atrasos[numero] = observations.length;
+    atrasos[numero] = sortedDraws.length;
   }
 
   let totalEven = 0;
