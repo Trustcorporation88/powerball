@@ -1,5 +1,5 @@
 import { prisma } from "./prisma.js";
-import { type Lottery, NOMES, UNIVERSO, momentoDoSorteio } from "./lotteryData.js";
+import { type Lottery, NOMES, UNIVERSO, fechamentoDasApostas } from "./lotteryData.js";
 
 /**
  * Placar real das estratégias.
@@ -141,7 +141,7 @@ export async function relatorioTransparencia(lottery: Lottery): Promise<Relatori
       continue;
     }
 
-    const momento = momentoDoSorteio(sorteio.data);
+    const momento = fechamentoDasApostas(sorteio.data);
     if (momento === null || bilhete.registradoEm.getTime() >= momento) {
       descartados++;
       continue;

@@ -92,6 +92,33 @@ function toNumbers(value: unknown): number[] {
     .sort((a, b) => a - b);
 }
 
+const MESES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
+
+function semAcento(texto: string): string {
+  return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
+}
+
+/** A Caixa manda o mês em `nomeTimeCoracaoMesSorte`; o espelho, em `mesSorte`. */
+function mesDaSorte(raw: any): string | null {
+  const bruto = raw?.mesSorte ?? raw?.nomeTimeCoracaoMesSorte;
+  if (!bruto || typeof bruto !== "string") return null;
+  return MESES.find((mes) => semAcento(mes) === semAcento(bruto)) ?? bruto.trim();
+}
+
+/** Formato único de rateio; a Caixa usa `descricaoFaixa` e `numeroDeGanhadores`. */
+export function normalizarPremiacoes(lista: unknown) {
+  if (!Array.isArray(lista)) return null;
+  return lista.map((item: any) => ({
+    faixa: Number(item?.faixa ?? 0),
+    descricao: String(item?.descricao ?? item?.descricaoFaixa ?? `${item?.faixa} acertos`),
+    ganhadores: Number(item?.ganhadores ?? item?.numeroDeGanhadores ?? 0),
+    valorPremio: Number(item?.valorPremio ?? 0),
+  }));
+}
+
 export interface NormalizedDraw {
   lottery: Lottery;
   concurso: number;
@@ -138,10 +165,10 @@ export function normalize(lottery: Lottery, raw: any): NormalizedDraw | null {
     data: String(raw?.dataApuracao ?? raw?.data ?? ""),
     dezenas,
     dezenas2,
-    mesSorte: raw?.mesSorte ? String(raw.mesSorte) : null,
+    mesSorte: mesDaSorte(raw),
     trevos: trevos.length > 0 ? trevos : null,
     acumulou: Boolean(raw?.acumulou ?? raw?.acumulado),
-    premiacoes: raw?.premiacoes ?? raw?.listaRateioPremio ?? null,
+    premiacoes: normalizarPremiacoes(raw?.premiacoes ?? raw?.listaRateioPremio),
     estimativaProximoPremio: Number(
       raw?.valorEstimadoProximoConcurso ?? raw?.estimativaProximoPremio ?? 0,
     ),
@@ -151,15 +178,36 @@ export function normalize(lottery: Lottery, raw: any): NormalizedDraw | null {
 }
 
 /**
- * Momento do sorteio a partir de "dd/mm/aaaa". Os sorteios são às 20h de
- * Brasília (23h UTC); um bilhete gravado depois disso já não vale para ele.
+ * Calendário da Caixa (Brasília = UTC−3): de segunda a sábado o sorteio é às
+ * 21h e as apostas fecham às 20h; desde 19/07/2026 o sorteio de fim de semana
+ * é no domingo às 11h, com apostas até as 22h de sábado. Quando uma eleição ou
+ * feriado antecipa o domingo, a data do concurso já vem como sábado.
  */
-export function momentoDoSorteio(data: string | null | undefined): number | null {
+function dataDoConcurso(data: string | null | undefined) {
   const partes = String(data ?? "").split("/");
   if (partes.length !== 3) return null;
   const [dia, mes, ano] = partes.map(Number);
   if (!dia || !mes || !ano) return null;
-  return Date.UTC(ano, mes - 1, dia, 23, 0, 0);
+  const domingo = new Date(Date.UTC(ano, mes - 1, dia)).getUTCDay() === 0;
+  return { ano, mes, dia, domingo };
+}
+
+/** Hora do sorteio, base para saber se o resultado já deveria ter saído. */
+export function momentoDoSorteio(data: string | null | undefined): number | null {
+  const d = dataDoConcurso(data);
+  if (!d) return null;
+  return d.domingo
+    ? Date.UTC(d.ano, d.mes - 1, d.dia, 14, 0, 0)
+    : Date.UTC(d.ano, d.mes - 1, d.dia + 1, 0, 0, 0);
+}
+
+/** Último instante em que um bilhete ainda vale para o concurso. */
+export function fechamentoDasApostas(data: string | null | undefined): number | null {
+  const d = dataDoConcurso(data);
+  if (!d) return null;
+  return d.domingo
+    ? Date.UTC(d.ano, d.mes - 1, d.dia, 1, 0, 0)
+    : Date.UTC(d.ano, d.mes - 1, d.dia, 23, 0, 0);
 }
 
 function premioDoPayload(payload: unknown): {
@@ -198,7 +246,7 @@ export function concursoPublico(registro: {
     mesSorte: registro.mesSorte ?? undefined,
     trevos: registro.trevos ?? undefined,
     acumulou: registro.acumulou,
-    premiacoes: registro.premiacoes ?? undefined,
+    premiacoes: normalizarPremiacoes(registro.premiacoes) ?? undefined,
     valorEstimadoProximoConcurso: premio.estimativaProximoPremio,
     valorAcumuladoProximoConcurso: premio.valorAcumuladoProximoConcurso,
     dataProximoConcurso: premio.dataProximoConcurso,
@@ -321,6 +369,7 @@ async function sincronizar(lottery: Lottery, log: FastifyBaseLogger): Promise<Sy
   }
 
   await persistDraws(pendentes);
+  await repararMesesDaSorte(lottery, log);
 
   return {
     lottery,
@@ -329,6 +378,29 @@ async function sincronizar(lottery: Lottery, log: FastifyBaseLogger): Promise<Sy
     latestConcurso: draw.concurso,
     newDraws: pendentes.filter((item) => item.concurso > conhecido).length,
   };
+}
+
+/**
+ * Concursos do Dia de Sorte gravados sem o Mês da Sorte (vindos da Caixa antes
+ * de o campo `nomeTimeCoracaoMesSorte` ser lido) são buscados de novo.
+ */
+async function repararMesesDaSorte(lottery: Lottery, log: FastifyBaseLogger): Promise<void> {
+  if (lottery !== "diadesorte") return;
+  const faltando = await prisma.lotteryDrawCache.findMany({
+    where: { lottery, mesSorte: null },
+    orderBy: { concurso: "desc" },
+    select: { concurso: true },
+    take: 20,
+  });
+  const reparados: NormalizedDraw[] = [];
+  for (const { concurso } of faltando) {
+    const draw = await fetchConcurso(lottery, concurso);
+    if (draw?.mesSorte) reparados.push(draw);
+  }
+  if (reparados.length > 0) {
+    await persistDraws(reparados);
+    log.info(`[loterias] Mês da Sorte recuperado em ${reparados.length} concursos`);
+  }
 }
 
 /**
@@ -396,7 +468,7 @@ export interface StatusModalidade {
   alerta: string | null;
 }
 
-/** Tolerância entre o sorteio (20h) e a publicação do resultado. */
+/** Tolerância entre o sorteio e a publicação do resultado. */
 const PUBLICACAO_TOLERANCIA_MS = 6 * 60 * 60 * 1000;
 
 export async function statusDasModalidades(agora = Date.now()): Promise<StatusModalidade[]> {
