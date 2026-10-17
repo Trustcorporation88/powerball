@@ -42,6 +42,8 @@ const SPECS = [
   { lottery: 'lotofacil', pool: 18, ticket: 15, condicao: 15, garantia: 14 },
   { lottery: 'lotofacil', pool: 18, ticket: 15, condicao: 14, garantia: 13 },
   { lottery: 'lotofacil', pool: 20, ticket: 15, condicao: 15, garantia: 13 },
+  { lottery: 'lotofacil', pool: 18, ticket: 15, condicao: 15, garantia: 14, fixas: 5 },
+  { lottery: 'lotofacil', pool: 20, ticket: 15, condicao: 15, garantia: 13, fixas: 5 },
 
   // Mega-Sena — 6 dezenas sorteadas
   { lottery: 'megasena', pool: 7, ticket: 6, condicao: 4, garantia: 4 },
@@ -66,17 +68,24 @@ const SPECS = [
   { lottery: 'quina', pool: 8, ticket: 5, condicao: 4, garantia: 4 },
   { lottery: 'quina', pool: 10, ticket: 5, condicao: 3, garantia: 3 },
   { lottery: 'quina', pool: 10, ticket: 5, condicao: 3, garantia: 3, fixas: 1 },
+  { lottery: 'quina', pool: 12, ticket: 5, condicao: 3, garantia: 3, fixas: 1 },
 
   // Dupla Sena — 6 dezenas por sorteio
   { lottery: 'duplasena', pool: 8, ticket: 6, condicao: 4, garantia: 4 },
   { lottery: 'duplasena', pool: 10, ticket: 6, condicao: 4, garantia: 4 },
+  { lottery: 'duplasena', pool: 10, ticket: 6, condicao: 4, garantia: 4, fixas: 1 },
+  { lottery: 'duplasena', pool: 10, ticket: 6, condicao: 4, garantia: 4, fixas: 2 },
 
   // Dia de Sorte — 7 dezenas sorteadas
   { lottery: 'diadesorte', pool: 9, ticket: 7, condicao: 5, garantia: 5 },
   { lottery: 'diadesorte', pool: 10, ticket: 7, condicao: 5, garantia: 5 },
+  { lottery: 'diadesorte', pool: 10, ticket: 7, condicao: 5, garantia: 5, fixas: 1 },
+  { lottery: 'diadesorte', pool: 12, ticket: 7, condicao: 5, garantia: 5, fixas: 2 },
 
   // +Milionária — 6 dezenas sorteadas
   { lottery: 'maismilionaria', pool: 8, ticket: 6, condicao: 4, garantia: 4 },
+  { lottery: 'maismilionaria', pool: 10, ticket: 6, condicao: 4, garantia: 4, fixas: 1 },
+  { lottery: 'maismilionaria', pool: 10, ticket: 6, condicao: 4, garantia: 4, fixas: 2 },
 ];
 
 function popcount(value) {
@@ -280,6 +289,13 @@ function prune(blocos, pool, condicao, garantia) {
 
 async function main() {
   const planos = [];
+  const ANTERIORES = new Map();
+  try {
+    const atual = JSON.parse(await readFile(OUTPUT, 'utf8'));
+    for (const plano of atual.planos) ANTERIORES.set(plano.id, plano.matrices);
+  } catch {
+    // Primeira geração: não há matrizes anteriores.
+  }
 
   for (const spec of SPECS) {
     const { lottery, fixas = 0 } = spec;
@@ -310,8 +326,22 @@ async function main() {
       if (verify(mascaras, pool, condicao, garantia).ok) enxuto = mascaras;
     }
 
+    const id = `${lottery}-${spec.pool}-${spec.condicao}-${spec.garantia}${fixas ? `-f${fixas}` : ''}`;
     const mascaraFixas = (1 << fixas) - 1;
-    const bilhetes = enxuto.map((bloco) => (bloco << fixas) | mascaraFixas);
+    let bilhetes = enxuto.map((bloco) => (bloco << fixas) | mascaraFixas);
+
+    // A busca é aleatória: uma rodada pior não pode substituir uma matriz já
+    // conferida e menor da geração anterior.
+    const anterior = ANTERIORES.get(id);
+    if (anterior && anterior.length < bilhetes.length) {
+      const mascaras = anterior.map((bloco) => bloco.reduce((m, i) => m | (1 << i), 0));
+      if (
+        mascaras.every((m) => popcount(m) === spec.ticket) &&
+        verifyComFixas(mascaras, spec.pool, fixas, spec.condicao, spec.garantia).ok
+      ) {
+        bilhetes = mascaras;
+      }
+    }
     const conferencia = verifyComFixas(bilhetes, spec.pool, fixas, spec.condicao, spec.garantia);
 
     if (!conferencia.ok || bilhetes.some((b) => popcount(b) !== spec.ticket)) {
@@ -320,7 +350,7 @@ async function main() {
     }
 
     planos.push({
-      id: `${lottery}-${spec.pool}-${spec.condicao}-${spec.garantia}${fixas ? `-f${fixas}` : ''}`,
+      id,
       lottery,
       totalSelectedNumbers: spec.pool,
       numbersPerTicket: spec.ticket,

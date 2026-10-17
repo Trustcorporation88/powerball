@@ -120,6 +120,51 @@ export const ROTULO_POPULARIDADE: Record<NivelPopularidade, string> = {
 };
 
 /**
+ * Sugere o grupo de dezenas de um fechamento cujos bilhetes ficam menos
+ * populares. Sorteia grupos uniformemente (nenhuma dezena tem mais chance que
+ * outra) e fica com o de menor popularidade somada nos bilhetes. Devolve as
+ * fixas primeiro, na mesma convenção de `ordenarContraDivisao`.
+ */
+export function sugerirGrupoPoucoMarcado(
+  lottery: LotteryType,
+  tamanho: number,
+  matrizes: number[][],
+  fixas = 0,
+  ultimoSorteio?: number[],
+  candidatos = 120,
+): { fixas: number[]; dezenas: number[] } {
+  const total = LOTTERY_CONFIGS[lottery].totalNumbers;
+  const todas = Array.from({ length: total }, (_, i) => i + 1);
+  const custo = (ordem: number[]) =>
+    matrizes.reduce(
+      (soma, bilhete) =>
+        soma + popularidadeDoJogo(lottery, bilhete.map((i) => ordem[i]), ultimoSorteio).indice,
+      0,
+    );
+
+  let melhor: number[] = [];
+  let melhorCusto = Infinity;
+  for (let c = 0; c < candidatos && melhorCusto > 0; c++) {
+    const embaralhadas = [...todas];
+    for (let i = embaralhadas.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [embaralhadas[i], embaralhadas[j]] = [embaralhadas[j], embaralhadas[i]];
+    }
+    const grupo = embaralhadas.slice(0, tamanho);
+    const ordem = ordenarContraDivisao(lottery, grupo, matrizes, fixas, ultimoSorteio, 15);
+    const valor = custo(ordem);
+    if (valor < melhorCusto) {
+      melhor = ordem;
+      melhorCusto = valor;
+    }
+  }
+  return {
+    fixas: melhor.slice(0, fixas).sort((a, b) => a - b),
+    dezenas: [...melhor].sort((a, b) => a - b),
+  };
+}
+
+/**
  * Reetiqueta as dezenas de um fechamento para que os bilhetes fiquem menos
  * populares. Trocar dezenas de posição na matriz não altera a garantia, porque
  * uma cobertura continua sendo cobertura sob qualquer renomeação dos pontos.

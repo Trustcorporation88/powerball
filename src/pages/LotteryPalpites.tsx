@@ -55,6 +55,7 @@ import {
 
 import { LotteryBall } from '@/components/lottery/LotteryBall';
 import { PopularidadeBadge } from '@/components/lottery/PopularidadeBadge';
+import { popularidadeDoJogo, sugerirGrupoPoucoMarcado } from '@/services/lotteryPopularidade';
 import { LotteryHeatmap } from '@/components/lottery/LotteryHeatmap';
 import { GameXRayModal } from '@/components/lottery/GameXRayModal';
 import { BacktestPanel } from '@/components/lottery/BacktestPanel';
@@ -433,6 +434,49 @@ export default function LotteryPalpites() {
     setFechamentoPool([...sorted].sort((a, b) => a - b));
     toast.success(`Selecionadas as ${sorted.length} dezenas mais quentes do histórico!`);
   };
+
+  // Grupo sorteado ao acaso (nenhuma dezena tem mais chance), escolhido entre
+  // vários pelo menor risco de dividir o prêmio nos bilhetes do plano.
+  const handlePoucoMarcadoFechamento = () => {
+    if (!selectedFechamento) return;
+    const { fixas, dezenas } = sugerirGrupoPoucoMarcado(
+      selectedLottery,
+      selectedFechamento.totalSelectedNumbers,
+      selectedFechamento.matrices ?? [],
+      selectedFechamento.fixedCount ?? 0,
+      stats?.ultimoConcurso?.dezenas,
+    );
+    setFechamentoFixas(fixas);
+    setFechamentoPool(dezenas);
+    setFechamentoGames([]);
+    toast.success(
+      `Selecionadas ${dezenas.length} dezenas que geram bilhetes pouco marcados. A chance é a mesma de qualquer outro grupo.`,
+    );
+  };
+
+  const gruposDeFechamento = (() => {
+    const tiers = LOTTERY_CONFIGS[selectedLottery].prizeTiers;
+    const grupos = new Map<string, { chave: string; rotulo: string; ordem: number; planos: FechamentoPlan[] }>();
+    for (const plano of getFechamentosByLottery(selectedLottery)) {
+      const fixas = (plano.fixedCount ?? 0) > 0;
+      const chave = fixas ? 'fixas' : `g${plano.guaranteedHit}`;
+      if (!grupos.has(chave)) {
+        const faixa = tiers.find((t) => t.hits === plano.guaranteedHit)?.label ?? `${plano.guaranteedHit} acertos`;
+        grupos.set(chave, {
+          chave,
+          rotulo: fixas ? 'Com dezenas fixas' : `Garante ${faixa}`,
+          ordem: fixas ? 1000 : plano.guaranteedHit,
+          planos: [],
+        });
+      }
+      grupos.get(chave)!.planos.push(plano);
+    }
+    return [...grupos.values()].sort((a, b) => a.ordem - b.ordem);
+  })();
+  const chaveDoPlano = (plano?: FechamentoPlan | null) =>
+    plano ? ((plano.fixedCount ?? 0) > 0 ? 'fixas' : `g${plano.guaranteedHit}`) : undefined;
+  const grupoAtivo =
+    gruposDeFechamento.find((g) => g.chave === chaveDoPlano(selectedFechamento)) ?? gruposDeFechamento[0];
 
   const guardarNaCarteira = (games: GeneratedGame[]) => {
     if (games.length === 0) return;
@@ -1171,7 +1215,38 @@ export default function LotteryPalpites() {
               </CardHeader>
 
               <CardContent className="space-y-3">
-                {getFechamentosByLottery(selectedLottery).map((plan) => (
+                {gruposDeFechamento.length > 1 && (
+                  <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Tipo de garantia">
+                    {gruposDeFechamento.map((grupo) => (
+                      <button
+                        key={grupo.chave}
+                        type="button"
+                        role="tab"
+                        aria-selected={grupoAtivo?.chave === grupo.chave}
+                        onClick={() => {
+                          setSelectedFechamento(grupo.planos[0]);
+                          setFechamentoPool([]);
+                          setFechamentoFixas([]);
+                          setFechamentoGames([]);
+                        }}
+                        className={`text-xs px-2.5 py-1 rounded-full border font-semibold transition-colors ${
+                          grupoAtivo?.chave === grupo.chave
+                            ? 'bg-emerald-600 border-emerald-600 text-white'
+                            : 'border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-emerald-400'
+                        }`}
+                      >
+                        {grupo.rotulo} ({grupo.planos.length})
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {grupoAtivo?.chave === 'fixas' && (
+                  <p className="text-[11px] text-muted-foreground">
+                    As fixas entram em todos os bilhetes. A garantia só vale se elas forem sorteadas, e
+                    por isso o plano custa bem menos.
+                  </p>
+                )}
+                {(grupoAtivo?.planos ?? []).map((plan) => (
                   <div
                     key={plan.id}
                     onClick={() => {
@@ -1227,7 +1302,7 @@ export default function LotteryPalpites() {
                         )}
                       </CardDescription>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <Button
                         variant="outline"
                         size="sm"
@@ -1236,6 +1311,16 @@ export default function LotteryPalpites() {
                       >
                         <TrendingUp className="h-3.5 w-3.5 mr-1" />
                         Mais Quentes Automático
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePoucoMarcadoFechamento}
+                        className="text-xs text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                        title="Escolhe um grupo que gera bilhetes fora dos padrões que muita gente marca"
+                      >
+                        <Users className="h-3.5 w-3.5 mr-1" />
+                        Pouco Marcado Automático
                       </Button>
                       <Button
                         variant="ghost"
@@ -1716,6 +1801,9 @@ export default function LotteryPalpites() {
                               Apostado na Lotérica
                             </Badge>
                           )}
+                          <PopularidadeBadge
+                            popularidade={game.popularidade ?? popularidadeDoJogo(game.lottery, game.numbers)}
+                          />
                         </div>
 
                         <div className="flex items-center gap-1">
@@ -1889,7 +1977,9 @@ export default function LotteryPalpites() {
               score={inspectGame.score}
               scoreLabel={inspectGame.scoreLabel}
               numbers={inspectGame.numbers}
-              popularidade={inspectGame.popularidade}
+              popularidade={
+                inspectGame.popularidade ?? popularidadeDoJogo(inspectGame.lottery, inspectGame.numbers)
+              }
             />
           )}
         </DialogContent>
