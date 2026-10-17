@@ -110,6 +110,12 @@ import {
 
 type FiltroCarteira = 'todos' | 'aguardando' | 'conferidos' | 'premiados';
 
+function formatarChance(p: number): string {
+  const casas = p >= 0.01 ? 2 : p >= 0.001 ? 3 : 4;
+  const percentual = (p * 100).toLocaleString('pt-BR', { maximumFractionDigits: casas });
+  return `${percentual}% (1 em ${Math.round(1 / p).toLocaleString('pt-BR')})`;
+}
+
 const HISTORICO_VALIDADE_MS = 10 * 60 * 1000;
 
 function formatarReais(valor: number): string {
@@ -472,6 +478,16 @@ export default function LotteryPalpites() {
       grupos.get(chave)!.planos.push(plano);
     }
     return [...grupos.values()].sort((a, b) => a.ordem - b.ordem);
+  })();
+  // Melhor chance da garantia por real gasto, comparando só planos que garantem a mesma faixa.
+  const melhorCustoBeneficio = (() => {
+    const melhores = new Map<number, FechamentoPlan>();
+    for (const plano of getFechamentosByLottery(selectedLottery)) {
+      const atual = melhores.get(plano.guaranteedHit);
+      const razao = (p: FechamentoPlan) => (p.chanceGarantia ?? 0) / p.totalCost;
+      if (!atual || razao(plano) > razao(atual)) melhores.set(plano.guaranteedHit, plano);
+    }
+    return new Set([...melhores.values()].map((p) => p.id));
   })();
   const chaveDoPlano = (plano?: FechamentoPlan | null) =>
     plano ? ((plano.fixedCount ?? 0) > 0 ? 'fixas' : `g${plano.guaranteedHit}`) : undefined;
@@ -1242,8 +1258,9 @@ export default function LotteryPalpites() {
                 )}
                 {grupoAtivo?.chave === 'fixas' && (
                   <p className="text-[11px] text-muted-foreground">
-                    As fixas entram em todos os bilhetes. A garantia só vale se elas forem sorteadas, e
-                    por isso o plano custa bem menos.
+                    As fixas entram em todos os bilhetes. A garantia só vale se elas forem sorteadas: o
+                    plano custa menos, mas a chance de a garantia valer também cai, e por real gasto os
+                    planos sem fixas costumam render mais. Compare a chance de cada plano abaixo.
                   </p>
                 )}
                 {(grupoAtivo?.planos ?? []).map((plan) => (
@@ -1270,6 +1287,16 @@ export default function LotteryPalpites() {
                     <p className="text-xs text-muted-foreground line-clamp-2">
                       {plan.description}
                     </p>
+                    {plan.chanceGarantia !== undefined && (
+                      <p className="mt-2 text-[11px] text-slate-600 dark:text-slate-300">
+                        Chance de a garantia valer: <b>{formatarChance(plan.chanceGarantia)}</b>
+                        {melhorCustoBeneficio.has(plan.id) && (
+                          <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full bg-powerball-gold/20 text-powerball-navy dark:text-powerball-gold font-semibold">
+                            Melhor custo-benefício
+                          </span>
+                        )}
+                      </p>
+                    )}
                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/60 dark:border-slate-800 text-xs">
                       <span>{plan.ticketsCount} bilhetes</span>
                       <span className="font-bold text-emerald-700">
@@ -1400,6 +1427,15 @@ export default function LotteryPalpites() {
                           as suas {selectedFechamento.totalSelectedNumbers} dezenas escolhidas, é{' '}
                           <b>100% garantido</b> que você terá pelo menos 1 bilhete com{' '}
                           {selectedFechamento.guaranteedHit} acertos premiados!
+                        </p>
+                      )}
+                      {selectedFechamento.chanceGarantia !== undefined && (
+                        <p className="text-[11px]">
+                          Chance de o sorteio cair nessa condição:{' '}
+                          <b>{formatarChance(selectedFechamento.chanceGarantia)}</b>
+                          {LOTTERY_CONFIGS[selectedLottery].hasSecondDraw ? ' (somando os dois sorteios)' : ''}.
+                          É a mesma para qualquer grupo de dezenas: o que muda entre os planos é o
+                          custo para ter essa garantia.
                         </p>
                       )}
                       <p className="text-[11px] opacity-80">

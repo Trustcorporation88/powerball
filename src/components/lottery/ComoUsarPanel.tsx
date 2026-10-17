@@ -363,8 +363,11 @@ export const ComoUsarPanel: React.FC<ComoUsarPanelProps> = ({ lottery, onIrPara 
           </p>
           <p>
             Nos planos <strong className="text-foreground">com dezenas fixas</strong>, as fixas entram
-            em todos os bilhetes e a garantia só vale se elas forem sorteadas. Em troca, o custo cai
-            bastante: 10 dezenas com 2 fixas saem por 6 bilhetes em vez de 20. Em todos os planos, as
+            em todos os bilhetes e a garantia só vale se elas forem sorteadas. O custo cai (10 dezenas
+            com 2 fixas saem por 6 bilhetes em vez de 20), mas a chance de a garantia valer cai mais:
+            de 0,54% para 0,074% na Mega-Sena. Cada plano mostra essa chance, e o selo{' '}
+            <strong className="text-foreground">Melhor custo-benefício</strong> indica o plano com a
+            maior chance por real gasto dentro da mesma faixa garantida. Em todos os planos, as
             dezenas são distribuídas entre os bilhetes de forma a fugir das combinações que muita gente
             marca, sem mudar a garantia.
           </p>

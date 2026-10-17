@@ -210,6 +210,8 @@ export interface FechamentoPlan {
   matrices?: number[][]; // Índices relativos (0-based) de cobertura
   /** Dezenas fixas: ocupam os índices 0..fixedCount-1 e entram em todos os bilhetes. */
   fixedCount?: number;
+  /** Probabilidade (0 a 1) de o sorteio cair na condição da garantia. */
+  chanceGarantia?: number;
 }
 
 export interface UserSavedGame extends GeneratedGame {

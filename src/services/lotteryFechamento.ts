@@ -5,7 +5,12 @@ import {
   LotteryStats,
   LotteryType,
 } from '@/types/lottery';
-import { LOTTERY_CONFIGS, officialBetPrice, savingsPercent } from '@/constants/lotteryConstants';
+import {
+  LOTTERY_CONFIGS,
+  combinations,
+  officialBetPrice,
+  savingsPercent,
+} from '@/constants/lotteryConstants';
 import fechamentosGerados from '@/data/fechamentos.json';
 import { analyzeGame, computeGameScore } from './lotteryGenerator';
 import { ordenarContraDivisao, popularidadeDoJogo } from './lotteryPopularidade';
@@ -41,6 +46,30 @@ function tierLabel(lottery: LotteryType, hits: number): string {
   return tier?.label ?? `${hits} acertos`;
 }
 
+/**
+ * Probabilidade exata de o sorteio cair na condição da garantia: todas as
+ * fixas sorteadas e pelo menos `conditionHit - fixas` das demais no grupo.
+ * Na Dupla Sena a garantia vale em cada um dos dois sorteios independentes.
+ */
+export function chanceDaGarantia(
+  lottery: LotteryType,
+  totalSelecionadas: number,
+  condicao: number,
+  fixas = 0,
+): number {
+  const config = LOTTERY_CONFIGS[lottery];
+  const universo = config.totalNumbers;
+  const sorteadas = config.minSelection;
+  const outras = totalSelecionadas - fixas;
+  let favoraveis = 0;
+  for (let j = condicao - fixas; j <= Math.min(outras, sorteadas - fixas); j++) {
+    favoraveis +=
+      combinations(outras, j) * combinations(universo - totalSelecionadas, sorteadas - fixas - j);
+  }
+  const porSorteio = favoraveis / combinations(universo, sorteadas);
+  return config.hasSecondDraw ? 1 - (1 - porSorteio) ** 2 : porSorteio;
+}
+
 function buildPlan(plano: PlanoGerado): FechamentoPlan {
   const config = LOTTERY_CONFIGS[plano.lottery];
   const custoPorBilhete = officialBetPrice(plano.lottery, plano.numbersPerTicket);
@@ -72,6 +101,12 @@ function buildPlan(plano: PlanoGerado): FechamentoPlan {
         : `${config.name} ${plano.totalSelectedNumbers} Dezenas — garante ${faixa}`,
     description,
     fixedCount: fixas,
+    chanceGarantia: chanceDaGarantia(
+      plano.lottery,
+      plano.totalSelectedNumbers,
+      plano.conditionHit,
+      fixas,
+    ),
     totalSelectedNumbers: plano.totalSelectedNumbers,
     numbersPerTicket: plano.numbersPerTicket,
     guaranteedHit: plano.guaranteedHit,

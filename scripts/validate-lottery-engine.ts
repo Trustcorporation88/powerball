@@ -123,6 +123,19 @@ async function main(): Promise<void> {
         .join('; '),
     );
 
+    const chancesInvalidas = fechamentos.filter(
+      (plano) => !(plano.chanceGarantia! > 0 && plano.chanceGarantia! < 1),
+    );
+    check(chancesInvalidas.length === 0, 'chance de a garantia valer está entre 0 e 1');
+    if (lottery === 'megasena') {
+      // Conta feita à mão: P(4+ das 6 sorteadas entre 10 dezenas) = 270.060 / 50.063.860.
+      const dez = fechamentos.find((p) => p.id === 'megasena-10-4-4');
+      check(
+        Math.abs((dez?.chanceGarantia ?? 0) - 270060 / 50063860) < 1e-12,
+        'chance da garantia confere com a conta exata (Mega 10 dezenas)',
+      );
+    }
+
     const custosErrados = fechamentos.filter(
       (plano) =>
         Math.abs(plano.totalCost - plano.ticketsCount * config.priceTable[plano.numbersPerTicket]) >
