@@ -133,8 +133,8 @@ export const SimuladorVolante: React.FC<SimuladorVolanteProps> = ({ lottery, onA
                         ) : (
                           <span className="text-rose-700 dark:text-rose-400">
                             Sim, mas paga {montagem.repetidas.toLocaleString('pt-BR')}{' '}
-                            {montagem.repetidas === 1 ? 'combinação repetida' : 'combinações repetidas'} (
-                            +{reais(montagem.custo - simulacao.custoMinimo)})
+                            {montagem.repetidas === 1 ? 'combinação repetida' : 'combinações repetidas'}{' '}
+                            {`(+${reais(montagem.custo - simulacao.custoMinimo)})`}
                           </span>
                         )}
                       </td>
