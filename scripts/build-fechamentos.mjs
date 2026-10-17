@@ -14,12 +14,21 @@
  * fazia Terno), por isso este passo virou parte do build.
  */
 
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUTPUT = resolve(__dirname, '..', 'src', 'data', 'fechamentos.json');
+
+/**
+ * Coberturas publicadas no La Jolla Covering Repository (dmgordon.org/cover),
+ * indexadas por `pool-bilhete-condicao-garantia`. Só entram se passarem pela
+ * mesma conferência por força bruta e forem menores que a da busca local.
+ */
+const PUBLICADAS = JSON.parse(
+  await readFile(resolve(__dirname, 'coberturas-publicadas.json'), 'utf8'),
+);
 
 /**
  * Cada especificação descreve: com `pool` dezenas marcadas, bilhetes de
@@ -36,10 +45,13 @@ const SPECS = [
 
   // Mega-Sena — 6 dezenas sorteadas
   { lottery: 'megasena', pool: 7, ticket: 6, condicao: 4, garantia: 4 },
+  { lottery: 'megasena', pool: 8, ticket: 6, condicao: 4, garantia: 4 },
   { lottery: 'megasena', pool: 8, ticket: 6, condicao: 5, garantia: 5 },
   { lottery: 'megasena', pool: 9, ticket: 6, condicao: 4, garantia: 4 },
   { lottery: 'megasena', pool: 10, ticket: 6, condicao: 4, garantia: 4 },
+  { lottery: 'megasena', pool: 11, ticket: 6, condicao: 4, garantia: 4 },
   { lottery: 'megasena', pool: 12, ticket: 6, condicao: 4, garantia: 4 },
+  { lottery: 'megasena', pool: 13, ticket: 6, condicao: 4, garantia: 4 },
 
   // Quina — 5 dezenas sorteadas
   { lottery: 'quina', pool: 7, ticket: 5, condicao: 3, garantia: 3 },
@@ -141,6 +153,92 @@ function verify(blocos, pool, condicao, garantia) {
   return { ok: pior >= garantia, pior, cenariosTestados: cenarios.length };
 }
 
+/** Bilhetes que cumprem a garantia em cada cenário, por índice do bilhete. */
+function mapaDeCobertura(blocos, cenarios, garantia) {
+  return blocos.map((bloco) => {
+    const lista = [];
+    for (let c = 0; c < cenarios.length; c++) {
+      if (popcount(bloco & cenarios[c]) >= garantia) lista.push(c);
+    }
+    return Int32Array.from(lista);
+  });
+}
+
+/**
+ * Recozimento simulado: tenta cobrir todos os cenários com `alvo` bilhetes,
+ * trocando uma dezena por vez. Devolve as máscaras ou null se o tempo acabar.
+ */
+function recozer(pool, cenarios, cobre, indiceDoBloco, inicial, alvo, prazo) {
+  const todos = [...indiceDoBloco.keys()];
+  const estado = inicial.slice(0, alvo);
+  while (estado.length < alvo) estado.push(todos[Math.floor(Math.random() * todos.length)]);
+
+  const contagem = new Int32Array(cenarios.length);
+  for (const bloco of estado) for (const c of cobre[indiceDoBloco.get(bloco)]) contagem[c]++;
+  let descobertos = 0;
+  for (const valor of contagem) if (valor === 0) descobertos++;
+
+  let temperatura = 0.6;
+  let passos = 0;
+  while (descobertos > 0) {
+    if ((++passos & 4095) === 0) {
+      if (Date.now() > prazo) return null;
+      temperatura = Math.max(0.05, temperatura * 0.997);
+    }
+    const pos = Math.floor(Math.random() * alvo);
+    const velho = estado[pos];
+    const dentro = maskToIndices(velho, pool);
+    const fora = [];
+    for (let i = 0; i < pool; i++) if (!(velho & (1 << i))) fora.push(i);
+    const novo =
+      (velho & ~(1 << dentro[Math.floor(Math.random() * dentro.length)])) |
+      (1 << fora[Math.floor(Math.random() * fora.length)]);
+
+    const listaVelha = cobre[indiceDoBloco.get(velho)];
+    const listaNova = cobre[indiceDoBloco.get(novo)];
+    let saldo = 0;
+    for (const c of listaVelha) if (--contagem[c] === 0) saldo++;
+    for (const c of listaNova) if (contagem[c]++ === 0) saldo--;
+
+    if (saldo <= 0 || Math.random() < Math.exp(-saldo / temperatura)) {
+      estado[pos] = novo;
+      descobertos += saldo;
+    } else {
+      for (const c of listaNova) contagem[c]--;
+      for (const c of listaVelha) contagem[c]++;
+    }
+  }
+  return estado;
+}
+
+/**
+ * Depois da gulosa, tenta tirar um bilhete por vez mantendo a garantia.
+ * Para quando o recozimento não acha cobertura menor dentro do prazo.
+ */
+function encolher(pool, ticket, condicao, garantia, inicial, orcamentoMs) {
+  const blocos = subsetMasks(pool, ticket);
+  const cenarios = subsetMasks(pool, condicao);
+  if (blocos.length * cenarios.length > 30_000_000) return inicial;
+
+  const cobre = mapaDeCobertura(blocos, cenarios, garantia);
+  const indiceDoBloco = new Map(blocos.map((bloco, i) => [bloco, i]));
+  const prazoFinal = Date.now() + orcamentoMs;
+
+  let melhor = inicial;
+  while (Date.now() < prazoFinal && melhor.length > 1) {
+    const alvo = melhor.length - 1;
+    let achado = null;
+    for (let tentativa = 0; tentativa < 6 && !achado && Date.now() < prazoFinal; tentativa++) {
+      const prazo = Math.min(prazoFinal, Date.now() + orcamentoMs / 6);
+      const embaralhado = [...melhor].sort(() => Math.random() - 0.5);
+      achado = recozer(pool, cenarios, cobre, indiceDoBloco, embaralhado, alvo, prazo);
+    }
+    if (!achado || !verify(achado, pool, condicao, garantia).ok) break;
+    melhor = achado;
+  }
+  return melhor;
+}
+
 /** Remove bilhetes que se tornaram redundantes ao longo da busca gulosa. */
 function prune(blocos, pool, condicao, garantia) {
   let atual = [...blocos];
@@ -173,7 +271,14 @@ async function main() {
       continue;
     }
 
-    const enxuto = prune(melhor, pool, condicao, garantia);
+    let enxuto = encolher(pool, ticket, condicao, garantia, prune(melhor, pool, condicao, garantia), 20_000);
+
+    const publicado = PUBLICADAS[`${pool}-${ticket}-${condicao}-${garantia}`];
+    if (publicado && publicado.blocos.length < enxuto.length) {
+      const mascaras = publicado.blocos.map((bloco) => bloco.reduce((m, i) => m | (1 << i), 0));
+      if (verify(mascaras, pool, condicao, garantia).ok) enxuto = mascaras;
+    }
+
     const conferencia = verify(enxuto, pool, condicao, garantia);
 
     if (!conferencia.ok) {
