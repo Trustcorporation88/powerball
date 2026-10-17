@@ -1257,11 +1257,19 @@ export default function LotteryPalpites() {
                   </div>
                 )}
                 {grupoAtivo?.chave === 'fixas' && (
-                  <p className="text-[11px] text-muted-foreground">
-                    As fixas entram em todos os bilhetes. A garantia só vale se elas forem sorteadas: o
-                    plano custa menos, mas a chance de a garantia valer também cai, e por real gasto os
-                    planos sem fixas costumam render mais. Compare a chance de cada plano abaixo.
-                  </p>
+                  <div className="p-3 rounded-lg bg-powerball-gold/10 border border-powerball-gold/40 text-xs text-slate-700 dark:text-slate-200 space-y-1">
+                    <p className="font-bold text-powerball-navy dark:text-powerball-gold">
+                      Tem 1 ou 2 dezenas de sua preferência? Essa é a sua aposta.
+                    </p>
+                    <p>
+                      Aquele número da sorte ou a dezena que você sempre joga entra em todos os
+                      bilhetes, e o site fecha as outras dezenas em volta dela gastando bem menos.
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Só lembre: a garantia vale apenas se as suas fixas forem sorteadas, então a chance
+                      é menor que nos planos sem fixas. Compare a chance de cada plano abaixo.
+                    </p>
+                  </div>
                 )}
                 {(grupoAtivo?.planos ?? []).map((plan) => (
                   <div
