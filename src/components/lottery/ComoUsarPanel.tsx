@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   ArrowRight,
+  Scale,
 } from 'lucide-react';
 
 import { LotteryTab, LotteryType } from '@/types/lottery';
@@ -75,6 +76,14 @@ const ABAS: Array<{
     nome: 'Gerador',
     texto:
       'Cria bilhetes a partir de uma estratégia. Dá para fixar dezenas que você sempre joga, excluir as que não quer ver e escolher quantos jogos gerar. Cada bilhete sai com nota e custo oficial.',
+  },
+  {
+    id: 'simulador',
+    icone: Scale,
+    cor: 'text-powerball-gold-dark',
+    nome: 'Simulador',
+    texto:
+      'Escolha quantas dezenas quer jogar e veja, lado a lado, quanto custa garantir o prêmio máximo (volante cheio), por que nenhuma mistura de volantes menores sai mais barata e quanto o fechamento economiza abrindo mão dessa garantia.',
   },
   {
     id: 'fechamentos',

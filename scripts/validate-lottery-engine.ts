@@ -23,6 +23,7 @@ import {
   verifyFechamento,
 } from '@/services/lotteryFechamento';
 import { generateLotteryGames } from '@/services/lotteryGenerator';
+import { simularVolante, tamanhosDeVolante } from '@/services/lotterySimulador';
 import { calculateLotteryStats } from '@/services/lotteryHistoricalData';
 import { LotteryDraw, LotteryType } from '@/types/lottery';
 
@@ -135,6 +136,19 @@ async function main(): Promise<void> {
         'chance da garantia confere com a conta exata (Mega 10 dezenas)',
       );
     }
+
+    const atalhos = tamanhosDeVolante(lottery).flatMap((n) => {
+      const sim = simularVolante(lottery, n);
+      const volante = sim.montagens[0].custo;
+      return sim.montagens
+        .filter((m) => m.custo < sim.custoMinimo - 0.005 || Math.abs(volante - sim.custoMinimo) > 0.005)
+        .map((m) => `${n} dezenas: ${m.descricao}`);
+    });
+    check(
+      atalhos.length === 0,
+      'nenhuma montagem garante o prêmio máximo por menos que o volante cheio',
+      atalhos.join('; '),
+    );
 
     const custosErrados = fechamentos.filter(
       (plano) =>

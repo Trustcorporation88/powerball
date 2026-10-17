@@ -103,6 +103,7 @@ export interface LotteryStats {
 export type LotteryTab =
   | 'como-usar'
   | 'gerador'
+  | 'simulador'
   | 'fechamentos'
   | 'estatisticas'
   | 'backtest'

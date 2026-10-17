@@ -56,6 +56,8 @@ import {
 import { LotteryBall } from '@/components/lottery/LotteryBall';
 import { PopularidadeBadge } from '@/components/lottery/PopularidadeBadge';
 import { popularidadeDoJogo, sugerirGrupoPoucoMarcado } from '@/services/lotteryPopularidade';
+import { formatarProbabilidade } from '@/services/lotterySimulador';
+import { SimuladorVolante } from '@/components/lottery/SimuladorVolante';
 import { LotteryHeatmap } from '@/components/lottery/LotteryHeatmap';
 import { GameXRayModal } from '@/components/lottery/GameXRayModal';
 import { BacktestPanel } from '@/components/lottery/BacktestPanel';
@@ -109,12 +111,6 @@ import {
 } from 'lucide-react';
 
 type FiltroCarteira = 'todos' | 'aguardando' | 'conferidos' | 'premiados';
-
-function formatarChance(p: number): string {
-  const casas = p >= 0.01 ? 2 : p >= 0.001 ? 3 : 4;
-  const percentual = (p * 100).toLocaleString('pt-BR', { maximumFractionDigits: casas });
-  return `${percentual}% (1 em ${Math.round(1 / p).toLocaleString('pt-BR')})`;
-}
 
 const HISTORICO_VALIDADE_MS = 10 * 60 * 1000;
 
@@ -836,7 +832,7 @@ export default function LotteryPalpites() {
         onValueChange={(v) => setActiveTab(v as LotteryTab)}
         className="space-y-4"
       >
-        <TabsList className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 w-full h-auto p-1 bg-slate-100 dark:bg-slate-900">
+        <TabsList className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 w-full h-auto p-1 bg-slate-100 dark:bg-slate-900">
           <TabsTrigger
             value="como-usar"
             className="py-2.5 font-semibold text-xs md:text-sm data-[state=active]:bg-powerball-gold data-[state=active]:text-powerball-navy"
@@ -847,6 +843,10 @@ export default function LotteryPalpites() {
           <TabsTrigger value="gerador" className="py-2.5 font-semibold text-xs md:text-sm">
             <Sparkles className="h-4 w-4 mr-1.5 text-powerball-navy" />
             Gerador
+          </TabsTrigger>
+          <TabsTrigger value="simulador" className="py-2.5 font-semibold text-xs md:text-sm">
+            <Scale className="h-4 w-4 mr-1.5 text-powerball-gold-dark" />
+            Simulador
           </TabsTrigger>
           <TabsTrigger value="fechamentos" className="py-2.5 font-semibold text-xs md:text-sm">
             <Layers className="h-4 w-4 mr-1.5 text-emerald-600" />
@@ -1216,6 +1216,19 @@ export default function LotteryPalpites() {
         {/* ============================================================== */}
         {/* ABA 2: FECHAMENTOS MATEMÁTICOS (DESDOBRAMENTOS COM GARANTIA)    */}
         {/* ============================================================== */}
+        <TabsContent value="simulador" className="space-y-6">
+          <SimuladorVolante
+            lottery={selectedLottery}
+            onAbrirFechamento={(plano) => {
+              setSelectedFechamento(plano);
+              setFechamentoPool([]);
+              setFechamentoFixas([]);
+              setFechamentoGames([]);
+              setActiveTab('fechamentos');
+            }}
+          />
+        </TabsContent>
+
         <TabsContent value="fechamentos" className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Escolha do Plano de Fechamento */}
@@ -1297,7 +1310,7 @@ export default function LotteryPalpites() {
                     </p>
                     {plan.chanceGarantia !== undefined && (
                       <p className="mt-2 text-[11px] text-slate-600 dark:text-slate-300">
-                        Chance de a garantia valer: <b>{formatarChance(plan.chanceGarantia)}</b>
+                        Chance de a garantia valer: <b>{formatarProbabilidade(plan.chanceGarantia)}</b>
                         {melhorCustoBeneficio.has(plan.id) && (
                           <span className="ml-1.5 inline-block px-1.5 py-0.5 rounded-full bg-powerball-gold/20 text-powerball-navy dark:text-powerball-gold font-semibold">
                             Melhor custo-benefício
@@ -1440,7 +1453,7 @@ export default function LotteryPalpites() {
                       {selectedFechamento.chanceGarantia !== undefined && (
                         <p className="text-[11px]">
                           Chance de o sorteio cair nessa condição:{' '}
-                          <b>{formatarChance(selectedFechamento.chanceGarantia)}</b>
+                          <b>{formatarProbabilidade(selectedFechamento.chanceGarantia)}</b>
                           {LOTTERY_CONFIGS[selectedLottery].hasSecondDraw ? ' (somando os dois sorteios)' : ''}.
                           É a mesma para qualquer grupo de dezenas: o que muda entre os planos é o
                           custo para ter essa garantia.
