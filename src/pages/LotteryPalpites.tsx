@@ -54,6 +54,7 @@ import {
 } from '@/services/lotteryTransparencia';
 
 import { LotteryBall } from '@/components/lottery/LotteryBall';
+import { PopularidadeBadge } from '@/components/lottery/PopularidadeBadge';
 import { LotteryHeatmap } from '@/components/lottery/LotteryHeatmap';
 import { GameXRayModal } from '@/components/lottery/GameXRayModal';
 import { BacktestPanel } from '@/components/lottery/BacktestPanel';
@@ -147,6 +148,7 @@ export default function LotteryPalpites() {
   // Fechamentos State
   const [selectedFechamento, setSelectedFechamento] = useState<FechamentoPlan | null>(null);
   const [fechamentoPool, setFechamentoPool] = useState<number[]>([]);
+  const [fechamentoFixas, setFechamentoFixas] = useState<number[]>([]);
   const [fechamentoGames, setFechamentoGames] = useState<GeneratedGame[]>([]);
 
   // Carteira de Jogos Salvos
@@ -179,6 +181,7 @@ export default function LotteryPalpites() {
     setGeneratedGames([]);
     setFechamentoGames([]);
     setFechamentoPool([]);
+    setFechamentoFixas([]);
     setExtraSelection(undefined);
     setStrategy('ai_smart');
 
@@ -325,15 +328,20 @@ export default function LotteryPalpites() {
   // Manipulação de dezenas fixas e excluídas no seletor
   const handleToggleBallSelection = (num: number) => {
     if (activeTab === 'fechamentos' && selectedFechamento) {
-      // Modo Fechamento: seleciona dezenas para o pool
+      // Modo Fechamento: as primeiras dezenas marcadas viram as fixas do plano
+      const fixasDoPlano = selectedFechamento.fixedCount ?? 0;
       if (fechamentoPool.includes(num)) {
         setFechamentoPool(fechamentoPool.filter((n) => n !== num));
+        setFechamentoFixas(fechamentoFixas.filter((n) => n !== num));
       } else {
         if (fechamentoPool.length >= selectedFechamento.totalSelectedNumbers) {
           toast.warning(`Limite de ${selectedFechamento.totalSelectedNumbers} dezenas atingido`);
           return;
         }
         setFechamentoPool([...fechamentoPool, num].sort((a, b) => a - b));
+        if (fechamentoFixas.length < fixasDoPlano) {
+          setFechamentoFixas([...fechamentoFixas, num].sort((a, b) => a - b));
+        }
       }
       return;
     }
@@ -401,7 +409,7 @@ export default function LotteryPalpites() {
       const extra = buildExtraSelection(selectedLottery, 'hot', stats, extraSelection);
       if (extra) setExtraSelection(extra);
       const tickets = comConcursoAlvo(
-        executeFechamento(selectedFechamento, fechamentoPool, stats, extra),
+        executeFechamento(selectedFechamento, fechamentoPool, stats, extra, fechamentoFixas),
       );
       setFechamentoGames(tickets);
       guardarNaCarteira(tickets);
@@ -419,10 +427,10 @@ export default function LotteryPalpites() {
     const sorted = Object.entries(stats.frequencias)
       .sort((a, b) => b[1] - a[1])
       .map(([n]) => Number(n))
-      .slice(0, selectedFechamento.totalSelectedNumbers)
-      .sort((a, b) => a - b);
+      .slice(0, selectedFechamento.totalSelectedNumbers);
 
-    setFechamentoPool(sorted);
+    setFechamentoFixas(sorted.slice(0, selectedFechamento.fixedCount ?? 0).sort((a, b) => a - b));
+    setFechamentoPool([...sorted].sort((a, b) => a - b));
     toast.success(`Selecionadas as ${sorted.length} dezenas mais quentes do histórico!`);
   };
 
@@ -1074,6 +1082,7 @@ export default function LotteryPalpites() {
                         </div>
 
                         <div className="flex items-center gap-2">
+                          <PopularidadeBadge popularidade={game.popularidade} />
                           <span
                             className={`text-xs px-2 py-0.5 rounded-full font-bold ${
                               game.score >= 85
@@ -1168,6 +1177,7 @@ export default function LotteryPalpites() {
                     onClick={() => {
                       setSelectedFechamento(plan);
                       setFechamentoPool([]);
+                      setFechamentoFixas([]);
                       setFechamentoGames([]);
                     }}
                     className={`p-3.5 rounded-xl border cursor-pointer transition-all ${
@@ -1208,6 +1218,13 @@ export default function LotteryPalpites() {
                       <CardDescription>
                         {fechamentoPool.length} de {selectedFechamento.totalSelectedNumbers}{' '}
                         dezenas selecionadas
+                        {(selectedFechamento.fixedCount ?? 0) > 0 && (
+                          <>
+                            {' '}
+                            • as {selectedFechamento.fixedCount} primeiras marcadas são as fixas (
+                            {fechamentoFixas.length}/{selectedFechamento.fixedCount}, marcadas com F)
+                          </>
+                        )}
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1223,7 +1240,10 @@ export default function LotteryPalpites() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setFechamentoPool([])}
+                        onClick={() => {
+                          setFechamentoPool([]);
+                          setFechamentoFixas([]);
+                        }}
                         className="text-xs text-muted-foreground"
                       >
                         Limpar
@@ -1252,6 +1272,7 @@ export default function LotteryPalpites() {
                           selected={isSelected}
                           onClick={() => handleToggleBallSelection(num)}
                           size="md"
+                          badge={fechamentoFixas.includes(num) ? 'F' : undefined}
                         />
                       );
                     })}
@@ -1277,11 +1298,29 @@ export default function LotteryPalpites() {
                     <ShieldCheck className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
                     <div className="space-y-1">
                       <p className="font-bold text-sm">Garantia Condicional Matemática</p>
-                      <p>
-                        Se {selectedFechamento.conditionHit} das dezenas sorteadas estiverem entre
-                        as suas {selectedFechamento.totalSelectedNumbers} dezenas escolhidas, é{' '}
-                        <b>100% garantido</b> que você terá pelo menos 1 bilhete com{' '}
-                        {selectedFechamento.guaranteedHit} acertos premiados!
+                      {(selectedFechamento.fixedCount ?? 0) > 0 ? (
+                        <p>
+                          Se {selectedFechamento.fixedCount === 1 ? 'a sua fixa for sorteada' : 'as suas fixas forem sorteadas'}{' '}
+                          e mais {selectedFechamento.conditionHit - (selectedFechamento.fixedCount ?? 0)}{' '}
+                          das sorteadas estiverem entre as outras{' '}
+                          {selectedFechamento.totalSelectedNumbers - (selectedFechamento.fixedCount ?? 0)}{' '}
+                          dezenas, é <b>100% garantido</b> que você terá pelo menos 1 bilhete com{' '}
+                          {selectedFechamento.guaranteedHit} acertos. Se{' '}
+                          {selectedFechamento.fixedCount === 1 ? 'a fixa não sair' : 'alguma fixa não sair'}, não
+                          há garantia: é isso que deixa o plano mais barato.
+                        </p>
+                      ) : (
+                        <p>
+                          Se {selectedFechamento.conditionHit} das dezenas sorteadas estiverem entre
+                          as suas {selectedFechamento.totalSelectedNumbers} dezenas escolhidas, é{' '}
+                          <b>100% garantido</b> que você terá pelo menos 1 bilhete com{' '}
+                          {selectedFechamento.guaranteedHit} acertos premiados!
+                        </p>
+                      )}
+                      <p className="text-[11px] opacity-80">
+                        Os bilhetes são montados para fugir das combinações que muita gente marca
+                        (datas, sequências, desenhos no volante). A garantia e a chance não mudam; se
+                        o prêmio sair, ele tende a ser dividido com menos pessoas.
                       </p>
                       <p className="text-[11px] opacity-80 pt-1">
                         Desdobramento completo na Caixa custaria R${' '}
@@ -1361,7 +1400,10 @@ export default function LotteryPalpites() {
                     <CardContent className="p-3.5 space-y-2">
                       <div className="flex items-center justify-between text-xs border-b border-slate-100 dark:border-slate-800 pb-1.5">
                         <span className="font-bold">Cartão #{idx + 1}</span>
-                        <span className="text-muted-foreground">Score: {game.score}</span>
+                        <span className="flex items-center gap-1.5">
+                          <PopularidadeBadge popularidade={game.popularidade} />
+                          <span className="text-muted-foreground">Score: {game.score}</span>
+                        </span>
                       </div>
                       <div className="flex flex-wrap gap-1">
                         {game.numbers.map((n) => (
@@ -1847,6 +1889,7 @@ export default function LotteryPalpites() {
               score={inspectGame.score}
               scoreLabel={inspectGame.scoreLabel}
               numbers={inspectGame.numbers}
+              popularidade={inspectGame.popularidade}
             />
           )}
         </DialogContent>

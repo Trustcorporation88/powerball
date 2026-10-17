@@ -8,6 +8,7 @@ import {
   LotteryType,
 } from '@/types/lottery';
 import { LOTTERY_CONFIGS, officialBetPrice } from '@/constants/lotteryConstants';
+import { popularidadeDoJogo } from './lotteryPopularidade';
 
 /**
  * As faixas ideais de paridade e soma em `LOTTERY_CONFIGS` valem para a aposta
@@ -543,6 +544,11 @@ export function generateLotteryGames(
       continue;
     }
 
+    const popularidade = popularidadeDoJogo(lottery, gameNumbers, stats.ultimoConcurso?.dezenas);
+    if (strategy === 'anti_popular' && popularidade.nivel !== 'baixa' && attempts < maxAttempts - 20) {
+      continue;
+    }
+
     const extra = buildExtraSelection(lottery, strategy, stats, filters.extraSelection);
     const cost = officialBetPrice(lottery, numbersCount, extra?.trevos?.length);
 
@@ -558,6 +564,7 @@ export function generateLotteryGames(
       score,
       scoreLabel: label,
       analysis,
+      popularidade,
     });
   }
 

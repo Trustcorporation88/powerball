@@ -82,7 +82,7 @@ const ABAS: Array<{
     cor: 'text-emerald-600',
     nome: 'Fechamentos',
     texto:
-      'Você escolhe um grupo maior de dezenas e recebe poucos bilhetes que cobrem esse grupo com garantia verificada. É a parte do site com efeito prático mais concreto sobre o custo.',
+      'Você escolhe um grupo maior de dezenas e recebe poucos bilhetes que cobrem esse grupo com garantia verificada. Há planos com garantia de quadra, de quina e com dezenas fixas, todos no menor número de bilhetes conhecido. É a parte do site com efeito prático mais concreto sobre o custo.',
   },
   {
     id: 'estatisticas',
@@ -144,7 +144,7 @@ const ESTRATEGIAS = [
   {
     nome: 'Anti-Popular',
     texto:
-      'Evita padrões que muita gente joga: sequências, datas de aniversário e colunas inteiras do volante.',
+      'Só entrega jogos marcados como "Pouco marcado": fora de datas de aniversário, sequências e progressões, desenhos no volante, múltiplos de um mesmo número, mesmo final e cópia do último resultado. A chance é a mesma; muda com quantas pessoas você dividiria o prêmio.',
   },
   {
     nome: 'Surpresinha Filtrada',
@@ -353,6 +353,20 @@ export const ComoUsarPanel: React.FC<ComoUsarPanelProps> = ({ lottery, onIrPara 
             combinatória. Todos os planos do site são gerados e verificados por força bruta, e o app
             revalida a garantia antes de exibir — o texto de cada plano descreve exatamente o que a
             matemática entrega.
+          </p>
+          <p>
+            As matrizes seguem o <strong className="text-foreground">La Jolla Covering Repository</strong>,
+            o catálogo de referência mundial de coberturas: cada plano usa o menor número de bilhetes
+            conhecido para a sua garantia (no de 12 dezenas da Mega-Sena, 41 bilhetes é o mínimo
+            provado). Menos bilhetes mantêm a mesma chance da faixa garantida, mas a chance de sena
+            continua proporcional ao número de bilhetes.
+          </p>
+          <p>
+            Nos planos <strong className="text-foreground">com dezenas fixas</strong>, as fixas entram
+            em todos os bilhetes e a garantia só vale se elas forem sorteadas. Em troca, o custo cai
+            bastante: 10 dezenas com 2 fixas saem por 6 bilhetes em vez de 20. Em todos os planos, as
+            dezenas são distribuídas entre os bilhetes de forma a fugir das combinações que muita gente
+            marca, sem mudar a garantia.
           </p>
           <Button variant="outline" size="sm" onClick={() => onIrPara?.('fechamentos')}>
             <Layers className="h-4 w-4 mr-2 text-emerald-600" />

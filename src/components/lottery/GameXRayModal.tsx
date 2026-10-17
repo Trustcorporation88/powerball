@@ -1,5 +1,6 @@
 import React from 'react';
-import { GameAnalysis } from '@/types/lottery';
+import { GameAnalysis, Popularidade } from '@/types/lottery';
+import { PopularidadeBadge } from './PopularidadeBadge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { CheckCircle2, AlertTriangle, ShieldCheck, Flame } from 'lucide-react';
@@ -9,6 +10,7 @@ interface GameXRayModalProps {
   score: number;
   scoreLabel: string;
   numbers: number[];
+  popularidade?: Popularidade;
 }
 
 export const GameXRayModal: React.FC<GameXRayModalProps> = ({
@@ -16,6 +18,7 @@ export const GameXRayModal: React.FC<GameXRayModalProps> = ({
   score,
   scoreLabel,
   numbers,
+  popularidade,
 }) => {
   const { scoreBreakdown } = analysis;
 
@@ -150,6 +153,24 @@ export const GameXRayModal: React.FC<GameXRayModalProps> = ({
           <Progress value={(scoreBreakdown.frequencyScore / 15) * 100} className="h-1.5" />
         </div>
       </div>
+
+      {popularidade && (
+        <div className="p-3 rounded-xl border border-slate-200 dark:border-slate-800 space-y-1.5">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Divisão do prêmio
+            </h4>
+            <PopularidadeBadge popularidade={popularidade} />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {popularidade.motivos.length > 0
+              ? `${popularidade.motivos.join('; ')}.`
+              : 'Combinação fora dos padrões que a maioria marca.'}{' '}
+            A chance de acertar é a mesma para qualquer jogo; isto mede só quantas pessoas tendem a
+            marcar a mesma combinação e dividiriam o prêmio.
+          </p>
+        </div>
+      )}
 
       {/* Recomendações e Diagnóstico */}
       <div className="pt-2">

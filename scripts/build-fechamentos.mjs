@@ -52,11 +52,20 @@ const SPECS = [
   { lottery: 'megasena', pool: 11, ticket: 6, condicao: 4, garantia: 4 },
   { lottery: 'megasena', pool: 12, ticket: 6, condicao: 4, garantia: 4 },
   { lottery: 'megasena', pool: 13, ticket: 6, condicao: 4, garantia: 4 },
+  // Garantia de Quina: mais caro, mas a faixa garantida é a segunda maior.
+  { lottery: 'megasena', pool: 9, ticket: 6, condicao: 5, garantia: 5 },
+  { lottery: 'megasena', pool: 10, ticket: 6, condicao: 5, garantia: 5 },
+  // Com dezenas fixas: a garantia só vale se as fixas saírem, e por isso custa menos.
+  { lottery: 'megasena', pool: 10, ticket: 6, condicao: 4, garantia: 4, fixas: 1 },
+  { lottery: 'megasena', pool: 12, ticket: 6, condicao: 4, garantia: 4, fixas: 1 },
+  { lottery: 'megasena', pool: 10, ticket: 6, condicao: 4, garantia: 4, fixas: 2 },
+  { lottery: 'megasena', pool: 12, ticket: 6, condicao: 4, garantia: 4, fixas: 2 },
 
   // Quina — 5 dezenas sorteadas
   { lottery: 'quina', pool: 7, ticket: 5, condicao: 3, garantia: 3 },
   { lottery: 'quina', pool: 8, ticket: 5, condicao: 4, garantia: 4 },
   { lottery: 'quina', pool: 10, ticket: 5, condicao: 3, garantia: 3 },
+  { lottery: 'quina', pool: 10, ticket: 5, condicao: 3, garantia: 3, fixas: 1 },
 
   // Dupla Sena — 6 dezenas por sorteio
   { lottery: 'duplasena', pool: 8, ticket: 6, condicao: 4, garantia: 4 },
@@ -150,6 +159,22 @@ function verify(blocos, pool, condicao, garantia) {
     if (melhor < pior) pior = melhor;
   }
 
+  return { ok: pior >= garantia, pior, cenariosTestados: cenarios.length };
+}
+
+/**
+ * Conferência no formato final: as `fixas` ocupam os bits mais baixos e só
+ * entram os cenários em que todas elas foram sorteadas.
+ */
+function verifyComFixas(bilhetes, pool, fixas, condicao, garantia) {
+  const mascaraFixas = (1 << fixas) - 1;
+  const cenarios = subsetMasks(pool, condicao).filter((c) => (c & mascaraFixas) === mascaraFixas);
+  let pior = Infinity;
+  for (const cenario of cenarios) {
+    let melhor = 0;
+    for (const bilhete of bilhetes) melhor = Math.max(melhor, popcount(bilhete & cenario));
+    pior = Math.min(pior, melhor);
+  }
   return { ok: pior >= garantia, pior, cenariosTestados: cenarios.length };
 }
 
@@ -257,7 +282,13 @@ async function main() {
   const planos = [];
 
   for (const spec of SPECS) {
-    const { lottery, pool, ticket, condicao, garantia } = spec;
+    const { lottery, fixas = 0 } = spec;
+    // Com dezenas fixas basta cobrir o restante: as fixas entram em todo bilhete
+    // e já contam como acertos nos cenários em que a garantia vale.
+    const pool = spec.pool - fixas;
+    const ticket = spec.ticket - fixas;
+    const condicao = spec.condicao - fixas;
+    const garantia = spec.garantia - fixas;
     const tentativas = pool >= 20 ? 1 : 6;
 
     let melhor = null;
@@ -279,28 +310,31 @@ async function main() {
       if (verify(mascaras, pool, condicao, garantia).ok) enxuto = mascaras;
     }
 
-    const conferencia = verify(enxuto, pool, condicao, garantia);
+    const mascaraFixas = (1 << fixas) - 1;
+    const bilhetes = enxuto.map((bloco) => (bloco << fixas) | mascaraFixas);
+    const conferencia = verifyComFixas(bilhetes, spec.pool, fixas, spec.condicao, spec.garantia);
 
-    if (!conferencia.ok) {
-      console.error(`[erro] ${lottery} ${pool}/${ticket}: verificação falhou`);
+    if (!conferencia.ok || bilhetes.some((b) => popcount(b) !== spec.ticket)) {
+      console.error(`[erro] ${lottery} ${spec.pool}/${spec.ticket}: verificação falhou`);
       continue;
     }
 
     planos.push({
-      id: `${lottery}-${pool}-${condicao}-${garantia}`,
+      id: `${lottery}-${spec.pool}-${spec.condicao}-${spec.garantia}${fixas ? `-f${fixas}` : ''}`,
       lottery,
-      totalSelectedNumbers: pool,
-      numbersPerTicket: ticket,
-      conditionHit: condicao,
-      guaranteedHit: garantia,
-      ticketsCount: enxuto.length,
-      matrices: enxuto.map((bloco) => maskToIndices(bloco, pool)),
+      totalSelectedNumbers: spec.pool,
+      numbersPerTicket: spec.ticket,
+      conditionHit: spec.condicao,
+      guaranteedHit: spec.garantia,
+      ticketsCount: bilhetes.length,
+      ...(fixas ? { fixas } : {}),
+      matrices: bilhetes.map((bloco) => maskToIndices(bloco, spec.pool)),
     });
 
     console.log(
-      `[ok] ${lottery.padEnd(15)} ${pool} dezenas -> ${enxuto.length} bilhetes de ${ticket} ` +
-        `| garante ${garantia} acertos se ${condicao} caírem no pool ` +
-        `(${conferencia.cenariosTestados} cenários conferidos)`,
+      `[ok] ${lottery.padEnd(15)} ${spec.pool} dezenas${fixas ? ` (${fixas} fixa${fixas > 1 ? 's' : ''})` : ''} -> ` +
+        `${bilhetes.length} bilhetes de ${spec.ticket} | garante ${spec.garantia} acertos se ` +
+        `${spec.condicao} caírem no pool (${conferencia.cenariosTestados} cenários conferidos)`,
     );
   }
 

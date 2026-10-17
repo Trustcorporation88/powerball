@@ -159,6 +159,17 @@ export interface GeneratedGame {
   name?: string;
   /** Concurso para o qual o bilhete foi feito; a conferência usa só ele. */
   concursoAlvo?: number;
+  /** Quantas pessoas tendem a marcar a mesma combinação (divisão do prêmio). */
+  popularidade?: Popularidade;
+}
+
+export type NivelPopularidade = 'baixa' | 'media' | 'alta';
+
+export interface Popularidade {
+  /** 0 = combinação rara, 100 = padrão muito marcado pelos apostadores. */
+  indice: number;
+  nivel: NivelPopularidade;
+  motivos: string[];
 }
 
 export interface GameAnalysis {
@@ -197,6 +208,8 @@ export interface FechamentoPlan {
   comparisonCostFull: number; // Custo do desdobramento total na Caixa
   savingsPercent: number; // Economia percentual
   matrices?: number[][]; // Índices relativos (0-based) de cobertura
+  /** Dezenas fixas: ocupam os índices 0..fixedCount-1 e entram em todos os bilhetes. */
+  fixedCount?: number;
 }
 
 export interface UserSavedGame extends GeneratedGame {
