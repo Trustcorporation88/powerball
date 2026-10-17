@@ -14,7 +14,7 @@ const JSONLD_ID = 'seo-jsonld';
  * `*.up.railway.app`, e sem isso cada página teria duas URLs indexáveis com o
  * mesmo conteúdo. Define `VITE_SITE_URL` em produção para fixar a canônica.
  */
-const SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/+$/, '') || '';
+const SITE_URL = (import.meta.env?.VITE_SITE_URL as string | undefined)?.replace(/\/+$/, '') || '';
 
 function siteOrigin(): string {
   return SITE_URL || window.location.origin;

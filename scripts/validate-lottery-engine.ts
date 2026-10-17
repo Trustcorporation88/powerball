@@ -17,7 +17,11 @@ import { readFileSync } from 'node:fs';
 import { LOTTERY_CONFIGS, LOTTERY_ORDER, combinations } from '@/constants/lotteryConstants';
 import { decodeDraw } from '@/data/lotteryHistory';
 import { runBacktest } from '@/services/lotteryBacktest';
-import { getFechamentosByLottery, verifyFechamento } from '@/services/lotteryFechamento';
+import {
+  executeFechamento,
+  getFechamentosByLottery,
+  verifyFechamento,
+} from '@/services/lotteryFechamento';
 import { generateLotteryGames } from '@/services/lotteryGenerator';
 import { calculateLotteryStats } from '@/services/lotteryHistoricalData';
 import { LotteryDraw, LotteryType } from '@/types/lottery';
@@ -125,6 +129,55 @@ async function main(): Promise<void> {
         0.01,
     );
     check(custosErrados.length === 0, 'custo do fechamento bate com a tabela oficial');
+
+    // A redistribuição contra divisão e as fixas não podem quebrar a garantia
+    // nos bilhetes que o usuário recebe de fato.
+    const quebrados = fechamentos.filter((plano) => {
+      const dezenas = Array.from({ length: config.totalNumbers }, (_, i) => i + 1)
+        .sort(() => Math.random() - 0.5)
+        .slice(0, plano.totalSelectedNumbers);
+      const fixas = dezenas.slice(0, plano.fixedCount ?? 0);
+      const bilhetes = executeFechamento(plano, dezenas, stats, undefined, fixas);
+      if (!bilhetes.every((b) => fixas.every((f) => b.numbers.includes(f)))) return true;
+
+      const outras = dezenas.filter((d) => !fixas.includes(d));
+      const faltam = plano.conditionHit - fixas.length;
+      let ok = true;
+      const percorrer = (inicio: number, escolhidas: number[]) => {
+        if (!ok) return;
+        if (escolhidas.length === faltam) {
+          const sorteadas = [...fixas, ...escolhidas];
+          ok = bilhetes.some(
+            (b) => b.numbers.filter((n) => sorteadas.includes(n)).length >= plano.guaranteedHit,
+          );
+          return;
+        }
+        for (let i = inicio; i < outras.length; i++) percorrer(i + 1, [...escolhidas, outras[i]]);
+      };
+      percorrer(0, []);
+      return !ok;
+    });
+    check(
+      quebrados.length === 0,
+      'bilhetes entregues mantêm a garantia (fixas e redistribuição)',
+      quebrados.map((p) => p.id).join(', '),
+    );
+
+    const antiPopulares = generateLotteryGames(
+      lottery,
+      {
+        strategy: 'anti_popular',
+        numbersCount: config.minSelection,
+        fixedNumbers: [],
+        excludedNumbers: [],
+        gamesCount: 20,
+      },
+      stats,
+    );
+    check(
+      antiPopulares.length === 20 && antiPopulares.every((g) => g.popularidade?.nivel === 'baixa'),
+      'Anti-Popular só entrega jogos pouco marcados',
+    );
 
     // 5. Backtest sem lookahead: o aleatório tem que convergir para a teoria
     const report = await runBacktest({

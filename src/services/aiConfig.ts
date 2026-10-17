@@ -15,7 +15,7 @@ export const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
 
 const AI_KEY_STORAGE = "datafin:ai:deepseekKey";
 
-const ENV_KEY = (import.meta.env.VITE_DEEPSEEK_API_KEY as string | undefined)?.trim() || "";
+const ENV_KEY = (import.meta.env?.VITE_DEEPSEEK_API_KEY as string | undefined)?.trim() || "";
 
 export function getDeepSeekApiKey(): string {
   const stored = readStorage<string>(AI_KEY_STORAGE, "");

@@ -8,9 +8,12 @@
 
 const FALLBACK_API_URL = "https://apipowerball-production.up.railway.app";
 
+// Fora do Vite (scripts com tsx) `import.meta.env` não existe.
+const env: Partial<ImportMetaEnv> = import.meta.env ?? {};
+
 const RAW_API_URL =
-  (import.meta.env.VITE_API_URL as string | undefined)?.trim() ||
-  (import.meta.env.PROD ? FALLBACK_API_URL : "");
+  (env.VITE_API_URL as string | undefined)?.trim() ||
+  (env.PROD ? FALLBACK_API_URL : "");
 
 export const API_URL = RAW_API_URL.replace(/\/+$/, "");
 
