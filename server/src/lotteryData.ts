@@ -78,10 +78,29 @@ async function fetchJson(url: string, timeoutMs: number): Promise<any | null> {
 
     clearTimeout(timeout);
     if (!response.ok) return null;
-    return await response.json();
+    return semBytesNulos(await response.json());
   } catch {
     return null;
   }
+}
+
+/**
+ * A Caixa às vezes manda textos com o caractere U+0000, que o Postgres recusa
+ * em colunas de texto e JSON ("invalid byte sequence for encoding UTF8: 0x00").
+ * Um único campo assim travava a gravação do concurso inteiro.
+ */
+export function semBytesNulos<T>(valor: T): T {
+  if (typeof valor === "string") return valor.replace(/\u0000/g, "") as T;
+  if (Array.isArray(valor)) return valor.map(semBytesNulos) as T;
+  if (valor && typeof valor === "object") {
+    return Object.fromEntries(
+      Object.entries(valor as Record<string, unknown>).map(([chave, item]) => [
+        chave.replace(/\u0000/g, ""),
+        semBytesNulos(item),
+      ]),
+    ) as T;
+  }
+  return valor;
 }
 
 function toNumbers(value: unknown): number[] {
