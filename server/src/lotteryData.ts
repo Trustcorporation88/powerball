@@ -366,7 +366,19 @@ async function sincronizar(lottery: Lottery, log: FastifyBaseLogger): Promise<Sy
     if (ultimo) source = "mirror";
   }
 
-  const draw = ultimo ? normalize(lottery, ultimo) : null;
+  let draw = ultimo ? normalize(lottery, ultimo) : null;
+
+  // O endpoint "último" da Caixa costuma demorar horas para virar depois do
+  // sorteio, enquanto o endpoint do concurso seguinte já responde.
+  const maiorConhecido = Math.max(draw?.concurso ?? 0, conhecidoAntes?.concurso ?? 0);
+  if (maiorConhecido > 0) {
+    const seguinte = await fetchConcurso(lottery, maiorConhecido + 1);
+    if (seguinte && seguinte.concurso === maiorConhecido + 1) {
+      draw = seguinte;
+      source ??= "caixa";
+    }
+  }
+
   if (!draw) {
     return {
       lottery,
