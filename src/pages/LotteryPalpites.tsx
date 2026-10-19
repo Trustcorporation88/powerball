@@ -456,6 +456,15 @@ export default function LotteryPalpites() {
     );
   };
 
+  const nomeDaFaixa = (hits: number) =>
+    selectedLottery === 'maismilionaria'
+      ? `${hits} acertos`
+      : LOTTERY_CONFIGS[selectedLottery].prizeTiers.find((t) => t.hits === hits)?.label ?? `${hits} acertos`;
+  const premioMaximoDoVolante =
+    selectedLottery === 'maismilionaria'
+      ? 'os 6 acertos'
+      : `o prêmio máximo (${LOTTERY_CONFIGS[selectedLottery].prizeTiers[0]?.label ?? 'faixa principal'})`;
+
   const gruposDeFechamento = (() => {
     const tiers = LOTTERY_CONFIGS[selectedLottery].prizeTiers;
     const grupos = new Map<string, { chave: string; rotulo: string; ordem: number; planos: FechamentoPlan[] }>();
@@ -1301,8 +1310,8 @@ export default function LotteryPalpites() {
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-bold text-sm">{plan.name}</span>
-                      <Badge className="bg-emerald-600 text-white text-[10px]">
-                        -{plan.savingsPercent}% Custo
+                      <Badge className="bg-emerald-600 text-white text-[10px] shrink-0">
+                        Garante {nomeDaFaixa(plan.guaranteedHit)}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground line-clamp-2">
@@ -1324,6 +1333,13 @@ export default function LotteryPalpites() {
                         Total: R$ {plan.totalCost.toFixed(2)}
                       </span>
                     </div>
+                    {plan.savingsPercent > 0 && (
+                      <p className="mt-1.5 text-[11px] text-muted-foreground">
+                        Volante de {plan.totalSelectedNumbers} dezenas: R$ {plan.comparisonCostFull.toFixed(2)}, que
+                        garante {premioMaximoDoVolante}. Não é desconto: o fechamento custa menos porque
+                        garante menos.
+                      </p>
+                    )}
                   </div>
                 ))}
               </CardContent>
@@ -1465,9 +1481,10 @@ export default function LotteryPalpites() {
                         o prêmio sair, ele tende a ser dividido com menos pessoas.
                       </p>
                       <p className="text-[11px] opacity-80 pt-1">
-                        Desdobramento completo na Caixa custaria R${' '}
-                        {selectedFechamento.comparisonCostFull.toFixed(2)}. Com o fechamento
-                        otimizado você gasta apenas R$ {selectedFechamento.totalCost.toFixed(2)}.
+                        O volante de {selectedFechamento.totalSelectedNumbers} dezenas na Caixa custa R${' '}
+                        {selectedFechamento.comparisonCostFull.toFixed(2)} e garante {premioMaximoDoVolante}{' '}
+                        nessa mesma condição. O fechamento custa R$ {selectedFechamento.totalCost.toFixed(2)}{' '}
+                        porque só garante {nomeDaFaixa(selectedFechamento.guaranteedHit)}.
                       </p>
                     </div>
                   </div>

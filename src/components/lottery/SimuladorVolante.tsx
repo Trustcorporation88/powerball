@@ -241,9 +241,9 @@ export const SimuladorVolante: React.FC<SimuladorVolanteProps> = ({ lottery, onA
                         {plano.ticketsCount} jogos por {reais(plano.totalCost)}
                       </b>{' '}
                       garantem pelo menos 1 {faixaDe(plano.guaranteedHit)} se {plano.conditionHit} das{' '}
-                      {m} sorteadas estiverem nas suas {dezenas} (
-                      {Math.round((1 - plano.totalCost / simulacao.custoMinimo) * 100)}% mais barato que
-                      o volante cheio).
+                      {m} sorteadas estiverem nas suas {dezenas}. Custa{' '}
+                      {Math.round((plano.totalCost / simulacao.custoMinimo) * 100)}% do volante cheio
+                      porque garante uma faixa menor.
                     </p>
                     {onAbrirFechamento && (
                       <Button
